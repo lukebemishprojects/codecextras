@@ -18,16 +18,16 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 
     public abstract Codec<A> build(B b);
 
-    public interface FinalAppFunction<A, B> extends AppFunction<A, B> {
+    public non-sealed interface FinalAppFunction<A, B> extends AppFunction<A, B> {
         A create(B b);
     }
 
-    public interface FromAppFunction<A, B, D, C extends AppFunction<A, D>> extends AppFunction<A, B> {
+    public non-sealed interface FromAppFunction<A, B, D, C extends AppFunction<A, D>> extends AppFunction<A, B> {
         C create(B b);
     }
 
-    public interface AppFunction<A, B> {}
-
+    @SuppressWarnings("unused")
+    public sealed interface AppFunction<A, B> {}
 
     protected final MapCodec<F> codec;
     protected final Function<A, F> getter;
@@ -37,17 +37,20 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
         this.getter = getter;
     }
 
-    @NotNull protected <T> RecordBuilder<T> encodePartial(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-        F field = getter.apply(input);
-        prefix = codec.encode(field, ops, prefix);
-        return prefix;
-    }
+    @NotNull protected abstract <T> RecordBuilder<T> encodeChildren(A input, DynamicOps<T> ops, RecordBuilder<T> prefix);
     @NotNull protected abstract <T> DataResult<A> decodePartial(DynamicOps<T> ops, MapLike<T> input, B b);
     @NotNull protected abstract <T> Stream<T> keysPartial(DynamicOps<T> ops);
 
     private static final class Endpoint<A, F, B extends ExtendedRecordCodecBuilder.FinalAppFunction<A, F>> extends ExtendedRecordCodecBuilder<A, F, B> {
         private Endpoint(MapCodec<F> codec, Function<A, F> getter) {
             super(codec, getter);
+        }
+
+        @Override
+        protected @NotNull <T> RecordBuilder<T> encodeChildren(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+            F field = getter.apply(input);
+            prefix = codec.encode(field, ops, prefix);
+            return prefix;
         }
 
         @Override
@@ -68,7 +71,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 
                 @Override
                 public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-                    return encodePartial(input, ops, prefix);
+                    return encodeChildren(input, ops, prefix);
                 }
 
                 @Override
@@ -84,11 +87,18 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
         }
     }
 
-    private static final class Delegating<A, F, Old, D extends ExtendedRecordCodecBuilder.AppFunction<A, Old>, B extends ExtendedRecordCodecBuilder.FromAppFunction<A, F, Old, D>> extends ExtendedRecordCodecBuilder<A, F, B> {
-        private final ExtendedRecordCodecBuilder<A, Old, D> delegate;
-        private Delegating(MapCodec<F> codec, Function<A, F> getter, ExtendedRecordCodecBuilder<A, Old, D> delegate) {
+    private static final class Delegating<A, F, L, D extends ExtendedRecordCodecBuilder.AppFunction<A, L>, B extends ExtendedRecordCodecBuilder.FromAppFunction<A, F, L, D>> extends ExtendedRecordCodecBuilder<A, F, B> {
+        private final ExtendedRecordCodecBuilder<A, L, D> delegate;
+        private Delegating(MapCodec<F> codec, Function<A, F> getter, ExtendedRecordCodecBuilder<A, L, D> delegate) {
             super(codec, getter);
             this.delegate = delegate;
+        }
+
+        @Override
+        protected @NotNull <T> RecordBuilder<T> encodeChildren(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+            F field = getter.apply(input);
+            prefix = codec.encode(field, ops, prefix);
+            return delegate.encodeChildren(input, ops, prefix);
         }
 
         @Override
@@ -101,6 +111,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
             });
         }
 
+        @SuppressWarnings("InfiniteRecursion")
         @Override
         @NotNull
         protected <T> Stream<T> keysPartial(DynamicOps<T> ops) {
@@ -113,8 +124,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 
                 @Override
                 public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-                    prefix = encodePartial(input, ops, prefix);
-                    return delegate.encodePartial(input, ops, prefix);
+                    return encodeChildren(input, ops, prefix);
                 }
 
                 @Override

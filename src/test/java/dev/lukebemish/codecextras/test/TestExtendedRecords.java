@@ -32,4 +32,19 @@ class TestExtendedRecords {
         DataResult<TestBuilder> dataResult = TestBuilder.CODEC.parse(JsonOps.INSTANCE, jsonElement);
         Assertions.assertEquals(dataResult.result().get(), new TestBuilder(1, 2, 3.0f));
     }
+
+    @Test
+    void testEncoding() {
+        TestBuilder testBuilder = new TestBuilder(1, 2, 3.0f);
+        String json = """
+                {
+                    "a": 1,
+                    "b": 2,
+                    "c": 3.0
+                }""";
+        Gson gson = new GsonBuilder().create();
+        JsonElement jsonElement = gson.fromJson(json, JsonElement.class);
+        DataResult<JsonElement> dataResult = TestBuilder.CODEC.encodeStart(JsonOps.INSTANCE, testBuilder);
+        Assertions.assertEquals(dataResult.result().get(), jsonElement);
+    }
 }
