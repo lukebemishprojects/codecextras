@@ -6,28 +6,27 @@ import org.jetbrains.annotations.NotNull;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends ExtendedRecordCodecBuilder.AppFunction<A, F>> {
+public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends ExtendedRecordCodecBuilder.AppFunction> {
 
     public static <O, F> ExtendedRecordCodecBuilder<O, F, FinalAppFunction<O, F>> start(MapCodec<F> codec, Function<O, F> getter) {
         return new Endpoint<>(codec, getter);
     }
 
-    public <N> ExtendedRecordCodecBuilder<A, N, FromAppFunction<A, N, F, B>> field(MapCodec<N> codec, Function<A, N> getter) {
+    public <N> ExtendedRecordCodecBuilder<A, N, FromAppFunction<N, B>> field(MapCodec<N> codec, Function<A, N> getter) {
         return new Delegating<>(codec, getter, this);
     }
 
     public abstract Codec<A> build(B b);
 
-    public non-sealed interface FinalAppFunction<A, B> extends AppFunction<A, B> {
+    public non-sealed interface FinalAppFunction<A, B> extends AppFunction {
         A create(B b);
     }
 
-    public non-sealed interface FromAppFunction<A, B, D, C extends AppFunction<A, D>> extends AppFunction<A, B> {
+    public non-sealed interface FromAppFunction<B, C extends AppFunction> extends AppFunction {
         C create(B b);
     }
 
-    @SuppressWarnings("unused")
-    public sealed interface AppFunction<A, B> {}
+    public sealed interface AppFunction {}
 
     protected final MapCodec<F> codec;
     protected final Function<A, F> getter;
@@ -87,9 +86,9 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
         }
     }
 
-    private static final class Delegating<A, F, L, D extends ExtendedRecordCodecBuilder.AppFunction<A, L>, B extends ExtendedRecordCodecBuilder.FromAppFunction<A, F, L, D>> extends ExtendedRecordCodecBuilder<A, F, B> {
-        private final ExtendedRecordCodecBuilder<A, L, D> delegate;
-        private Delegating(MapCodec<F> codec, Function<A, F> getter, ExtendedRecordCodecBuilder<A, L, D> delegate) {
+    private static final class Delegating<A, F, D extends ExtendedRecordCodecBuilder.AppFunction, B extends ExtendedRecordCodecBuilder.FromAppFunction<F, D>> extends ExtendedRecordCodecBuilder<A, F, B> {
+        private final ExtendedRecordCodecBuilder<A, ?, D> delegate;
+        private Delegating(MapCodec<F> codec, Function<A, F> getter, ExtendedRecordCodecBuilder<A, ?, D> delegate) {
             super(codec, getter);
             this.delegate = delegate;
         }

@@ -11,12 +11,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class TestExtendedRecords {
-    record TestBuilder(int a, int b, float c) {
-        public static final Codec<TestBuilder> CODEC = ExtendedRecordCodecBuilder
-                .start(Codec.INT.fieldOf("a"), TestBuilder::a)
-                .field(Codec.INT.fieldOf("b"), TestBuilder::b)
-                .field(Codec.FLOAT.fieldOf("c"), TestBuilder::c)
-                .build(c -> b -> a -> new TestBuilder(a, b, c));
+    record TestRecord(int a, int b, float c) {
+        public static final Codec<TestRecord> CODEC = ExtendedRecordCodecBuilder
+                .start(Codec.INT.fieldOf("a"), TestRecord::a)
+                .field(Codec.INT.fieldOf("b"), TestRecord::b)
+                .field(Codec.FLOAT.fieldOf("c"), TestRecord::c)
+                .build(c -> b -> a -> new TestRecord(a, b, c));
     }
 
     @Test
@@ -29,13 +29,14 @@ class TestExtendedRecords {
                 }""";
         Gson gson = new GsonBuilder().create();
         JsonElement jsonElement = gson.fromJson(json, JsonElement.class);
-        DataResult<TestBuilder> dataResult = TestBuilder.CODEC.parse(JsonOps.INSTANCE, jsonElement);
-        Assertions.assertEquals(dataResult.result().get(), new TestBuilder(1, 2, 3.0f));
+        DataResult<TestRecord> dataResult = TestRecord.CODEC.parse(JsonOps.INSTANCE, jsonElement);
+        Assertions.assertTrue(dataResult.result().isPresent());
+        Assertions.assertEquals(dataResult.result().get(), new TestRecord(1, 2, 3.0f));
     }
 
     @Test
     void testEncoding() {
-        TestBuilder testBuilder = new TestBuilder(1, 2, 3.0f);
+        TestRecord testRecord = new TestRecord(1, 2, 3.0f);
         String json = """
                 {
                     "a": 1,
@@ -44,7 +45,8 @@ class TestExtendedRecords {
                 }""";
         Gson gson = new GsonBuilder().create();
         JsonElement jsonElement = gson.fromJson(json, JsonElement.class);
-        DataResult<JsonElement> dataResult = TestBuilder.CODEC.encodeStart(JsonOps.INSTANCE, testBuilder);
+        DataResult<JsonElement> dataResult = TestRecord.CODEC.encodeStart(JsonOps.INSTANCE, testRecord);
+        Assertions.assertTrue(dataResult.result().isPresent());
         Assertions.assertEquals(dataResult.result().get(), jsonElement);
     }
 }
