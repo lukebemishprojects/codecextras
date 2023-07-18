@@ -1,21 +1,51 @@
 package dev.lukebemish.codecextras;
 
 import com.mojang.serialization.*;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+/**
+ * An equivalent to {@link RecordCodecBuilder} that allows for any number of fields.
+ * @param <A> the type of the object being encoded/decoded
+ * @param <F> the type of the highest level field
+ * @param <B> the type of the final builder function used during decoding
+ */
 public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends ExtendedRecordCodecBuilder.AppFunction> {
 
+    /**
+     * Creates a new {@link ExtendedRecordCodecBuilder} with the given codec and getter as the bottom-most field.
+     * @param codec the codec for the bottom-most field
+     * @param getter the getter for the bottom-most field
+     * @return a new {@link ExtendedRecordCodecBuilder}
+     * @param <O> the type of the object being encoded/decoded
+     * @param <F> the type of the bottom-most field
+     */
     public static <O, F> ExtendedRecordCodecBuilder<O, F, FinalAppFunction<O, F>> start(MapCodec<F> codec, Function<O, F> getter) {
         return new Endpoint<>(codec, getter);
     }
 
+    /**
+     * Creates a new {@link ExtendedRecordCodecBuilder} with the given codec and getter as the next field above the
+     * current one.
+     * @param codec the codec for the next field
+     * @param getter the getter for the next field
+     * @return a new {@link ExtendedRecordCodecBuilder}
+     * @param <N> the type of the next field
+     */
+    @NotNull
     public <N> ExtendedRecordCodecBuilder<A, N, FromAppFunction<N, B>> field(MapCodec<N> codec, Function<A, N> getter) {
         return new Delegating<>(codec, getter, this);
     }
 
+    /**
+     * Builds a codec with the provided builder function for the final step of decoding.
+     * @param b the builder function to use in the final step of decoding; can be expressed as a nested lambda function
+     *          with fields in the opposite order that they were built in
+     * @return a codec for the type {@code A}
+     */
     public abstract Codec<A> build(B b);
 
     public non-sealed interface FinalAppFunction<A, B> extends AppFunction {
@@ -65,6 +95,9 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
             return codec.keys(ops);
         }
 
+
+        @Override
+        @NotNull
         public Codec<A> build(B b) {
             return new MapCodec<A>() {
 
@@ -82,7 +115,17 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
                 public <T> Stream<T> keys(DynamicOps<T> ops) {
                     return keysPartial(ops);
                 }
+
+                @Override
+                public String toString() {
+                    return Endpoint.this.toString();
+                }
             }.codec();
+        }
+
+        @Override
+        public String toString() {
+            return "ExtendedRecordCodec[" + codec + "]";
         }
     }
 
@@ -118,6 +161,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
         }
 
         @Override
+        @NotNull
         public Codec<A> build(B b) {
             return new MapCodec<A>() {
 
@@ -135,7 +179,17 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
                 public <T> Stream<T> keys(DynamicOps<T> ops) {
                     return keysPartial(ops);
                 }
+
+                @Override
+                public String toString() {
+                    return Delegating.this.toString();
+                }
             }.codec();
+        }
+
+        @Override
+        public String toString() {
+            return "ExtendedRecordCodec[" + codec + "] -> " + delegate.toString();
         }
     }
 }
