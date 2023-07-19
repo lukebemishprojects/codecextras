@@ -19,7 +19,7 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
     public static final JanksonOps INSTANCE = new JanksonOps() {
 
         @Override
-        protected boolean isNotCommented() {
+        protected boolean isUncommented() {
             return true;
         }
 
@@ -31,7 +31,7 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
     public static final JanksonOps COMMENTED = new JanksonOps() {
 
         @Override
-        protected boolean isNotCommented() {
+        protected boolean isUncommented() {
             return false;
         }
 
@@ -41,11 +41,21 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
         }
     };
 
-    protected abstract boolean isNotCommented();
+    protected abstract boolean isUncommented();
 
     @Override
     public JsonElement empty() {
         return JsonNull.INSTANCE;
+    }
+
+    @Override
+    public JsonElement emptyList() {
+        return new JsonArray();
+    }
+
+    @Override
+    public JsonElement emptyMap() {
+        return new JsonObject();
     }
 
     @Override
@@ -303,7 +313,7 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
 
     @Override
     public DataResult<JsonElement> commentToMap(JsonElement map, JsonElement key, JsonElement comment) {
-        if (isNotCommented()) {
+        if (isUncommented()) {
             return DataResult.success(map);
         }
 
@@ -324,7 +334,7 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
 
     @Override
     public DataResult<JsonElement> commentToMap(JsonElement map, Map<JsonElement, JsonElement> comments) {
-        if (isNotCommented()) {
+        if (isUncommented()) {
             return DataResult.success(map);
         }
 
@@ -354,7 +364,7 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
 
     @Override
     public DataResult<JsonElement> commentToMap(JsonElement map, MapLike<JsonElement> comments) {
-        if (isNotCommented()) {
+        if (isUncommented()) {
             return DataResult.success(map);
         }
 
