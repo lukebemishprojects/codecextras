@@ -6,7 +6,11 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapLike;
+import dev.lukebemish.codecextras.companion.AccompaniedOps;
+import dev.lukebemish.codecextras.companion.Companion;
 import dev.lukebemish.codecextras.comments.CommentOps;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -15,33 +19,18 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-public abstract class JanksonOps implements CommentOps<JsonElement> {
-    public static final JanksonOps INSTANCE = new JanksonOps() {
-
-        @Override
-        protected boolean isUncommented() {
-            return true;
-        }
-
-        @Override
-        public DynamicOps<JsonElement> withoutComments() {
-            return INSTANCE;
-        }
-    };
+public class JanksonOps implements DynamicOps<JsonElement>, AccompaniedOps<JsonElement> {
+    public static final JanksonOps INSTANCE = new JanksonOps();
     public static final JanksonOps COMMENTED = new JanksonOps() {
-
+        @SuppressWarnings("unchecked")
         @Override
-        protected boolean isUncommented() {
-            return false;
-        }
-
-        @Override
-        public DynamicOps<JsonElement> withoutComments() {
-            return INSTANCE;
+        public <O extends Companion.CompanionToken, C extends Companion<JsonElement, O>> @Nullable C getCompanion(O token) {
+            if (token == CommentOps.TOKEN) {
+                return (C) JanksonCommentOps.INSTANCE;
+            }
+            return super.getCompanion(token);
         }
     };
-
-    protected abstract boolean isUncommented();
 
     @Override
     public JsonElement empty() {
@@ -311,84 +300,81 @@ public abstract class JanksonOps implements CommentOps<JsonElement> {
         return "Jankson";
     }
 
-    @Override
-    public DataResult<JsonElement> commentToMap(JsonElement map, JsonElement key, JsonElement comment) {
-        if (isUncommented()) {
-            return DataResult.success(map);
-        }
+    private static final class JanksonCommentOps implements CommentOps<JsonElement> {
+        static final JanksonCommentOps INSTANCE = new JanksonCommentOps();
 
-        if (!(map instanceof JsonObject jsonObject)) {
-            return DataResult.error(() -> "Not a map: "+map);
-        }
-        if (!(key instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
-            return DataResult.error(() -> "Not a string: "+key);
-        }
-        if (!(comment instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
-            return DataResult.error(() -> "Not a string: "+comment);
-        }
-        var result = new JsonObject();
-        result.putAll(jsonObject);
-        result.setComment(string, commentString);
-        return DataResult.success(result);
-    }
-
-    @Override
-    public DataResult<JsonElement> commentToMap(JsonElement map, Map<JsonElement, JsonElement> comments) {
-        if (isUncommented()) {
-            return DataResult.success(map);
-        }
-
-        if (!(map instanceof JsonObject jsonObject)) {
-            return DataResult.error(() -> "Not a map: "+map);
-        }
-
-        var result = new JsonObject();
-        result.putAll(jsonObject);
-        List<JsonElement> missed = Lists.newArrayList();
-        for (var entry : comments.entrySet()) {
-            if (!(entry.getKey() instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
-                missed.add(entry.getKey());
-                continue;
+        @Override
+        public DataResult<JsonElement> commentToMap(JsonElement map, JsonElement key, JsonElement comment) {
+            if (!(map instanceof JsonObject jsonObject)) {
+                return DataResult.error(() -> "Not a map: " + map);
             }
-            if (!(entry.getValue() instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
-                missed.add(entry.getValue());
-                continue;
+            if (!(key instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
+                return DataResult.error(() -> "Not a string: " + key);
             }
+            if (!(comment instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
+                return DataResult.error(() -> "Not a string: " + comment);
+            }
+            var result = new JsonObject();
+            result.putAll(jsonObject);
             result.setComment(string, commentString);
-        }
-        if (!missed.isEmpty()) {
-            return DataResult.error(() -> "Found non-string keys or values: "+missed);
-        }
-        return DataResult.success(result);
-    }
-
-    @Override
-    public DataResult<JsonElement> commentToMap(JsonElement map, MapLike<JsonElement> comments) {
-        if (isUncommented()) {
-            return DataResult.success(map);
+            return DataResult.success(result);
         }
 
-        if (!(map instanceof JsonObject jsonObject)) {
-            return DataResult.error(() -> "Not a map: "+map);
-        }
-
-        var result = new JsonObject();
-        result.putAll(jsonObject);
-        List<JsonElement> missed = Lists.newArrayList();
-        comments.entries().forEach(entry -> {
-            if (!(entry.getFirst() instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
-                missed.add(entry.getFirst());
-                return;
+        @Override
+        public DataResult<JsonElement> commentToMap(JsonElement map, Map<JsonElement, JsonElement> comments) {
+            if (!(map instanceof JsonObject jsonObject)) {
+                return DataResult.error(() -> "Not a map: " + map);
             }
-            if (!(entry.getSecond() instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
-                missed.add(entry.getSecond());
-                return;
+
+            var result = new JsonObject();
+            result.putAll(jsonObject);
+            List<JsonElement> missed = Lists.newArrayList();
+            for (var entry : comments.entrySet()) {
+                if (!(entry.getKey() instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
+                    missed.add(entry.getKey());
+                    continue;
+                }
+                if (!(entry.getValue() instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
+                    missed.add(entry.getValue());
+                    continue;
+                }
+                result.setComment(string, commentString);
             }
-            result.setComment(string, commentString);
-        });
-        if (!missed.isEmpty()) {
-            return DataResult.error(() -> "Found non-string keys or values: "+missed);
+            if (!missed.isEmpty()) {
+                return DataResult.error(() -> "Found non-string keys or values: " + missed);
+            }
+            return DataResult.success(result);
         }
-        return DataResult.success(result);
+
+        @Override
+        public DataResult<JsonElement> commentToMap(JsonElement map, MapLike<JsonElement> comments) {
+            if (!(map instanceof JsonObject jsonObject)) {
+                return DataResult.error(() -> "Not a map: " + map);
+            }
+
+            var result = new JsonObject();
+            result.putAll(jsonObject);
+            List<JsonElement> missed = Lists.newArrayList();
+            comments.entries().forEach(entry -> {
+                if (!(entry.getFirst() instanceof JsonPrimitive primitive) || !(primitive.getValue() instanceof String string)) {
+                    missed.add(entry.getFirst());
+                    return;
+                }
+                if (!(entry.getSecond() instanceof JsonPrimitive commentPrimitive) || !(commentPrimitive.getValue() instanceof String commentString)) {
+                    missed.add(entry.getSecond());
+                    return;
+                }
+                result.setComment(string, commentString);
+            });
+            if (!missed.isEmpty()) {
+                return DataResult.error(() -> "Found non-string keys or values: " + missed);
+            }
+            return DataResult.success(result);
+        }
+
+        @Override
+        public @NotNull DynamicOps<JsonElement> parentOps() {
+            return JanksonOps.INSTANCE;
+        }
     }
 }

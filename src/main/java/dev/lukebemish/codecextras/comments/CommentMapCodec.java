@@ -1,6 +1,7 @@
 package dev.lukebemish.codecextras.comments;
 
 import com.mojang.serialization.*;
+import dev.lukebemish.codecextras.companion.AccompaniedOps;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -90,11 +91,14 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
             @Override
             public DataResult<T> build(T prefix) {
                 DataResult<T> built = builder.build(prefix);
-                if (this.ops() instanceof CommentOps<T> commentOps) {
-                    return built.flatMap(t ->
-                        commentOps.commentToMap(t, comments.entrySet().stream().collect(Collectors.toMap(e ->
-                            ops.createString(e.getKey()), e -> ops.createString(e.getValue()))))
-                    );
+                if (this.ops() instanceof AccompaniedOps<T> accompaniedOps) {
+                    CommentOps<T> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
+                    if (commentOps != null) {
+                        return built.flatMap(t ->
+                            commentOps.commentToMap(t, comments.entrySet().stream().collect(Collectors.toMap(e ->
+                                ops.createString(e.getKey()), e -> ops.createString(e.getValue()))))
+                        );
+                    }
                 }
                 return built;
             }

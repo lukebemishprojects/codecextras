@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.ListBuilder;
+import dev.lukebemish.codecextras.companion.AccompaniedOps;
 
 import java.util.List;
 
@@ -34,7 +35,17 @@ public final class CommentFirstListCodec<A> implements Codec<List<A>> {
     @Override
     public <T> DataResult<T> encode(List<A> input, DynamicOps<T> ops, T prefix) {
         final ListBuilder<T> builder = ops.listBuilder();
-        DynamicOps<T> rest = ops instanceof CommentOps<T> commentOps ? commentOps.withoutComments() : ops;
+        DynamicOps<T> rest;
+        if (ops instanceof AccompaniedOps<T> accompaniedOps) {
+            CommentOps<T> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
+            if (commentOps != null) {
+                rest = commentOps.parentOps();
+            } else {
+                rest = ops;
+            }
+        } else {
+            rest = ops;
+        }
         boolean isFirst = true;
         for (A a : input) {
             if (isFirst) {

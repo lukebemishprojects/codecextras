@@ -3,15 +3,19 @@ package dev.lukebemish.codecextras.comments;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapLike;
+import dev.lukebemish.codecextras.companion.Companion;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-public interface CommentOps<T> extends DynamicOps<T> {
+public interface CommentOps<T> extends Companion<T, CommentOps.CommentOpsToken> {
+    CommentOpsToken TOKEN = new CommentOpsToken();
+
     DataResult<T> commentToMap(T map, T key, T comment);
 
     default DataResult<T> commentToMap(final T map, final Map<T, T> comments) {
-        return commentToMap(map, MapLike.forMap(comments, this));
+        return commentToMap(map, MapLike.forMap(comments, parentOps()));
     }
 
     default DataResult<T> commentToMap(final T map, final MapLike<T> comments) {
@@ -23,5 +27,9 @@ public interface CommentOps<T> extends DynamicOps<T> {
         return result.getPlain();
     }
 
-    DynamicOps<T> withoutComments();
+    @NotNull DynamicOps<T> parentOps();
+
+    final class CommentOpsToken implements Companion.CompanionToken {
+        private CommentOpsToken() {}
+    }
 }
