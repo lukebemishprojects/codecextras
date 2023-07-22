@@ -23,9 +23,8 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 
     compileOnly 'com.electronwill.night-config:core:3.6.4'
+    compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
-
-    testCompileOnly 'com.electronwill.night-config:toml:3.6.4'
 }
 
 test {

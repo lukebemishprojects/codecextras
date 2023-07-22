@@ -1,29 +1,25 @@
 package dev.lukebemish.codecextras.compat.nightconfig;
 
 import com.electronwill.nightconfig.core.CommentedConfig;
-import com.electronwill.nightconfig.core.Config;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapLike;
 import dev.lukebemish.codecextras.comments.CommentOps;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public abstract class CommentNightConfigOps<T extends CommentedConfig> extends NightConfigOps<T> implements CommentOps<Object> {
-    protected abstract boolean isUncommented();
+public abstract class NightConfigCommentOps<T extends CommentedConfig, O extends CommentedNightConfigOps<T>> implements CommentOps<Object> {
+    public abstract @NotNull O parentOps();
 
     @Override
     public DataResult<Object> commentToMap(Object map, MapLike<Object> comments) {
-        if (isUncommented()) {
-            return DataResult.success(map);
-        }
-
-        if (!(map instanceof Config config)) {
+        if (!(map instanceof CommentedConfig config)) {
             return DataResult.error(() -> "Not a map: "+map);
         }
         List<Object> missed = new ArrayList<>();
-        T newConfig = copyConfig(config);
+        T newConfig = parentOps().copyConfig(config);
         comments.entries().forEach(pair -> {
             if (!(pair.getFirst() instanceof String key)) {
                 missed.add(pair.getFirst());
@@ -43,15 +39,11 @@ public abstract class CommentNightConfigOps<T extends CommentedConfig> extends N
 
     @Override
     public DataResult<Object> commentToMap(Object map, Map<Object, Object> comments) {
-        if (isUncommented()) {
-            return DataResult.success(map);
-        }
-
-        if (!(map instanceof Config config)) {
+        if (!(map instanceof CommentedConfig config)) {
             return DataResult.error(() -> "Not a map: "+map);
         }
         List<Object> missed = new ArrayList<>();
-        T newConfig = copyConfig(config);
+        T newConfig = parentOps().copyConfig(config);
         for (var entry : comments.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
                 missed.add(entry.getKey());
@@ -71,12 +63,8 @@ public abstract class CommentNightConfigOps<T extends CommentedConfig> extends N
 
     @Override
     public DataResult<Object> commentToMap(Object map, Object key, Object comment) {
-        if (isUncommented()) {
-            return DataResult.success(map);
-        }
-
-        if (map instanceof Config config) {
-            CommentedConfig newConfig = copyConfig(config);
+        if (map instanceof CommentedConfig config) {
+            CommentedConfig newConfig = parentOps().copyConfig(config);
             if (!(key instanceof String keyString)) {
                 return DataResult.error(() -> "Not a string: "+key);
             }
@@ -87,12 +75,5 @@ public abstract class CommentNightConfigOps<T extends CommentedConfig> extends N
             return DataResult.success(newConfig);
         }
         return DataResult.error(() -> "Not a map: "+map);
-    }
-
-    @Override
-    public T copyConfig(Config config) {
-        T out = super.copyConfig(config);
-        out.putAll(config);
-        return out;
     }
 }
