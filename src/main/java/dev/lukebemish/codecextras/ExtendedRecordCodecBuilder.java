@@ -46,7 +46,17 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
      *          with fields in the opposite order that they were built in
      * @return a codec for the type {@code A}
      */
-    public abstract Codec<A> build(B b);
+    public final Codec<A> build(B b) {
+        return buildMap(b).codec();
+    }
+
+    /**
+     * Builds a map codec with the provided builder function for the final step of decoding.
+     * @param b the builder function to use in the final step of decoding; can be expressed as a nested lambda function
+     *          with fields in the opposite order that they were built in
+     * @return a map codec for the type {@code A}
+     */
+    public abstract MapCodec<A> buildMap(B b);
 
     public non-sealed interface FinalAppFunction<A, B> extends AppFunction {
         A create(B b);
@@ -98,8 +108,8 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 
         @Override
         @NotNull
-        public Codec<A> build(B b) {
-            return new MapCodec<A>() {
+        public MapCodec<A> buildMap(B b) {
+            return new MapCodec<>() {
 
                 @Override
                 public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
@@ -120,7 +130,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
                 public String toString() {
                     return Endpoint.this.toString();
                 }
-            }.codec();
+            };
         }
 
         @Override
@@ -162,8 +172,8 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 
         @Override
         @NotNull
-        public Codec<A> build(B b) {
-            return new MapCodec<A>() {
+        public MapCodec<A> buildMap(B b) {
+            return new MapCodec<>() {
 
                 @Override
                 public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
@@ -184,7 +194,7 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
                 public String toString() {
                     return Delegating.this.toString();
                 }
-            }.codec();
+            };
         }
 
         @Override
