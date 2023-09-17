@@ -26,7 +26,7 @@ public class SuperClass {
     }
 
     public static class Builder implements PolymorphicBuilder<SuperClass> {
-        public static final Codec<BuilderCodecs.BuilderResolver<Builder>> CODEC = RecordCodecBuilder.create(i -> i.group(
+        public static final Codec<Builder> CODEC = RecordCodecBuilder.create(i -> i.group(
             BuilderCodecs.wrap(Codec.STRING.fieldOf("name"), Builder::name, builder -> builder.name),
             BuilderCodecs.wrap(Codec.INT.fieldOf("age"), Builder::age, builder -> builder.age)
         ).apply(i, BuilderCodecs.resolver(Builder::new)::apply));

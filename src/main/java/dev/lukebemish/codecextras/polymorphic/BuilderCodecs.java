@@ -14,41 +14,35 @@ import java.util.function.Supplier;
 public final class BuilderCodecs {
     private BuilderCodecs() {}
 
-    public static <O, F> RecordCodecBuilder<BuilderResolver<O>, FieldInfo<O, F>> wrap(MapCodec<F> fieldCodec, BiConsumer<O, F> fieldConsumer, Function<O, F> fieldGetter) {
+    public static <O, F> RecordCodecBuilder<O, FieldInfo<O, F>> wrap(MapCodec<F> fieldCodec, BiConsumer<O, F> fieldConsumer, Function<O, F> fieldGetter) {
         return fieldCodec.<FieldInfo<O, F>>xmap(f -> FieldInfo.of(o -> fieldConsumer.accept(o, f), () -> f), FieldInfo::get)
-            .forGetter(o -> FieldInfo.of(o1 -> fieldConsumer.accept(o.instance(), fieldGetter.apply(o.instance())), () -> fieldGetter.apply(o.instance())));
+            .forGetter(o -> FieldInfo.of(o1 -> fieldConsumer.accept(o, fieldGetter.apply(o)), () -> fieldGetter.apply(o)));
     }
 
     public static <O> FieldInfoResolver<O> resolver(Supplier<O> initial) {
         return new FieldInfoResolver<>(initial);
     }
 
-    public static <O, P> Codec<BuilderResolver<O>> pair(Codec<BuilderResolver<O>> codec, Codec<BuilderResolver<P>> parent, Function<O, P> parentGetter) {
-        return Codec.pair(codec, parent).xmap(p -> BuilderResolver.of(p.getFirst().instance(), builder -> {
-            p.getFirst().apply(builder);
-            p.getSecond().apply(parentGetter.apply(builder));
-        }), both -> Pair.of(
-            BuilderResolver.of(both.instance(), both::apply), BuilderResolver.of(parentGetter.apply(both.instance()), b -> {})
-        ));
+    public static <O, P> Codec<O> pair(Codec<O> codec, Codec<P> parent, Function<O, P> parentGetter, BiConsumer<O, P> parentSetter) {
+        return Codec.pair(codec, parent).xmap(p -> {
+            O builder = p.getFirst();
+            parentSetter.accept(builder, p.getSecond());
+            return builder;
+        }, builder -> Pair.of(builder, parentGetter.apply(builder)));
     }
 
-    public static <O, P> MapCodec<BuilderResolver<O>> mapPair(MapCodec<BuilderResolver<O>> codec, MapCodec<BuilderResolver<P>> parent, Function<O, P> parentGetter) {
-        return Codec.mapPair(codec, parent).xmap(p -> BuilderResolver.of(p.getFirst().instance(), builder -> {
-            p.getFirst().apply(builder);
-            p.getSecond().apply(parentGetter.apply(builder));
-        }), both -> Pair.of(
-            BuilderResolver.of(both.instance(), both::apply), BuilderResolver.of(parentGetter.apply(both.instance()), b -> {})
-        ));
+    public static <O, P> MapCodec<O> mapPair(MapCodec<O> codec, MapCodec<P> parent, Function<O, P> parentGetter, BiConsumer<O, P> parentSetter) {
+        return Codec.mapPair(codec, parent).xmap(p -> {
+            O builder = p.getFirst();
+            parentSetter.accept(builder, p.getSecond());
+            return builder;
+        }, builder -> Pair.of(builder, parentGetter.apply(builder)));
     }
 
-    public static <O, B extends PolymorphicBuilder<O>> Codec<O> codec(Codec<BuilderResolver<B>> builderCodec, Function<O, B> unbuilder) {
-        return builderCodec.flatXmap(br -> {
-            B builder = br.instance();
-            br.apply(builder);
-            return builder.buildResult();
-        }, o -> {
+    public static <O, B extends PolymorphicBuilder<O>> Codec<O> codec(Codec<B> builderCodec, Function<O, B> unbuilder) {
+        return builderCodec.flatXmap(PolymorphicBuilder::buildResult, o -> {
             B builder = unbuilder.apply(o);
-            return DataResult.success(BuilderResolver.of(builder, b -> {}));
+            return DataResult.success(builder);
         });
     }
 
@@ -76,40 +70,12 @@ public final class BuilderCodecs {
         }
 
         @SafeVarargs
-        public final BuilderResolver<O> apply(FieldInfo<O, ?>... fieldInfos) {
+        public final O apply(FieldInfo<O, ?>... fieldInfos) {
             O instance = initial.get();
-            return new BuilderResolver<>() {
-                @Override
-                public void apply(O builder) {
-                    for (FieldInfo<O, ?> fieldInfo : fieldInfos) {
-                        fieldInfo.accept(builder);
-                    }
-                }
-
-                @Override
-                public O instance() {
-                    return instance;
-                }
-            };
-        }
-    }
-
-    public interface BuilderResolver<O> {
-        void apply(O builder);
-        O instance();
-
-        static <O> BuilderResolver<O> of(O initial, Consumer<O> consumer) {
-            return new BuilderResolver<>() {
-                @Override
-                public void apply(O builder) {
-                    consumer.accept(builder);
-                }
-
-                @Override
-                public O instance() {
-                    return initial;
-                }
-            };
+            for (FieldInfo<O, ?> fieldInfo : fieldInfos) {
+                fieldInfo.accept(instance);
+            }
+            return instance;
         }
     }
 }

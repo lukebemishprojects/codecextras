@@ -27,8 +27,12 @@ public interface PolymorphicBuilder<O> {
     }
 
     static void requireNonNullMember(Object o, String name) throws BuilderException {
+        requireNonNull(o, "Member '" + name + "' cannot be null");
+    }
+
+    static void requireNonNull(Object o, String message) throws BuilderException {
         if (o == null) {
-            throw new BuilderException("Member '" + name + "' cannot be null");
+            throw new BuilderException(message);
         }
     }
 
