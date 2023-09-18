@@ -1,15 +1,17 @@
 package dev.lukebemish.codecextras.test.polymorphic;
 
-import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.lukebemish.codecextras.Asymmetry;
+import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import dev.lukebemish.codecextras.polymorphic.PolymorphicBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSuperClass {
@@ -36,11 +38,11 @@ public class PolymorphicSuperClass {
     }
 
     public static abstract class Builder<O extends Builder<O>> implements PolymorphicBuilder<O> {
-        public static <O extends Builder<O>> MapCodec<Either<O, UnaryOperator<O>>> codecSuperClass() {
-            return RecordCodecBuilder.mapCodec(i -> i.group(
+        public static <O extends Builder<O>> MapCodec<Asymmetry<O, UnaryOperator<O>>> codecSuperClass() {
+            return Asymmetry.flatMapDecoding(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
                 BuilderCodecs.operationWrap(Codec.STRING.fieldOf("name"), Builder::name, builder -> ((Builder<O>) builder).name),
                 BuilderCodecs.operationWrap(Codec.INT.fieldOf("age"), Builder::age, builder -> ((Builder<O>) builder).age)
-            ).apply(i, BuilderCodecs.<O>operationResolver()::apply));
+            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)))), Function.identity());
         }
 
         private String name;

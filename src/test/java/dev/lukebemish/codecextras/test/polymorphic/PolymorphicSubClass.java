@@ -1,15 +1,16 @@
 package dev.lukebemish.codecextras.test.polymorphic;
 
-import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.lukebemish.codecextras.Asymmetry;
+import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSubClass extends PolymorphicSuperClass {
@@ -37,19 +38,17 @@ public class PolymorphicSubClass extends PolymorphicSuperClass {
     }
 
     public static abstract class Builder<O extends Builder<O>> extends PolymorphicSuperClass.Builder<O> {
-        public static <O extends PolymorphicSubClass.Builder<O>> MapCodec<Either<O, UnaryOperator<O>>> codecSubClass() {
-            MapCodec<Either<O, UnaryOperator<O>>> self = RecordCodecBuilder.mapCodec(i -> i.group(
+        public static <O extends PolymorphicSubClass.Builder<O>> MapCodec<Asymmetry<O, UnaryOperator<O>>> codecSubClass() {
+            MapCodec<Asymmetry<O, UnaryOperator<O>>> self = Asymmetry.flatMapDecoding(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
                 BuilderCodecs.operationWrap(Codec.STRING.fieldOf("address"), Builder::address, builder -> ((Builder<O>) builder).address),
                 BuilderCodecs.operationWrap(Codec.INT.fieldOf("height"), Builder::height, builder -> ((Builder<O>) builder).height)
-            ).apply(i, BuilderCodecs.<O>operationResolver()::apply));
+            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)))), Function.identity());
             return BuilderCodecs.flatMapPair(
                 self,
                 PolymorphicSuperClass.Builder.codecSuperClass(),
-                o -> o.map(l -> DataResult.success(Either.left(l)), r -> DataResult.error(() -> "Cannot reconcile partial operator with builder")),
-                (oEither, pEither) -> oEither.map(l ->
-                    DataResult.success(Either.left(l)), op ->
-                    pEither.map(p1 -> DataResult.error(() -> "Cannot reconcile partial operator with builder"), pOp -> DataResult.success(Either.<O, UnaryOperator<O>>right(o1 -> op.apply(pOp.apply(o1)))))
-                ));
+                a -> a.encoding().map(Asymmetry::encoding),
+                (oA, pA) -> oA.decoding().flatMap(o -> pA.decoding().map(p -> Asymmetry.decoding(o1 -> o.apply(p.apply(o1)))))
+            );
         }
 
         private String address;
