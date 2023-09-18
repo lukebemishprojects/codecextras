@@ -14,6 +14,8 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSubClass extends PolymorphicSuperClass {
+    // IntelliJ doesn't know what's going on...
+    @SuppressWarnings("RedundantTypeArguments")
     public static final Codec<PolymorphicSubClass> CODEC = BuilderCodecs.<PolymorphicSubClass, Builder.Impl>operationMapCodec(
         PolymorphicSubClass.Builder.codecSubClass(),
         PolymorphicSubClass.Builder::from,

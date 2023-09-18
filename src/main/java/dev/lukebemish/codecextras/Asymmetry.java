@@ -115,10 +115,6 @@ public final class Asymmetry<E, D> {
         return asymmetryResult -> asymmetryResult.flatMap(asymmetry -> asymmetry.encoding().map(getter));
     }
 
-    public static <F> MapCodec<DataResult<F>> wrapField(MapCodec<F> codec) {
-        return codec.flatXmap(o -> DataResult.success(DataResult.success(o)), Function.identity());
-    }
-
     public static <E,D,F1> Function<DataResult<F1>, DataResult<Asymmetry<E, D>>> wrapJoiner(Function<F1, D> function) {
         return f1 -> {
             var d1 = f1.result();
