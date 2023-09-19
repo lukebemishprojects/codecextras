@@ -4,13 +4,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
-import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSubClass extends PolymorphicSuperClass {
@@ -20,7 +18,7 @@ public class PolymorphicSubClass extends PolymorphicSuperClass {
         PolymorphicSubClass.Builder.codecSubClass(),
         PolymorphicSubClass.Builder::from,
         PolymorphicSubClass.Builder.Impl::new,
-        b -> b::build).codec();
+        b -> b).codec();
 
     private final String address;
     private final int height;
@@ -40,16 +38,16 @@ public class PolymorphicSubClass extends PolymorphicSuperClass {
     }
 
     public static abstract class Builder<O extends Builder<O>> extends PolymorphicSuperClass.Builder<O> {
-        public static <O extends PolymorphicSubClass.Builder<O>> MapCodec<Asymmetry<O, UnaryOperator<O>>> codecSubClass() {
-            MapCodec<Asymmetry<O, UnaryOperator<O>>> self = Asymmetry.flatMapDecoding(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
+        public static <O extends PolymorphicSubClass.Builder<O>> MapCodec<Asymmetry<UnaryOperator<O>, O>> codecSubClass() {
+            MapCodec<Asymmetry<UnaryOperator<O>, O>> self = RecordCodecBuilder.mapCodec(i -> i.group(
                 BuilderCodecs.operationWrap(Codec.STRING.fieldOf("address"), Builder::address, builder -> ((Builder<O>) builder).address),
                 BuilderCodecs.operationWrap(Codec.INT.fieldOf("height"), Builder::height, builder -> ((Builder<O>) builder).height)
-            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)))), Function.identity());
+            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)));
             return BuilderCodecs.flatMapPair(
                 self,
                 PolymorphicSuperClass.Builder.codecSuperClass(),
-                a -> a.encoding().map(Asymmetry::encoding),
-                (oA, pA) -> oA.decoding().flatMap(o -> pA.decoding().map(p -> Asymmetry.decoding(o1 -> o.apply(p.apply(o1)))))
+                a -> a.encoding().map(Asymmetry::ofEncoding),
+                (oA, pA) -> oA.decoding().flatMap(o -> pA.decoding().map(p -> Asymmetry.ofDecoding(o1 -> o.apply(p.apply(o1)))))
             );
         }
 
@@ -72,12 +70,6 @@ public class PolymorphicSubClass extends PolymorphicSuperClass {
             DataBuilder.requireNonNullMember(address, "address");
         }
 
-        @NotNull
-        public PolymorphicSubClass build() throws BuilderException {
-            validate();
-            return new PolymorphicSubClass(this);
-        }
-
         public O from(PolymorphicSubClass subClass) {
             super.from(subClass);
             this.address = subClass.address;
@@ -85,7 +77,14 @@ public class PolymorphicSubClass extends PolymorphicSuperClass {
             return self();
         }
 
-        public static class Impl extends PolymorphicSubClass.Builder<PolymorphicSubClass.Builder.Impl> {
+        public static class Impl extends PolymorphicSubClass.Builder<PolymorphicSubClass.Builder.Impl> implements DataBuilder<PolymorphicSubClass> {
+
+            @Override
+            @NotNull
+            public PolymorphicSubClass build() throws BuilderException {
+                validate();
+                return new PolymorphicSubClass(this);
+            }
 
             @Override
             public PolymorphicSubClass.Builder.Impl self() {

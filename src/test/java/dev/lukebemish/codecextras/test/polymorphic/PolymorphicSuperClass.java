@@ -4,14 +4,12 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
-import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import dev.lukebemish.codecextras.polymorphic.PolymorphicBuilder;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSuperClass {
@@ -21,7 +19,7 @@ public class PolymorphicSuperClass {
         Builder.codecSuperClass(),
         Builder::from,
         Builder.Impl::new,
-        b -> b::build).codec();
+        b -> b).codec();
 
     private final String name;
     private final int age;
@@ -40,11 +38,11 @@ public class PolymorphicSuperClass {
     }
 
     public static abstract class Builder<O extends Builder<O>> implements PolymorphicBuilder<O> {
-        public static <O extends Builder<O>> MapCodec<Asymmetry<O, UnaryOperator<O>>> codecSuperClass() {
-            return Asymmetry.flatMapDecoding(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
+        public static <O extends Builder<O>> MapCodec<Asymmetry<UnaryOperator<O>, O>> codecSuperClass() {
+            return RecordCodecBuilder.mapCodec(i -> i.group(
                 BuilderCodecs.operationWrap(Codec.STRING.fieldOf("name"), Builder::name, builder -> ((Builder<O>) builder).name),
                 BuilderCodecs.operationWrap(Codec.INT.fieldOf("age"), Builder::age, builder -> ((Builder<O>) builder).age)
-            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)))), Function.identity());
+            ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.Resolver::<O>operationApply2)));
         }
 
         private String name;
@@ -65,23 +63,24 @@ public class PolymorphicSuperClass {
             DataBuilder.requireNonNullMember(name, "name");
         }
 
-        @NotNull
-        public PolymorphicSuperClass build() throws BuilderException {
-            validate();
-            return new PolymorphicSuperClass(this);
-        }
-
         public O from(PolymorphicSuperClass superClass) {
             this.name = superClass.name;
             this.age = superClass.age;
             return self();
         }
 
-        public static class Impl extends Builder<Impl> {
+        public static class Impl extends Builder<Impl> implements DataBuilder<PolymorphicSuperClass> {
 
             @Override
             public Impl self() {
                 return this;
+            }
+
+            @Override
+            @NotNull
+            public PolymorphicSuperClass build() throws BuilderException {
+                validate();
+                return new PolymorphicSuperClass(this);
             }
         }
     }

@@ -1,11 +1,9 @@
 package dev.lukebemish.codecextras.test.polymorphic;
 
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
-import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
@@ -33,11 +31,10 @@ public class SuperClass {
     }
 
     public static class Builder implements DataBuilder<SuperClass> {
-        public static final MapCodec<Builder> CODEC = Asymmetry.flatJoin(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
+        public static final MapCodec<Builder> CODEC = Asymmetry.join(RecordCodecBuilder.mapCodec(i -> i.group(
             BuilderCodecs.wrap(Codec.STRING.fieldOf("name"), Builder::name, builder -> builder.name),
             BuilderCodecs.wrap(Codec.INT.fieldOf("age"), Builder::age, builder -> builder.age)
-        ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.resolver(Builder::new)::apply2)))),
-            o->DataResult.success(DataResult.success(o)), Function.identity());
+        ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.resolver(Builder::new)::apply2))), Function.identity(), Function.identity());
 
         private String name;
         private int age;

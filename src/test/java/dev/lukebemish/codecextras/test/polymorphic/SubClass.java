@@ -1,11 +1,9 @@
 package dev.lukebemish.codecextras.test.polymorphic;
 
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
-import dev.lukebemish.codecextras.CodecExtras;
 import dev.lukebemish.codecextras.polymorphic.BuilderCodecs;
 import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
@@ -34,11 +32,11 @@ public class SubClass extends SuperClass {
 
     public static class Builder implements DataBuilder<SubClass> {
         public static final MapCodec<Builder> CODEC = BuilderCodecs.mapPair(
-            Asymmetry.flatJoin(CodecExtras.flatten(RecordCodecBuilder.mapCodec(i -> i.group(
+            Asymmetry.join(RecordCodecBuilder.mapCodec(i -> i.group(
                     BuilderCodecs.wrap(Codec.STRING.fieldOf("address"), Builder::address, builder -> builder.address),
                     BuilderCodecs.wrap(Codec.INT.fieldOf("height"), Builder::height, builder -> builder.height)
-                ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.resolver(Builder::new)::apply2)))),
-                o-> DataResult.success(DataResult.success(o)), Function.identity()),
+                ).apply(i, Asymmetry.wrapJoiner(BuilderCodecs.resolver(Builder::new)::apply2))),
+                Function.identity(), Function.identity()),
             SuperClass.Builder.CODEC,
             builder -> builder.superClass,
             Builder::superClass
