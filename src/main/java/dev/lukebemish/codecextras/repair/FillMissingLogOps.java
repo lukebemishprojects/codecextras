@@ -8,16 +8,16 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
 
-public interface RepairLogOps<T> extends Companion<T, RepairLogOps.RepairLogOpsToken> {
-    RepairLogOps.RepairLogOpsToken TOKEN = new RepairLogOpsToken();
+public interface FillMissingLogOps<T> extends Companion<T, FillMissingLogOps.RepairLogOpsToken> {
+    FillMissingLogOps.RepairLogOpsToken TOKEN = new RepairLogOpsToken();
 
     static <T> AccompaniedOps<T> of(Consumer<String> logger, DynamicOps<T> delegate) {
-        RepairLogOps<T> logOps = (field, original) -> logger.accept("Could not parse entry "+original+" for field "+field+"; replacing with default.");
+        FillMissingLogOps<T> logOps = (field, original) -> logger.accept("Could not parse entry "+original+" for field "+field+"; replacing with default.");
         return new DelegatingOps<>(delegate) {
             @SuppressWarnings("unchecked")
             @Override
             public <O extends CompanionToken, C extends Companion<T, O>> @Nullable C getCompanion(O token) {
-                if (token == RepairLogOps.TOKEN) {
+                if (token == FillMissingLogOps.TOKEN) {
                     return (C) logOps;
                 }
                 return super.getCompanion(token);

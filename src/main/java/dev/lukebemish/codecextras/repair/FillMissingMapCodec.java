@@ -5,17 +5,17 @@ import dev.lukebemish.codecextras.companion.AccompaniedOps;
 
 import java.util.stream.Stream;
 
-public final class RepairMapCodec<A> extends MapCodec<A> {
+public final class FillMissingMapCodec<A> extends MapCodec<A> {
     private final MapCodec<A> delegate;
     private final MapRepair<A> fallback;
 
-    private RepairMapCodec(MapCodec<A> delegate, MapRepair<A> fallback) {
+    private FillMissingMapCodec(MapCodec<A> delegate, MapRepair<A> fallback) {
         this.delegate = delegate;
         this.fallback = fallback;
     }
 
     public static <A> MapCodec<A> of(MapCodec<A> codec, MapRepair<A> fallback) {
-        return new RepairMapCodec<>(codec, fallback);
+        return new FillMissingMapCodec<>(codec, fallback);
     }
 
     public static <A> MapCodec<A> of(MapCodec<A> codec, A fallback) {
@@ -36,9 +36,9 @@ public final class RepairMapCodec<A> extends MapCodec<A> {
                     value = ops.empty();
                 }
                 if (ops instanceof AccompaniedOps<T> accompaniedOps) {
-                    RepairLogOps<T> repairLogOps = accompaniedOps.getCompanion(RepairLogOps.TOKEN);
-                    if (repairLogOps != null) {
-                        repairLogOps.logMissingField(field, value);
+                    FillMissingLogOps<T> fillMissingLogOps = accompaniedOps.getCompanion(FillMissingLogOps.TOKEN);
+                    if (fillMissingLogOps != null) {
+                        fillMissingLogOps.logMissingField(field, value);
                     }
                 }
                 return fallback.repair(ops, value);
@@ -80,5 +80,10 @@ public final class RepairMapCodec<A> extends MapCodec<A> {
 
     public interface Repair<A> {
         <T> A repair(DynamicOps<T> ops, T flawed);
+    }
+
+    @Override
+    public String toString() {
+        return "FillMissing[" + delegate + "]";
     }
 }
