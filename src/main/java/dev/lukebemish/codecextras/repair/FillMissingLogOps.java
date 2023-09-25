@@ -6,13 +6,10 @@ import dev.lukebemish.codecextras.companion.Companion;
 import dev.lukebemish.codecextras.companion.DelegatingOps;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.function.Consumer;
-
 public interface FillMissingLogOps<T> extends Companion<T, FillMissingLogOps.RepairLogOpsToken> {
     FillMissingLogOps.RepairLogOpsToken TOKEN = new RepairLogOpsToken();
 
-    static <T> AccompaniedOps<T> of(Consumer<String> logger, DynamicOps<T> delegate) {
-        FillMissingLogOps<T> logOps = (field, original) -> logger.accept("Could not parse entry "+original+" for field "+field+"; replacing with default.");
+    static <T> AccompaniedOps<T> of(FillMissingLogOps<T> logOps, DynamicOps<T> delegate) {
         return new DelegatingOps<>(delegate) {
             @SuppressWarnings("unchecked")
             @Override

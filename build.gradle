@@ -17,6 +17,7 @@ repositories {
 
 dependencies {
     api 'com.mojang:datafixerupper:6.0.8'
+    api 'org.slf4j:slf4j-api:2.0.1'
 
     compileOnly 'org.jetbrains:annotations:24.0.1'
     testCompileOnly 'org.jetbrains:annotations:24.0.1'
