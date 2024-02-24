@@ -28,6 +28,16 @@ dependencies {
     compileOnly 'com.electronwill.night-config:core:3.6.4'
     compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
+
+    annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
+    compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+}
+
+tasks.compileJava {
+    options.compilerArgs += [
+        '-Aautoextension.name=CodecExtras',
+        "-Aautoextension.version=${version}"
+    ]
 }
 
 test {
