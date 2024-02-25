@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public interface ConfigType<O extends Config> {
+public interface ConfigType<O> {
     Codec<O> codec();
 
     default String versionKey() {
@@ -70,7 +70,9 @@ public interface ConfigType<O extends Config> {
                     return defaultConfig();
                 } else {
                     //noinspection OptionalGetWithoutIsPresent
-                    return out.result().get();
+                    var config = out.result().get();
+                    save(location, opsIo, logger, config);
+                    return config;
                 }
             } catch (IOException e) {
                 logger.error("Could not load config {}; attempting to fix by writing default config ", name(), e);

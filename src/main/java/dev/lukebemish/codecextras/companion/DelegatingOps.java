@@ -14,7 +14,7 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-public abstract class DelegatingOps<T> implements DynamicOps<T>, AccompaniedOps<T> {
+public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
     protected final DynamicOps<T> delegate;
     @Nullable protected final AccompaniedOps<T> accompanied;
     public DelegatingOps(DynamicOps<T> delegate) {
@@ -24,6 +24,19 @@ public abstract class DelegatingOps<T> implements DynamicOps<T>, AccompaniedOps<
         } else {
             this.accompanied = null;
         }
+    }
+
+    public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> of(Q token, Companion<T, Q> companion, DynamicOps<T> delegate) {
+        return new DelegatingOps<>(delegate) {
+            @SuppressWarnings("unchecked")
+            @Override
+            public <O extends Companion.CompanionToken, C extends Companion<T, O>> @Nullable C getCompanion(O t) {
+                if (t == token) {
+                    return (C) companion;
+                }
+                return super.getCompanion(t);
+            }
+        };
     }
 
     @Override
