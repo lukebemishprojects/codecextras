@@ -9,7 +9,7 @@ import com.mojang.serialization.DynamicOps;
 import java.util.function.Function;
 
 // TODO: test
-public class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>> {
+public final class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>> {
     private final Codec<Asymmetry<F, Either<F, S>>> first;
     private final Codec<Asymmetry<S, Either<F, S>>> second;
 
@@ -35,14 +35,8 @@ public class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>> {
 
     public static <F> Codec<F> orElse(Codec<F> first, Codec<F> second) {
         return asymmetrical(
-            Asymmetry.flatMapEncoding(
-                Asymmetry.split(first, Function.identity(), Function.identity()),
-                e -> e.map(DataResult::success, DataResult::success)
-            ),
-            Asymmetry.flatMapEncoding(
-                Asymmetry.split(second, Function.identity(), Function.identity()),
-                e -> e.map(DataResult::success, DataResult::success)
-            )
+            Asymmetry.split(first, Function.identity(), e -> e.map(Function.identity(), Function.identity())),
+            Asymmetry.split(second, Function.identity(), e -> e.map(Function.identity(), Function.identity()))
         ).xmap(e -> e.map(Function.identity(), Function.identity()), Either::left);
     }
 
