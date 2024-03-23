@@ -9,6 +9,7 @@ import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 public class SubClass extends SuperClass {
@@ -28,6 +29,15 @@ public class SubClass extends SuperClass {
 
     public float height() {
         return height;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (object == null || getClass() != object.getClass()) return false;
+        if (!super.equals(object)) return false;
+        SubClass subClass = (SubClass) object;
+        return height() == subClass.height() && Objects.equals(address(), subClass.address());
     }
 
     public static class Builder implements DataBuilder<SubClass> {

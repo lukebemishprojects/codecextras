@@ -9,6 +9,7 @@ import dev.lukebemish.codecextras.polymorphic.BuilderException;
 import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 public class SuperClass {
@@ -28,6 +29,14 @@ public class SuperClass {
 
     public int age() {
         return age;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (object == null || getClass() != object.getClass()) return false;
+        SuperClass that = (SuperClass) object;
+        return age() == that.age() && Objects.equals(name(), that.name());
     }
 
     public static class Builder implements DataBuilder<SuperClass> {

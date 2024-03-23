@@ -10,6 +10,7 @@ import dev.lukebemish.codecextras.polymorphic.DataBuilder;
 import dev.lukebemish.codecextras.polymorphic.PolymorphicBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.function.UnaryOperator;
 
 public class PolymorphicSuperClass {
@@ -35,6 +36,14 @@ public class PolymorphicSuperClass {
 
     public int age() {
         return age;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (object == null || getClass() != object.getClass()) return false;
+        PolymorphicSuperClass that = (PolymorphicSuperClass) object;
+        return age() == that.age() && Objects.equals(name(), that.name());
     }
 
     public static abstract class Builder<O extends Builder<O>> implements PolymorphicBuilder<O> {
