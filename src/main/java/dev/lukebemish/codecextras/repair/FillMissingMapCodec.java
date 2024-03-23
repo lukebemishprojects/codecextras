@@ -18,15 +18,6 @@ public final class FillMissingMapCodec<A> extends MapCodec<A> {
         return new FillMissingMapCodec<>(codec, fallback);
     }
 
-    public static <A> MapCodec<A> of(MapCodec<A> codec, A fallback) {
-        return of(codec, new MapRepair<>() {
-            @Override
-            public <T> A repair(DynamicOps<T> ops, MapLike<T> flawed) {
-                return fallback;
-            }
-        });
-    }
-
     public static <A> MapCodec<A> fieldOf(Codec<A> codec, String field, Repair<A> fallback) {
         return of(codec.fieldOf(field), new MapRepair<>() {
             @Override

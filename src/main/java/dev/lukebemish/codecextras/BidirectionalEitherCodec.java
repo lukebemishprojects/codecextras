@@ -8,7 +8,6 @@ import com.mojang.serialization.DynamicOps;
 
 import java.util.function.Function;
 
-// TODO: test
 public final class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>> {
     private final Codec<Asymmetry<F, Either<F, S>>> first;
     private final Codec<Asymmetry<S, Either<F, S>>> second;
