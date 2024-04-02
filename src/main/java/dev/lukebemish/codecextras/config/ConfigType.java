@@ -9,13 +9,12 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.DynamicOps;
 import dev.lukebemish.codecextras.repair.FillMissingLogOps;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
 
 public abstract class ConfigType<O> {
 	public abstract Codec<O> codec();
