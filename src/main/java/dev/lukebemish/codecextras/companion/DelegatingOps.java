@@ -3,6 +3,7 @@ package dev.lukebemish.codecextras.companion;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.*;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,16 +28,13 @@ public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
 	}
 
 	public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> of(Q token, Companion<T, Q> companion, DynamicOps<T> delegate) {
-		return new DelegatingOps<>(delegate) {
-			@SuppressWarnings("unchecked")
-			@Override
-			public <O extends Companion.CompanionToken, C extends Companion<T, O>> Optional<C> getCompanion(O t) {
-				if (t == token) {
-					return Optional.of((C) companion);
-				}
-				return super.getCompanion(t);
-			}
-		};
+		if (delegate instanceof MapDelegatingOps<T> mapOps) {
+			Map<Companion.CompanionToken, Companion<T, ? extends Companion.CompanionToken>> map = new HashMap<>(mapOps.companions);
+			map.put(token, companion);
+			return new MapDelegatingOps<>(delegate, map);
+		} else {
+			return new MapDelegatingOps<>(delegate, Map.of(token, companion));
+		}
 	}
 
 	@Override

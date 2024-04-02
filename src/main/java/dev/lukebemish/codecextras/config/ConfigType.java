@@ -1,40 +1,92 @@
 package dev.lukebemish.codecextras.config;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.DSL;
 import com.mojang.datafixers.DataFixer;
+import com.mojang.datafixers.DataFixerBuilder;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.DynamicOps;
 import dev.lukebemish.codecextras.repair.FillMissingLogOps;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-public interface ConfigType<O> {
-	Codec<O> codec();
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.Supplier;
 
-	default String versionKey() {
+public abstract class ConfigType<O> {
+	public abstract Codec<O> codec();
+
+	public String versionKey() {
 		return "config_version";
 	}
 
-	default int currentVersion() {
+	public int currentVersion() {
 		return 0;
 	}
 
-	default @Nullable DataFixer fixer() { return null; }
+	private final Supplier<@Nullable DataFixer> fixer;
 
-	String name();
+	public ConfigType() {
+		this.fixer = Suppliers.memoize(() -> {
+			DataFixerBuilder dataFixerBuilder = new DataFixerBuilder(currentVersion());
+			try {
+				addFixers(dataFixerBuilder);
+			} catch (NoFixersExeption ignored) {
+				return null;
+			}
+			return dataFixerBuilder.buildUnoptimized();
+		});
+	}
 
-	O defaultConfig();
+	public <T> ConfigHandle<O> handle(Path path, OpsIo<T> opsIo, Logger logger) {
+		return handle(path.getFileName().toString(), path, opsIo, logger);
+	}
 
-	default <T> DataResult<O> decode(DynamicOps<T> ops, T input, Logger logger) {
+	public <T> ConfigHandle<O> handle(String name, Path path, OpsIo<T> opsIo, Logger logger) {
+		OpsIo<T> withLogging = opsIo.accompanied(FillMissingLogOps.TOKEN, (FillMissingLogOps<T>) (field, original) -> {
+			if (original.equals(opsIo.ops().empty())) {
+				logger.info("Missing key {} in config {}; filling with default value", field, name);
+			} else {
+				logger.info("Unreadable key {} in config {}; filling with default value", field, name);
+			}
+		});
+		return new ConfigHandle<O>() {
+			@Override
+			public O load() {
+				return ConfigType.this.load(path, withLogging, logger);
+			}
+
+			@Override
+			public void save(O config) {
+				ConfigType.this.save(path, withLogging, logger, config);
+			}
+		};
+	}
+
+	public interface ConfigHandle<O> {
+		O load();
+		void save(O config);
+	}
+
+	public void addFixers(DataFixerBuilder builder) {
+		throw new NoFixersExeption();
+	}
+
+	private static class NoFixersExeption extends RuntimeException {}
+
+	public abstract String name();
+
+	public abstract O defaultConfig();
+
+	public <T> DataResult<O> decode(DynamicOps<T> ops, T input, Logger logger) {
 		ops = FillMissingLogOps.of((field, original) -> logger.warn("Could not parse entry "+original+" for field "+field+" in config "+name()+"; replacing with default."), ops);
 
 		Dynamic<T> dynamic = new Dynamic<>(ops, input);
-		DataFixer fixer = fixer();
+		DataFixer fixer = this.fixer.get();
 		if (fixer != null) {
 			DataResult<Integer> version = dynamic.getElement(versionKey()).flatMap(ops::getNumberValue).map(Number::intValue);
 			if (version.result().isPresent()) {
@@ -47,15 +99,15 @@ public interface ConfigType<O> {
 		return codec().parse(dynamic);
 	}
 
-	default <T> DataResult<T> encode(DynamicOps<T> ops, O config) {
+	public <T> DataResult<T> encode(DynamicOps<T> ops, O config) {
 		var out = codec().encodeStart(ops, config);
-		if (fixer() != null) {
+		if (fixer.get() != null) {
 			out = out.flatMap(t -> ops.mergeToMap(t, ops.createString(versionKey()), ops.createInt(currentVersion())));
 		}
 		return out;
 	}
 
-	default <T> O load(Path location, OpsIo<T> opsIo, Logger logger) {
+	public <T> O load(Path location, OpsIo<T> opsIo, Logger logger) {
 		if (!Files.exists(location)) {
 			logger.info("Config {} does not exist; creating default config", name());
 			save(location, opsIo, logger, defaultConfig());
@@ -81,7 +133,7 @@ public interface ConfigType<O> {
 		}
 	}
 
-	default <T> void save(Path location, OpsIo<T> opsIo, Logger logger, O config) {
+	public <T> void save(Path location, OpsIo<T> opsIo, Logger logger, O config) {
 		DataResult<T> result = encode(opsIo.ops(), config);
 		if (result.error().isPresent()) {
 			logger.error("Could not encode config {} to save it: {}", name(), result.error().get().message());
