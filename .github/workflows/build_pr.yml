@@ -1,0 +1,69 @@
+{
+    "jobs": {
+        "build": {
+            "runs-on": "ubuntu-22.04",
+            "steps": [
+                {
+                    "name": "Setup Java",
+                    "run": "echo \"JAVA_HOME=$JAVA_HOME_17_X64\" >> \"$GITHUB_ENV\""
+                },
+                {
+                    "with": {
+                        "fetch-depth": "0",
+                        "persist-credentials": "false"
+                    },
+                    "name": "Checkout",
+                    "uses": "actions/checkout@v4"
+                },
+                {
+                    "with": {
+                        "path": "**/.gradle/loom-cache",
+                        "key": "${{ runner.os }}-gradle-${{ hashFiles('**/libs.versions.*', '**/*.gradle*', '**/gradle-wrapper.properties') }}",
+                        "restore-keys": "${{ runner.os }}-gradle-"
+                    },
+                    "name": "Cache",
+                    "uses": "actions/cache/restore@v4"
+                },
+                {
+                    "with": {
+                        "cache-read-only": true,
+                        "gradle-home-cache-cleanup": true
+                    },
+                    "name": "Setup Gradle",
+                    "uses": "gradle/gradle-build-action@v3"
+                },
+                {
+                    "name": "Build",
+                    "run": "./gradlew build",
+                    "id": "build",
+                    "env": {
+                        "PR_NUMBER": "${{ github.event.pull_request.number }}"
+                    }
+                },
+                {
+                    "name": "Publish",
+                    "run": "./gradlew publish",
+                    "id": "publish",
+                    "env": {
+                        "PR_NUMBER": "${{ github.event.pull_request.number }}"
+                    }
+                },
+                {
+                    "with": {
+                        "name": "artifacts",
+                        "path": "build/repo"
+                    },
+                    "name": "Archive Publishable Artifacts",
+                    "uses": "actions/upload-artifact@v4"
+                }
+            ]
+        }
+    },
+    "name": "Build PR",
+    "concurrency": "ci-${{ github.ref }}",
+    "on": {
+        "pull_request": {
+            
+        }
+    }
+}

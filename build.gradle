@@ -1,50 +1,140 @@
 plugins {
-    id 'java-library'
+	alias cLibs.plugins.conventions.java
+	alias cLibs.plugins.managedversioning
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+group = 'dev.lukebemish'
 
-group = 'org.example'
-version = '1.0-SNAPSHOT'
+managedVersioning {
+	versionFile.set project.file('version.properties')
+	versionPRs()
+	versionSnapshots()
+
+	gitHubActions {
+		snapshot {
+			prettyName.set 'Snapshot'
+			workflowDispatch.set(true)
+			onBranches.add 'main'
+			gradleJob {
+				buildCache()
+				name.set 'build'
+				gradlew 'Build', 'build'
+				gradlew 'Publish', 'publish'
+				mavenSnapshot('github')
+			}
+		}
+		release {
+			prettyName.set 'Release'
+			workflowDispatch.set(true)
+			gradleJob {
+				buildCache()
+				name.set 'build'
+				step {
+					setupGitUser()
+				}
+				readOnly.set false
+				gradlew 'Tag Release', 'tagRelease'
+				gradlew 'Build', 'build'
+				step {
+					run.set 'git push && git push --tags'
+				}
+				recordVersion 'Record Version', 'version'
+			}
+			gradleJob {
+				buildCache()
+				name.set 'publish'
+				needs.add('build')
+				tag.set('${{needs.build.outputs.version}}')
+				gradlew 'Publish', 'publish'
+				mavenRelease('github')
+			}
+		}
+		build_pr {
+			prettyName.set 'Build PR'
+			pullRequest.set(true)
+			gradleJob {
+				name.set 'build'
+				gradlew 'Build', 'build'
+				gradlew 'Publish', 'publish'
+				pullRequestArtifact()
+			}
+		}
+		publish_pr {
+			prettyName.set 'Publish PR'
+			publishPullRequestAction(
+				'github',
+				"${project.group.replace('.', '/')}/${project.name}",
+				'Build PR'
+			)
+		}
+	}
+}
+
+managedVersioning.apply()
+
+println "Building: $version"
 
 repositories {
-    mavenCentral()
-    maven {
-        name = 'Minecraft Libraries'
-        url = 'https://libraries.minecraft.net/'
-    }
+	mavenCentral()
+	maven {
+		name = 'Minecraft Libraries'
+		url = 'https://libraries.minecraft.net/'
+	}
 }
 
 dependencies {
-    api 'com.mojang:datafixerupper:6.0.12'
-    api 'org.slf4j:slf4j-api:2.0.1'
+	api 'com.mojang:datafixerupper:6.0.12'
+	api 'org.slf4j:slf4j-api:2.0.1'
 
-    compileOnly 'org.jetbrains:annotations:24.0.1'
-    testCompileOnly 'org.jetbrains:annotations:24.0.1'
+	testCompileOnly cLibs.bundles.compileonly
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 
-    compileOnly 'com.electronwill.night-config:core:3.6.4'
-    compileOnly 'com.electronwill.night-config:toml:3.6.4'
-    compileOnly 'blue.endless:jankson:1.2.2'
+	compileOnly 'com.electronwill.night-config:core:3.6.4'
+	compileOnly 'com.electronwill.night-config:toml:3.6.4'
+	compileOnly 'blue.endless:jankson:1.2.2'
 
-    annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
-    compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+	annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
+	compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+}
+
+jar {
+	manifest {
+		attributes(
+			'Specification-Title'       : 'Codec Extras',
+			'Specification-Vendor'      : 'Luke Bemish',
+			'Specification-Version'     : project.version,
+			'Implementation-Title'      : 'Codec Extras',
+			'Implementation-Version'    : project.version,
+			'Implementation-Vendor'     : 'Luke Bemish',
+			'Implementation-Commit-Time': managedVersioning.timestamp.get(),
+			'Implementation-Commit'     : managedVersioning.hash.get(),
+			'FMLModType'                : 'LIBRARY'
+		)
+	}
 }
 
 tasks.compileJava {
-    options.compilerArgs += [
-        '-Aautoextension.name=CodecExtras',
-        "-Aautoextension.version=${version}"
-    ]
+	options.compilerArgs += [
+		'-Aautoextension.name=CodecExtras',
+		"-Aautoextension.version=${version}"
+	]
 }
 
 test {
-    useJUnitPlatform()
-    testLogging {
-        showStandardStreams = true
-        exceptionFormat = 'full'
-        events = ['passed', 'failed', 'skipped']
-    }
+	useJUnitPlatform()
+	testLogging {
+		showStandardStreams = true
+		exceptionFormat = 'full'
+		events = ['passed', 'failed', 'skipped']
+	}
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
 }

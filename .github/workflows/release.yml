@@ -1,0 +1,141 @@
+{
+    "jobs": {
+        "build": {
+            "outputs": {
+                "version": "${{ steps.record_version_capture_version.outputs.version }}"
+            },
+            "runs-on": "ubuntu-22.04",
+            "permissions": {
+                "contents": "write"
+            },
+            "steps": [
+                {
+                    "name": "Setup Java",
+                    "run": "echo \"JAVA_HOME=$JAVA_HOME_17_X64\" >> \"$GITHUB_ENV\""
+                },
+                {
+                    "with": {
+                        "fetch-depth": "0"
+                    },
+                    "name": "Checkout",
+                    "uses": "actions/checkout@v4"
+                },
+                {
+                    "with": {
+                        "path": "**/.gradle/loom-cache",
+                        "key": "${{ runner.os }}-gradle-${{ hashFiles('**/libs.versions.*', '**/*.gradle*', '**/gradle-wrapper.properties') }}",
+                        "restore-keys": "${{ runner.os }}-gradle-"
+                    },
+                    "name": "Cache",
+                    "uses": "actions/cache@v4"
+                },
+                {
+                    "with": {
+                        "gradle-home-cache-cleanup": true
+                    },
+                    "name": "Setup Gradle",
+                    "uses": "gradle/gradle-build-action@v3"
+                },
+                {
+                    "uses": "fregante/setup-git-user@v2"
+                },
+                {
+                    "name": "Tag Release",
+                    "run": "./gradlew tagRelease",
+                    "id": "tag_release",
+                    "env": {
+                        "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
+                        "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
+                        "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}"
+                    }
+                },
+                {
+                    "name": "Build",
+                    "run": "./gradlew build",
+                    "id": "build",
+                    "env": {
+                        "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
+                        "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
+                        "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}"
+                    }
+                },
+                {
+                    "run": "git push && git push --tags"
+                },
+                {
+                    "name": "Record Version",
+                    "run": "./gradlew recordVersion",
+                    "id": "record_version",
+                    "env": {
+                        "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
+                        "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
+                        "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}"
+                    }
+                },
+                {
+                    "name": "Capture Recorded Version",
+                    "run": "echo version=$(cat build/recordVersion.txt) >> \"$GITHUB_OUTPUT\"",
+                    "id": "record_version_capture_version"
+                }
+            ]
+        },
+        "publish": {
+            "needs": [
+                "build"
+            ],
+            "runs-on": "ubuntu-22.04",
+            "steps": [
+                {
+                    "name": "Setup Java",
+                    "run": "echo \"JAVA_HOME=$JAVA_HOME_17_X64\" >> \"$GITHUB_ENV\""
+                },
+                {
+                    "with": {
+                        "fetch-depth": "0",
+                        "ref": "refs/tags/${{needs.build.outputs.version}}",
+                        "persist-credentials": "false"
+                    },
+                    "name": "Checkout",
+                    "uses": "actions/checkout@v4"
+                },
+                {
+                    "with": {
+                        "path": "**/.gradle/loom-cache",
+                        "key": "${{ runner.os }}-gradle-${{ hashFiles('**/libs.versions.*', '**/*.gradle*', '**/gradle-wrapper.properties') }}",
+                        "restore-keys": "${{ runner.os }}-gradle-"
+                    },
+                    "name": "Cache",
+                    "uses": "actions/cache/restore@v4"
+                },
+                {
+                    "with": {
+                        "cache-read-only": true,
+                        "gradle-home-cache-cleanup": true
+                    },
+                    "name": "Setup Gradle",
+                    "uses": "gradle/gradle-build-action@v3"
+                },
+                {
+                    "name": "Publish",
+                    "run": "./gradlew publish",
+                    "id": "publish",
+                    "env": {
+                        "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
+                        "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
+                        "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}",
+                        "RELEASE_MAVEN_PASSWORD": "${{ secrets.RELEASE_MAVEN_PASSWORD }}",
+                        "RELEASE_MAVEN_USER": "github",
+                        "RELEASE_MAVEN_URL": "https://maven.lukebemish.dev/releases/"
+                    }
+                }
+            ]
+        }
+    },
+    "name": "Release",
+    "concurrency": "ci-${{ github.ref }}",
+    "on": {
+        "workflow_dispatch": {
+            
+        }
+    }
+}
