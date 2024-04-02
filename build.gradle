@@ -74,6 +74,12 @@ managedVersioning.apply()
 
 println "Building: $version"
 
+java {
+	toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+	withSourcesJar()
+	withJavadocJar()
+}
+
 repositories {
 	mavenCentral()
 	maven {
@@ -118,7 +124,7 @@ jar {
 tasks.compileJava {
 	options.compilerArgs += [
 		'-Aautoextension.name=CodecExtras',
-		"-Aautoextension.version=${version}"
+		"-Aautoextension.version=${version}".toString()
 	]
 }
 
