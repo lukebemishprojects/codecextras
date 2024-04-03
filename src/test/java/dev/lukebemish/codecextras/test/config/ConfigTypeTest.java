@@ -63,7 +63,7 @@ public class ConfigTypeTest {
 		public void addFixers(Supplier<DataFixerBuilder> builder) {
 			super.addFixers(builder);
 			builder.get().addSchema(0, V0::new);
-			var schema1 = builder.get().addSchema(1, V1::new);
+			var schema1 = builder.get().addSchema(1, Schema::new);
 			builder.get().addFixer(new RenameKeys(schema1, true));
 		}
 
@@ -77,19 +77,6 @@ public class ConfigTypeTest {
 			public void registerTypes(Schema schema, Map<String, Supplier<TypeTemplate>> entityTypes, Map<String, Supplier<TypeTemplate>> blockEntityTypes) {
 				super.registerTypes(schema, entityTypes, blockEntityTypes);
 				schema.registerType(true, ConfigType.CONFIG, DSL::remainder);
-			}
-		}
-
-		static class V1 extends Schema {
-
-			public V1(int versionKey, Schema parent) {
-				super(versionKey, parent);
-			}
-
-			@Override
-			public void registerTypes(Schema schema, Map<String, Supplier<TypeTemplate>> entityTypes, Map<String, Supplier<TypeTemplate>> blockEntityTypes) {
-				super.registerTypes(schema, entityTypes, blockEntityTypes);
-				schema.registerType(false, ConfigType.CONFIG, DSL::remainder);
 			}
 		}
 
