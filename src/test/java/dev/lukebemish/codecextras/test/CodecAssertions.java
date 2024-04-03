@@ -34,4 +34,11 @@ public final class CodecAssertions {
 		Assertions.assertTrue(dataResult.result().isPresent());
 		Assertions.assertEquals(dataResult.result().get(), expected);
 	}
+
+	public static void assertJsonEquals(String expected, String actual) {
+		Gson gson = new GsonBuilder().create();
+		JsonElement expectedElement = gson.fromJson(expected, JsonElement.class);
+		JsonElement actualElement = gson.fromJson(actual, JsonElement.class);
+		Assertions.assertEquals(expectedElement, actualElement);
+	}
 }

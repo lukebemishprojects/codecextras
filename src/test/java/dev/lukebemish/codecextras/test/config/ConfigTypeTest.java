@@ -1,5 +1,8 @@
 package dev.lukebemish.codecextras.test.config;
 
+import static dev.lukebemish.codecextras.test.CodecAssertions.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.mojang.datafixers.DSL;
 import com.mojang.datafixers.DataFix;
 import com.mojang.datafixers.DataFixerBuilder;
@@ -12,18 +15,15 @@ import dev.lukebemish.codecextras.RootSchema;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.repair.FillMissingMapCodec;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.helpers.NOPLogger;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.helpers.NOPLogger;
 
 public class ConfigTypeTest {
 	public record TestRecord(int a, int b, float c) {
@@ -135,7 +135,14 @@ public class ConfigTypeTest {
 
 	static final String CONFIG_1 = """
 		{
-			"config_version": 1,
+			"a": 4,
+			"b": 5,
+			"c": 6.0,
+			"config_version": 1
+		}""";
+
+	static final String CONFIG_UNVERSIONED = """
+		{
 			"a": 4,
 			"b": 5,
 			"c": 6.0
@@ -156,7 +163,7 @@ public class ConfigTypeTest {
 	void testReadUnfixed(@TempDir Path tempDir) {
 		var configPath = tempDir.resolve("test.json");
 		var handle = handle(configPath, UnfixedConfigType::new);
-		write(configPath, CONFIG_1);
+		write(configPath, CONFIG_UNVERSIONED);
 		assertEquals(TEST_RECORD, handle.load());
 	}
 
@@ -167,6 +174,24 @@ public class ConfigTypeTest {
 		assertEquals(TestRecord.DEFAULT, handle.load());
 		write(configPath, CONFIG_0);
 		assertEquals(TEST_RECORD, handle.load());
+		write(configPath, CONFIG_1);
+		assertEquals(TEST_RECORD, handle.load());
+	}
+
+	@Test
+	void testWriteUnfixed(@TempDir Path tempDir) {
+		var configPath = tempDir.resolve("test.json");
+		var handle = handle(configPath, UnfixedConfigType::new);
+		handle.save(TEST_RECORD);
+		assertJsonEquals(CONFIG_UNVERSIONED, read(configPath));
+	}
+
+	@Test
+	void testWriteFixed(@TempDir Path tempDir) {
+		var configPath = tempDir.resolve("test.json");
+		var handle = handle(configPath, FixedConfigType::new);
+		handle.save(TEST_RECORD);
+		assertJsonEquals(CONFIG_1, read(configPath));
 	}
 
 	private ConfigType.ConfigHandle<TestRecord> handle(Path configPath, Supplier<ConfigType<TestRecord>> ctor) {
