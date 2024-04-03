@@ -1,7 +1,7 @@
 package dev.lukebemish.codecextras.test.config;
 
-import static dev.lukebemish.codecextras.test.CodecAssertions.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static dev.lukebemish.codecextras.test.CodecAssertions.assertJsonEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.mojang.datafixers.DSL;
 import com.mojang.datafixers.DataFix;
@@ -135,10 +135,10 @@ public class ConfigTypeTest {
 
 	static final String CONFIG_1 = """
 		{
+			"config_version": 1,
 			"a": 4,
 			"b": 5,
-			"c": 6.0,
-			"config_version": 1
+			"c": 6.0
 		}""";
 
 	static final String CONFIG_UNVERSIONED = """
