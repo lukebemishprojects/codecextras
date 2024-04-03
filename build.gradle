@@ -149,3 +149,7 @@ publishing {
 		}
 	}
 }
+
+managedVersioning.publishing.mavenRelease(publishing)
+managedVersioning.publishing.mavenPullRequest(publishing)
+managedVersioning.publishing.mavenSnapshot(publishing)
