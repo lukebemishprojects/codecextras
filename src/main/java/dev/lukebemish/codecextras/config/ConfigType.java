@@ -12,6 +12,7 @@ import dev.lukebemish.codecextras.repair.FillMissingLogOps;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -32,9 +33,12 @@ public abstract class ConfigType<O> {
 	public ConfigType() {
 		this.fixer = Suppliers.memoize(() -> {
 			DataFixerBuilder dataFixerBuilder = new DataFixerBuilder(currentVersion());
-			try {
-				addFixers(dataFixerBuilder);
-			} catch (NoFixersExeption ignored) {
+			boolean[] touched = new boolean[] {false};
+			addFixers(() -> {
+				touched[0] = true;
+				return dataFixerBuilder;
+			});
+			if (!touched[0]) {
 				return null;
 			}
 			return dataFixerBuilder.buildUnoptimized();
@@ -42,15 +46,11 @@ public abstract class ConfigType<O> {
 	}
 
 	public <T> ConfigHandle<O> handle(Path path, OpsIo<T> opsIo, Logger logger) {
-		return handle(path.getFileName().toString(), path, opsIo, logger);
-	}
-
-	public <T> ConfigHandle<O> handle(String name, Path path, OpsIo<T> opsIo, Logger logger) {
 		OpsIo<T> withLogging = opsIo.accompanied(FillMissingLogOps.TOKEN, (FillMissingLogOps<T>) (field, original) -> {
 			if (original.equals(opsIo.ops().empty())) {
-				logger.info("Missing key {} in config {}; filling with default value", field, name);
+				logger.info("Missing key {} in config {}; filling with default value", field, name());
 			} else {
-				logger.info("Unreadable key {} in config {}; filling with default value", field, name);
+				logger.info("Unreadable key {} in config {}; filling with default value", field, name());
 			}
 		});
 		return new ConfigHandle<O>() {
@@ -71,15 +71,15 @@ public abstract class ConfigType<O> {
 		void save(O config);
 	}
 
-	public void addFixers(DataFixerBuilder builder) {
-		throw new NoFixersExeption();
-	}
-
-	private static class NoFixersExeption extends RuntimeException {}
+	public void addFixers(Supplier<DataFixerBuilder> builder) {}
 
 	public abstract String name();
 
 	public abstract O defaultConfig();
+
+	public Optional<Integer> defaultVersion() {
+		return Optional.empty();
+	}
 
 	public <T> DataResult<O> decode(DynamicOps<T> ops, T input, Logger logger) {
 		ops = FillMissingLogOps.of((field, original) -> logger.warn("Could not parse entry "+original+" for field "+field+" in config "+name()+"; replacing with default."), ops);
@@ -87,11 +87,15 @@ public abstract class ConfigType<O> {
 		Dynamic<T> dynamic = new Dynamic<>(ops, input);
 		DataFixer fixer = this.fixer.get();
 		if (fixer != null) {
-			DataResult<Integer> version = dynamic.getElement(versionKey()).flatMap(ops::getNumberValue).map(Number::intValue);
-			if (version.result().isPresent()) {
-				int versionValue = version.result().get();
+			Optional<Integer> version = dynamic
+				.getElement(versionKey())
+				.flatMap(ops::getNumberValue)
+				.map(Number::intValue)
+				.result().or(this::defaultVersion);
+			if (version.isPresent()) {
+				int versionValue = version.get();
 				dynamic = fixer.update(CONFIG, dynamic, versionValue, currentVersion());
-			} else if (version.error().isPresent()) {
+			} else {
 				logger.error("Could not parse config version for config " + name() + "; any datafixers will not be applied!");
 			}
 		}
@@ -150,5 +154,5 @@ public abstract class ConfigType<O> {
 		}
 	}
 
-	DSL.TypeReference CONFIG = () -> "CONFIG";
+	public static final DSL.TypeReference CONFIG = () -> "config";
 }

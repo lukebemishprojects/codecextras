@@ -94,12 +94,17 @@ dependencies {
 
 	testCompileOnly cLibs.bundles.compileonly
 
-	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-params:5.9.2'
 
 	compileOnly 'com.electronwill.night-config:core:3.6.4'
 	compileOnly 'com.electronwill.night-config:toml:3.6.4'
 	compileOnly 'blue.endless:jankson:1.2.2'
+
+	testImplementation 'com.electronwill.night-config:core:3.6.4'
+	testImplementation 'com.electronwill.night-config:toml:3.6.4'
+	testImplementation 'blue.endless:jankson:1.2.2'
 
 	annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
 	compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
