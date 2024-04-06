@@ -9,13 +9,17 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.DynamicOps;
 import dev.lukebemish.codecextras.repair.FillMissingLogOps;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
 
 public abstract class ConfigType<O> {
 	public abstract Codec<O> codec();
@@ -45,25 +49,40 @@ public abstract class ConfigType<O> {
 		});
 	}
 
-	public <T> ConfigHandle<O> handle(Path path, OpsIo<T> opsIo, Logger logger) {
+	public <T> ConfigHandle<O> handle(Path location, OpsIo<T> opsIo) {
+		return handle(location, opsIo, LoggerFactory.getLogger(ConfigType.class));
+	}
+
+	public <T> ConfigHandle<O> handle(Path location, OpsIo<T> opsIo, Logger logger) {
+		List<String> missedFields = new ArrayList<>();
+		List<String> unreadableFields = new ArrayList<>();
 		OpsIo<T> withLogging = opsIo.accompanied(FillMissingLogOps.TOKEN, (FillMissingLogOps<T>) (field, original) -> {
 			if (original.equals(opsIo.ops().empty())) {
-				logger.info("Missing key {} in config {}; filling with default value", field, name());
+				missedFields.add(field);
 			} else {
-				logger.info("Unreadable key {} in config {}; filling with default value", field, name());
+				unreadableFields.add(field);
 			}
 		});
-		return new ConfigHandle<O>() {
-			@Override
-			public O load() {
-				return ConfigType.this.load(path, withLogging, logger);
+		if (!missedFields.isEmpty() || !unreadableFields.isEmpty()) {
+			logger.info("Replacing missing or unreadable fields in config {}", location);
+			for (String missedField : missedFields) {
+				logger.info("Missing key {}; filling with default value", missedField);
 			}
+			for (String unreadableField : unreadableFields) {
+				logger.warn("Unreadable key {}; filling with default value", unreadableField);
+			}
+		}
+		return new ConfigHandle<>() {
+            @Override
+            public O load() {
+                return ConfigType.this.load(location, withLogging, logger);
+            }
 
-			@Override
-			public void save(O config) {
-				ConfigType.this.save(path, withLogging, logger, config);
-			}
-		};
+            @Override
+            public void save(O config) {
+                ConfigType.this.save(location, withLogging, logger, config);
+            }
+        };
 	}
 
 	public interface ConfigHandle<O> {
@@ -73,36 +92,40 @@ public abstract class ConfigType<O> {
 
 	public void addFixers(Supplier<DataFixerBuilder> builder) {}
 
-	public abstract String name();
-
 	public abstract O defaultConfig();
 
 	public Optional<Integer> defaultVersion() {
 		return Optional.empty();
 	}
 
-	public <T> DataResult<O> decode(DynamicOps<T> ops, T input, Logger logger) {
-		ops = FillMissingLogOps.of((field, original) -> logger.warn("Could not parse entry "+original+" for field "+field+" in config "+name()+"; replacing with default."), ops);
+	public <T> DataResult<O> decode(String name, DynamicOps<T> ops, T input, Logger logger) {
+		DynamicOps<T> withLogging = FillMissingLogOps.of((field, original) -> {
+			if (original.equals(ops.empty())) {
+				logger.info("In config {}, missing key {}; filling with default value", name, field);
+			} else {
+				logger.warn("In config {}, unreadable value for key {}; filling with default value", name, field);
+			}
+		}, ops);
 
-		Dynamic<T> dynamic = new Dynamic<>(ops, input);
+		Dynamic<T> dynamic = new Dynamic<>(withLogging, input);
 		DataFixer fixer = this.fixer.get();
 		if (fixer != null) {
 			Optional<Integer> version = dynamic
 				.getElement(versionKey())
-				.flatMap(ops::getNumberValue)
+				.flatMap(withLogging::getNumberValue)
 				.map(Number::intValue)
 				.result().or(this::defaultVersion);
 			if (version.isPresent()) {
 				int versionValue = version.get();
 				dynamic = fixer.update(CONFIG, dynamic, versionValue, currentVersion());
 			} else {
-				logger.error("Could not parse config version for config " + name() + "; any datafixers will not be applied!");
+				logger.error("Could not parse config version for config {}; any datafixers will not be applied!", name);
 			}
 		}
 		return codec().parse(dynamic);
 	}
 
-	public <T> DataResult<T> encode(DynamicOps<T> ops, O config) {
+	public <T> DataResult<T> encode(@SuppressWarnings("unused") String name, DynamicOps<T> ops, @SuppressWarnings("unused") Logger logger, O config) {
 		var out = codec().encodeStart(ops, config);
 		if (fixer.get() != null) {
 			out = out.flatMap(t -> ops.mergeToMap(t, ops.createString(versionKey()), ops.createInt(currentVersion())));
@@ -112,24 +135,23 @@ public abstract class ConfigType<O> {
 
 	public <T> O load(Path location, OpsIo<T> opsIo, Logger logger) {
 		if (!Files.exists(location)) {
-			logger.info("Config {} does not exist; creating default config", name());
+			logger.info("Config {} does not exist; creating default config", location);
 			save(location, opsIo, logger, defaultConfig());
 			return defaultConfig();
 		} else {
 			try (var is = Files.newInputStream(location)) {
-				var out = decode(opsIo.ops(), opsIo.read(is), logger);
+				var out = decode(location.toString(), opsIo.ops(), opsIo.read(is), logger);
 				if (out.error().isPresent()) {
-					logger.error("Could not load config {}; attempting to fix by writing default config. Error was {}", name(), out.error().get().message());
+					logger.error("Could not load config {}; attempting to fix by writing default config. Error was {}", location, out.error().get().message());
 					save(location, opsIo, logger, defaultConfig());
 					return defaultConfig();
 				} else {
-					//noinspection OptionalGetWithoutIsPresent
-					var config = out.result().get();
+					var config = out.result().orElseThrow();
 					save(location, opsIo, logger, config);
 					return config;
 				}
 			} catch (IOException e) {
-				logger.error("Could not load config {}; attempting to fix by writing default config ", name(), e);
+				logger.error("Could not load config {}; attempting to fix by writing default config ", location, e);
 				save(location, opsIo, logger, defaultConfig());
 				return defaultConfig();
 			}
@@ -137,9 +159,9 @@ public abstract class ConfigType<O> {
 	}
 
 	public <T> void save(Path location, OpsIo<T> opsIo, Logger logger, O config) {
-		DataResult<T> result = encode(opsIo.ops(), config);
+		DataResult<T> result = encode(location.toString(), opsIo.ops(), logger, config);
 		if (result.error().isPresent()) {
-			logger.error("Could not encode config {} to save it: {}", name(), result.error().get().message());
+			logger.error("Could not encode config {} to save it: {}", location, result.error().get().message());
 		} else {
 			//noinspection OptionalGetWithoutIsPresent
 			T encoded = result.result().get();
@@ -149,7 +171,7 @@ public abstract class ConfigType<O> {
 					opsIo.write(encoded, os);
 				}
 			} catch (IOException e) {
-				logger.error("Could not save config {}: ", name(), e);
+				logger.error("Could not save config {}: ", location, e);
 			}
 		}
 	}
