@@ -1,5 +1,8 @@
 package dev.lukebemish.codecextras.test.config;
 
+import static dev.lukebemish.codecextras.test.CodecAssertions.assertJsonEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.mojang.datafixers.DSL;
 import com.mojang.datafixers.DataFix;
 import com.mojang.datafixers.DataFixerBuilder;
@@ -12,18 +15,14 @@ import dev.lukebemish.codecextras.RootSchema;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.repair.FillMissingMapCodec;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import static dev.lukebemish.codecextras.test.CodecAssertions.assertJsonEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class ConfigTypeTest {
 	public record TestRecord(int a, int b, float c) {
