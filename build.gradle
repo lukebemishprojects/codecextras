@@ -89,7 +89,7 @@ repositories {
 }
 
 dependencies {
-	api 'com.mojang:datafixerupper:6.0.12'
+	api 'com.mojang:datafixerupper:7.0.14'
 	api 'org.slf4j:slf4j-api:2.0.1'
 
 	testCompileOnly cLibs.bundles.compileonly
