@@ -38,24 +38,15 @@ class TestDataElements {
 	}
 
 	private final String both = """
-			[
-				{
-					"index": 0,
-					"value": "Hello"
-				},
-				{
-					"index": 1,
-					"value": 42
-				}
-			]""";
+			{
+				"string": "Hello",
+				"integer": 42
+			}""";
 
 	private final String onlyChanged = """
-			[
-				{
-					"index": 1,
-					"value": 42
-				}
-			]""";
+			{
+				"integer": 42
+			}""";
 
 	@Test
 	void testEncodeMutable() {

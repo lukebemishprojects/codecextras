@@ -20,7 +20,7 @@ public final class CodecAssertions {
 	public static <O, T> void assertDecodes(DynamicOps<T> ops, T data, O expected, Codec<O> codec) {
 		DataResult<O> dataResult = codec.parse(ops, data);
 		Assertions.assertTrue(dataResult.result().isPresent());
-		Assertions.assertEquals(dataResult.result().get(), expected);
+		Assertions.assertEquals(expected, dataResult.result().get());
 	}
 
 	public static <O> void assertEncodes(DynamicOps<JsonElement> jsonOps, O value, String json, Codec<O> codec) {
@@ -32,7 +32,7 @@ public final class CodecAssertions {
 	public static <O, T> void assertEncodes(DynamicOps<T> ops, O value, T expected, Codec<O> codec) {
 		DataResult<T> dataResult = codec.encodeStart(ops, value);
 		Assertions.assertTrue(dataResult.result().isPresent());
-		Assertions.assertEquals(dataResult.result().get(), expected);
+		Assertions.assertEquals(expected, dataResult.result().get());
 	}
 
 	public static void assertJsonEquals(String expected, String actual) {
