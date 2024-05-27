@@ -16,7 +16,7 @@ import net.minecraft.network.codec.StreamCodec;
 public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 	StreamCodec<B, T> streamCodec();
 
-	static <B, D, T> StreamDataElementType<B, D, T> defaulted(String name, Codec<T> codec, StreamCodec<B, T> streamCodec, Function<D, DataElement<T>> getter) {
+	static <B, D, T> StreamDataElementType<B, D, T> create(String name, Codec<T> codec, StreamCodec<B, T> streamCodec, Function<D, DataElement<T>> getter) {
 		return new StreamDataElementType<>() {
 			@Override
 			public StreamCodec<B, T> streamCodec() {

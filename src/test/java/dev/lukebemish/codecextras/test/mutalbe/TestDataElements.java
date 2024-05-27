@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 
 class TestDataElements {
 	private static class WithDataElements {
-		private static final DataElementType<WithDataElements, String> STRING = DataElementType.defaulted("string", Codec.STRING, d -> d.string);
-		private static final DataElementType<WithDataElements, Integer> INTEGER = DataElementType.defaulted("integer", Codec.INT, d -> d.integer);
+		private static final DataElementType<WithDataElements, String> STRING = DataElementType.create("string", Codec.STRING, d -> d.string);
+		private static final DataElementType<WithDataElements, Integer> INTEGER = DataElementType.create("integer", Codec.INT, d -> d.integer);
 		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CODEC = DataElementType.codec(true, STRING, INTEGER);
 		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CHANGED_CODEC = DataElementType.codec(false, STRING, INTEGER);
 

@@ -17,7 +17,7 @@ public interface DataElementType<D, T> {
 	Codec<T> codec();
 	String name();
 
-	static <D, T> DataElementType<D, T> defaulted(String name, Codec<T> codec, Function<D, DataElement<T>> getter) {
+	static <D, T> DataElementType<D, T> create(String name, Codec<T> codec, Function<D, DataElement<T>> getter) {
 		return new DataElementType<>() {
 			@Override
 			public DataElement<T> from(D data) {
