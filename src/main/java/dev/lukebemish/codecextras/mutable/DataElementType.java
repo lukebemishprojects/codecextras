@@ -8,7 +8,6 @@ import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -59,7 +58,10 @@ public interface DataElementType<D, T> {
 
 				List<Mutation<D, ?>> mutations = new ArrayList<>();
 				for (var pair : list) {
-					var index = pair.getFirst();
+					int index = pair.getFirst();
+					if (index < 0 || index >= elements.size()) {
+						return DataResult.error(() -> "Invalid index for DataElementType: " + index);
+					}
 					var type = elements.get(index);
 					var mutation = Mutation.of(type, pair.getSecond());
 					if (mutation.error().isPresent()) {

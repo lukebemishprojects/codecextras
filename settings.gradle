@@ -4,13 +4,38 @@ pluginManagement {
 			name = "Luke's Maven"
 			url = 'https://maven.lukebemish.dev/releases'
 		}
-
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		maven {
+			name = 'NeoForged'
+			url = 'https://maven.neoforged.net/'
+		}
+		maven {
+			name = 'Architectury'
+			url "https://maven.architectury.dev/"
+		}
+		mavenCentral()
 		gradlePluginPortal()
 	}
 }
 
 plugins {
-	id 'dev.lukebemish.conventions' version '0.1.8'
+	id 'dev.lukebemish.conventions' version '0.1.9'
+	id 'dev.lukebemish.multisource' version '0.1.8'
+}
+
+multisource.of(':') {
+	configureEach {
+		minecraft.add 'com.mojang:minecraft:1.20.6'
+		mappings.add loom.officialMojangMappings()
+	}
+	common('stream', []) {}
+	fabric('streamIntermediary', ['stream']) {}
+	repositories {
+		it.removeIf { it.name == 'Forge' }
+	}
 }
 
 rootProject.name = 'codecextras'

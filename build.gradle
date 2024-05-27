@@ -74,10 +74,25 @@ managedVersioning.apply()
 
 println "Building: $version"
 
+sourceSets {
+	stream {}
+	streamIntermediary {}
+}
+
 java {
-	toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+	toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 	withSourcesJar()
 	withJavadocJar()
+	registerFeature("stream") {
+		usingSourceSet sourceSets.stream
+		withSourcesJar()
+		withJavadocJar()
+	}
+	registerFeature("streamIntermediary") {
+		usingSourceSet sourceSets.streamIntermediary
+		capability(project.group as String, "$project.name-stream", project.version as String)
+		capability(project.group as String, "$project.name-stream-intermediary", project.version as String)
+	}
 }
 
 repositories {
@@ -108,22 +123,41 @@ dependencies {
 
 	annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
 	compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+
+	streamApi project(':')
+	streamCompileOnly cLibs.bundles.compileonly
+	streamAnnotationProcessor cLibs.bundles.annotationprocessor
+	streamIntermediaryApi project(':')
+	testImplementation sourceSets.stream.output
+}
+
+['streamJar', 'streamIntermediaryJar', 'jar'].each {
+	tasks.named(it, Jar) {
+		manifest {
+			attributes(
+				'Specification-Version'     : project.version,
+				'Implementation-Version'    : project.version,
+				'Implementation-Commit-Time': managedVersioning.timestamp.get(),
+				'Implementation-Commit'     : managedVersioning.hash.get()
+			)
+		}
+	}
+}
+
+streamJar {
+	manifest.attributes('FMLModType': 'GAMELIBRARY')
+}
+
+streamIntermediaryJar {
+	manifest.attributes('FMLModType': 'GAMELIBRARY')
+}
+
+tasks.named('remapStreamIntermediaryJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
+	task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-stream-intermediary.jar")
 }
 
 jar {
-	manifest {
-		attributes(
-			'Specification-Title'       : 'Codec Extras',
-			'Specification-Vendor'      : 'Luke Bemish',
-			'Specification-Version'     : project.version,
-			'Implementation-Title'      : 'Codec Extras',
-			'Implementation-Version'    : project.version,
-			'Implementation-Vendor'     : 'Luke Bemish',
-			'Implementation-Commit-Time': managedVersioning.timestamp.get(),
-			'Implementation-Commit'     : managedVersioning.hash.get(),
-			'FMLModType'                : 'LIBRARY'
-		)
-	}
+	manifest.attributes('FMLModType': 'LIBRARY')
 }
 
 tasks.compileJava {
@@ -131,6 +165,25 @@ tasks.compileJava {
 		'-Aautoextension.name=CodecExtras',
 		"-Aautoextension.version=${version}".toString()
 	]
+	javaCompiler = javaToolchains.compilerFor {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+processStreamIntermediaryResources {
+	inputs.property "version", project.version.toString()
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version.toString()
+	}
+}
+
+processResources {
+	inputs.property "version", project.version.toString()
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version.toString()
+	}
 }
 
 test {

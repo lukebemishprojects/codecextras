@@ -21,7 +21,6 @@ import com.mojang.serialization.Decoder;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.Encoder;
 import com.mojang.serialization.MapCodec;
-
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
