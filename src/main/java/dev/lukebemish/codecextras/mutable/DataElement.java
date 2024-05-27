@@ -7,13 +7,18 @@ public interface DataElement<T> {
 	T get();
 	boolean dirty();
 	void setDirty(boolean dirty);
+	default boolean includeInFullEncoding() {
+		return true;
+	}
 
 	class Simple<T> implements DataElement<T> {
 		private volatile T value;
 		private volatile boolean dirty = false;
+		private final T defaultValue;
 
 		public Simple(T value) {
 			this.value = value;
+			this.defaultValue = value;
 		}
 
 		@Override
@@ -47,6 +52,11 @@ public interface DataElement<T> {
 		@Override
 		public int hashCode() {
 			return Objects.hashCode(value);
+		}
+
+		@Override
+		public boolean includeInFullEncoding() {
+			return !value.equals(defaultValue);
 		}
 	}
 }

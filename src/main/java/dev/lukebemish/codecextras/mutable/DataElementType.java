@@ -37,12 +37,12 @@ public interface DataElementType<D, T> {
 	}
 
 	@SafeVarargs
-	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeAll, DataElementType<D, ?>... elements) {
+	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeFull, DataElementType<D, ?>... elements) {
 		List<DataElementType<D, ?>> list = List.of(elements);
-		return codec(encodeAll, list);
+		return codec(encodeFull, list);
 	}
 
-	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeAll, List<? extends DataElementType<D, ?>> elements) {
+	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeFull, List<? extends DataElementType<D, ?>> elements) {
 		Map<String, DataElementType<D, ?>> elementTypeMap = new HashMap<>();
 		for (var element : elements) {
 			elementTypeMap.put(element.name(), element);
@@ -87,7 +87,7 @@ public interface DataElementType<D, T> {
 				Map<String, Dynamic<?>> map = new HashMap<>();
 				for (DataElementType<D, ?> type : elements) {
 					var element = type.from(data);
-					if (encodeAll || element.dirty()) {
+					if ((encodeFull && element.includeInFullEncoding()) || element.dirty()) {
 						var result = forElement(type, data);
 						if (result.result().isPresent()) {
 							map.put(type.name(), result.result().get());

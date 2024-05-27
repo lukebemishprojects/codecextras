@@ -41,19 +41,19 @@ public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 	}
 
 	@SafeVarargs
-	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeAll, StreamDataElementType<B, D, ?>... elements) {
+	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeFull, StreamDataElementType<B, D, ?>... elements) {
 		List<StreamDataElementType<B, D, ?>> list = List.of(elements);
-		return streamCodec(encodeAll, list);
+		return streamCodec(encodeFull, list);
 	}
 
-	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeAll, List<? extends StreamDataElementType<B, D, ?>> elements) {
+	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeFull, List<? extends StreamDataElementType<B, D, ?>> elements) {
 		return StreamCodec.of((buffer, asymmetry) -> {
 			var data = asymmetry.encoding().getOrThrow();
 			List<Pair<Integer, Consumer<B>>> toEncode = new ArrayList<>();
 			for (int i = 0; i < elements.size(); i++) {
 				var type = elements.get(i);
 				var dataElement = type.from(data);
-				if (encodeAll || dataElement.dirty()) {
+				if ((encodeFull && dataElement.includeInFullEncoding()) || dataElement.dirty()) {
 					toEncode.add(Pair.of(i, b -> write(b, type, data)));
 				}
 			}

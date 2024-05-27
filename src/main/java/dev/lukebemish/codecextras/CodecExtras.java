@@ -8,7 +8,9 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class CodecExtras {
+public final class CodecExtras {
+	private CodecExtras() {}
+
 	public static <O> Codec<O> flatten(Codec<DataResult<O>> codec) {
 		return codec.flatXmap(Function.identity(), o -> DataResult.success(DataResult.success(o)));
 	}
@@ -52,5 +54,9 @@ public class CodecExtras {
 		}
 		Supplier<String> error = () -> result.error().get().message() + "; " + otherResult.error().get().message();
 		return partial.map(o -> DataResult.error(error, o)).orElseGet(() -> DataResult.error(error));
+	}
+
+	public static <O> Codec<Optional<O>> optional(Codec<O> codec) {
+		return codec.optionalFieldOf("value").codec();
 	}
 }
