@@ -17,6 +17,7 @@ managedVersioning {
 			onBranches.add 'main'
 			gradleJob {
 				buildCache()
+				javaVersion.set '21'
 				name.set 'build'
 				gradlew 'Build', 'build'
 				gradlew 'Publish', 'publish'
@@ -28,6 +29,7 @@ managedVersioning {
 			workflowDispatch.set(true)
 			gradleJob {
 				buildCache()
+				javaVersion.set '21'
 				name.set 'build'
 				step {
 					setupGitUser()
@@ -42,6 +44,7 @@ managedVersioning {
 			}
 			gradleJob {
 				buildCache()
+				javaVersion.set '21'
 				name.set 'publish'
 				needs.add('build')
 				tag.set('${{needs.build.outputs.version}}')
@@ -53,6 +56,7 @@ managedVersioning {
 			prettyName.set 'Build PR'
 			pullRequest.set(true)
 			gradleJob {
+				javaVersion.set '21'
 				name.set 'build'
 				gradlew 'Build', 'build'
 				gradlew 'Publish', 'publish'
