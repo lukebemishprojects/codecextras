@@ -9,20 +9,19 @@ import dev.lukebemish.codecextras.Asymmetry;
 import dev.lukebemish.codecextras.mutable.DataElement;
 import dev.lukebemish.codecextras.mutable.DataElementType;
 import dev.lukebemish.codecextras.test.CodecAssertions;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 class TestDataElements {
 	private static class WithDataElements {
 		private static final DataElementType<WithDataElements, String> STRING = DataElementType.defaulted(Codec.STRING, "", d -> d.string);
 		private static final DataElementType<WithDataElements, Integer> INTEGER = DataElementType.defaulted(Codec.INT, 0, d -> d.integer);
-
-		private static final List<DataElementType<WithDataElements, ?>> ELEMENTS = List.of(STRING, INTEGER);
-		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CODEC = DataElementType.codec(ELEMENTS, true);
-		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CHANGED_CODEC = DataElementType.codec(ELEMENTS, false);
+		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CODEC = DataElementType.codec(List.of(STRING, INTEGER), true);
+		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CHANGED_CODEC = DataElementType.codec(List.of(STRING, INTEGER), false);
 
 		private final DataElement<String> string = STRING.create();
 		private final DataElement<Integer> integer = INTEGER.create();
