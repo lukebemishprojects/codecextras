@@ -5,7 +5,6 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.Asymmetry;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
