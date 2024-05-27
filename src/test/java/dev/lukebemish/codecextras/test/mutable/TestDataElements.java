@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.test.mutalbe;
+package dev.lukebemish.codecextras.test.mutable;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
