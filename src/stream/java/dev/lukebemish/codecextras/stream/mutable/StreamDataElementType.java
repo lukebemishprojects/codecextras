@@ -6,17 +6,18 @@ import dev.lukebemish.codecextras.Asymmetry;
 import dev.lukebemish.codecextras.mutable.DataElement;
 import dev.lukebemish.codecextras.mutable.DataElementType;
 import io.netty.handler.codec.DecoderException;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
 
 public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 	StreamCodec<B, T> streamCodec();
 
-	static <B, D, T> StreamDataElementType<B, D, T> defaulted(Codec<T> codec, StreamCodec<B, T> streamCodec, T defaultValue, Function<D, DataElement<T>> getter) {
+	static <B, D, T> StreamDataElementType<B, D, T> defaulted(String name, Codec<T> codec, StreamCodec<B, T> streamCodec, Function<D, DataElement<T>> getter) {
 		return new StreamDataElementType<>() {
 			@Override
 			public StreamCodec<B, T> streamCodec() {
@@ -34,13 +35,19 @@ public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 			}
 
 			@Override
-			public DataElement<T> create() {
-				return new DataElement.Simple<>(defaultValue);
+			public String name() {
+				return name;
 			}
 		};
 	}
 
-	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(List<? extends StreamDataElementType<B, D, ?>> elements, boolean encodeAll) {
+	@SafeVarargs
+	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeAll, StreamDataElementType<B, D, ?>... elements) {
+		List<StreamDataElementType<B, D, ?>> list = List.of(elements);
+		return streamCodec(encodeAll, list);
+	}
+
+	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeAll, List<? extends StreamDataElementType<B, D, ?>> elements) {
 		return StreamCodec.of((buffer, asymmetry) -> {
 			var data = asymmetry.encoding().getOrThrow();
 			List<Pair<Integer, Consumer<B>>> toEncode = new ArrayList<>();

@@ -1,24 +1,24 @@
 package dev.lukebemish.codecextras.mutable;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.JsonOps;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.Asymmetry;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface DataElementType<D, T> {
 	DataElement<T> from(D data);
 	Codec<T> codec();
-	DataElement<T> create();
+	String name();
 
-	static <D, T> DataElementType<D, T> defaulted(Codec<T> codec, T defaultValue, Function<D, DataElement<T>> getter) {
+	static <D, T> DataElementType<D, T> defaulted(String name, Codec<T> codec, Function<D, DataElement<T>> getter) {
 		return new DataElementType<>() {
 			@Override
 			public DataElement<T> from(D data) {
@@ -31,21 +31,29 @@ public interface DataElementType<D, T> {
 			}
 
 			@Override
-			public DataElement<T> create() {
-				return new DataElement.Simple<>(defaultValue);
+			public String name() {
+				return name;
 			}
 		};
 	}
 
-	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(List<? extends DataElementType<D, ?>> elements, boolean encodeAll) {
-		MapCodec<Pair<Integer, Dynamic<?>>> partial = RecordCodecBuilder.mapCodec(i -> i.group(
-			Codec.INT.fieldOf("index").forGetter(Pair::getFirst),
-			Codec.PASSTHROUGH.fieldOf("value").forGetter(Pair::getSecond)
-		).apply(i, Pair::of));
+	@SafeVarargs
+	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeAll, DataElementType<D, ?>... elements) {
+		List<DataElementType<D, ?>> list = List.of(elements);
+		return codec(encodeAll, list);
+	}
+
+	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeAll, List<? extends DataElementType<D, ?>> elements) {
+		Map<String, DataElementType<D, ?>> elementTypeMap = new HashMap<>();
+		for (var element : elements) {
+			elementTypeMap.put(element.name(), element);
+		}
+
+		Codec<Map<String, Dynamic<?>>> partial = Codec.unboundedMap(Codec.STRING, Codec.PASSTHROUGH);
 
 		return Asymmetry.flatSplit(
-			partial.codec().listOf(),
-			list -> {
+			partial,
+			map -> {
 				record Mutation<D, T>(DataElementType<D, T> element, T value) {
 					private static <D, T> DataResult<Mutation<D, T>> of(DataElementType<D, T> type, Dynamic<?> dynamic) {
 						return type.codec().parse(dynamic).map(value -> new Mutation<>(type, value));
@@ -57,13 +65,13 @@ public interface DataElementType<D, T> {
 				}
 
 				List<Mutation<D, ?>> mutations = new ArrayList<>();
-				for (var pair : list) {
-					int index = pair.getFirst();
-					if (index < 0 || index >= elements.size()) {
-						return DataResult.error(() -> "Invalid index for DataElementType: " + index);
+				for (var pair : map.entrySet()) {
+					String name = pair.getKey();
+					var type = elementTypeMap.get(name);
+					if (type == null) {
+						return DataResult.error(() -> "Invalid name for DataElementType: " + name);
 					}
-					var type = elements.get(index);
-					var mutation = Mutation.of(type, pair.getSecond());
+					var mutation = Mutation.of(type, pair.getValue());
 					if (mutation.error().isPresent()) {
 						return DataResult.error(mutation.error().get().messageSupplier());
 					}
@@ -77,20 +85,19 @@ public interface DataElementType<D, T> {
 				});
 			},
 			data -> {
-				List<Pair<Integer, Dynamic<?>>> list = new ArrayList<>();
-				for (int i = 0; i < elements.size(); i++) {
-					var type = elements.get(i);
+				Map<String, Dynamic<?>> map = new HashMap<>();
+				for (DataElementType<D, ?> type : elements) {
 					var element = type.from(data);
 					if (encodeAll || element.dirty()) {
 						var result = forElement(type, data);
 						if (result.result().isPresent()) {
-							list.add(Pair.of(i, result.result().get()));
+							map.put(type.name(), result.result().get());
 						} else {
-							return DataResult.error(result.error().get().messageSupplier(), list);
+							return DataResult.error(result.error().get().messageSupplier(), map);
 						}
 					}
 				}
-				return DataResult.success(list);
+				return DataResult.success(map);
 			}
 		);
 	}
