@@ -1,9 +1,27 @@
 package dev.lukebemish.codecextras;
 
-import com.mojang.datafixers.util.*;
+import com.mojang.datafixers.util.Function10;
+import com.mojang.datafixers.util.Function11;
+import com.mojang.datafixers.util.Function12;
+import com.mojang.datafixers.util.Function13;
+import com.mojang.datafixers.util.Function14;
+import com.mojang.datafixers.util.Function15;
+import com.mojang.datafixers.util.Function16;
+import com.mojang.datafixers.util.Function3;
+import com.mojang.datafixers.util.Function4;
+import com.mojang.datafixers.util.Function5;
+import com.mojang.datafixers.util.Function6;
+import com.mojang.datafixers.util.Function7;
+import com.mojang.datafixers.util.Function8;
+import com.mojang.datafixers.util.Function9;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Decoder;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.Encoder;
 import com.mojang.serialization.MapCodec;
+
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -84,6 +102,20 @@ public abstract sealed class Asymmetry<D, E> {
 
 	public static <D, E> Asymmetry<D, E> ofDecodingResult(DataResult<D> decoding) {
 		return decoding.result().map(Asymmetry::<D,E>ofDecoding).orElseGet(Asymmetry::discontinuous);
+	}
+
+	public static <D, E> Codec<Asymmetry<D, E>> codec(Decoder<D> decoder, Encoder<E> encoder) {
+		return new Codec<>() {
+			@Override
+			public <T> DataResult<Pair<Asymmetry<D, E>, T>> decode(DynamicOps<T> ops, T input) {
+				return decoder.decode(ops, input).map(p -> p.mapFirst(Asymmetry::ofDecoding));
+			}
+
+			@Override
+			public <T> DataResult<T> encode(Asymmetry<D, E> input, DynamicOps<T> ops, T prefix) {
+				return input.encoding().flatMap(e -> encoder.encode(e, ops, prefix));
+			}
+		};
 	}
 
 	public static <E0, D0, E1, D1> Codec<Asymmetry<D1, E1>> map(Codec<Asymmetry<D0, E0>> codec, Function<D0, D1> mapDecoding, Function<E1, E0> mapEncoding) {
