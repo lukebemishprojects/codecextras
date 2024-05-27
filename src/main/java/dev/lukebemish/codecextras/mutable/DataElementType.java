@@ -20,7 +20,7 @@ public interface DataElementType<D, T> {
 	DataElement<T> create();
 
 	static <D, T> DataElementType<D, T> defaulted(Codec<T> codec, T defaultValue, Function<D, DataElement<T>> getter) {
-		return new DataElementType<D, T>() {
+		return new DataElementType<>() {
 			@Override
 			public DataElement<T> from(D data) {
 				return getter.apply(data);
@@ -33,30 +33,7 @@ public interface DataElementType<D, T> {
 
 			@Override
 			public DataElement<T> create() {
-				return new DataElement<T>() {
-					private volatile T value = defaultValue;
-					private volatile boolean dirty = false;
-
-					@Override
-					public synchronized void set(T t) {
-						this.value = t;
-					}
-
-					@Override
-					public T get() {
-						return this.value;
-					}
-
-					@Override
-					public boolean dirty() {
-						return this.dirty;
-					}
-
-					@Override
-					public synchronized void setDirty(boolean dirty) {
-						this.dirty = dirty;
-					}
-				};
+				return new DataElement.Simple<>(defaultValue);
 			}
 		};
 	}
@@ -91,7 +68,7 @@ public interface DataElementType<D, T> {
 					mutations.add(mutation.result().get());
 				}
 
-				return DataResult.success((Consumer<D>) data -> {
+				return DataResult.success(data -> {
 					for (var mutation : mutations) {
 						mutation.set(data);
 					}
