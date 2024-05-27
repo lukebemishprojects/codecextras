@@ -20,6 +20,7 @@ class TestDataElements {
 		private static final DataElementType<WithDataElements, Integer> INTEGER = DataElementType.create("integer", Codec.INT, d -> d.integer);
 		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CODEC = DataElementType.codec(true, STRING, INTEGER);
 		private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CHANGED_CODEC = DataElementType.codec(false, STRING, INTEGER);
+		private static final Consumer<WithDataElements> CLEANER = DataElementType.cleaner(STRING, INTEGER);
 
 		private final DataElement<String> string = new DataElement.Simple<>("");
 		private final DataElement<Integer> integer = new DataElement.Simple<>(0);
@@ -60,7 +61,7 @@ class TestDataElements {
 	void testEncodeMutableOnlyDirty() {
 		WithDataElements data = new WithDataElements();
 		data.string.set("Hello");
-		data.string.setDirty(false);
+		WithDataElements.CLEANER.accept(data);
 		data.integer.set(42);
 		CodecAssertions.assertEncodes(JsonOps.INSTANCE, Asymmetry.ofEncoding(data), onlyChanged, WithDataElements.CHANGED_CODEC);
 	}

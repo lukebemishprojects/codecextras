@@ -37,6 +37,20 @@ public interface DataElementType<D, T> {
 	}
 
 	@SafeVarargs
+	static <D> Consumer<D> cleaner(DataElementType<D, ?>... types) {
+		List<DataElementType<D, ?>> list = List.of(types);
+		return cleaner(list);
+	}
+
+	static <D> Consumer<D> cleaner(List<? extends DataElementType<D, ?>> types) {
+		return data -> {
+			for (var type : types) {
+				type.from(data).setDirty(false);
+			}
+		};
+	}
+
+	@SafeVarargs
 	static <D> Codec<Asymmetry<Consumer<D>, D>> codec(boolean encodeFull, DataElementType<D, ?>... elements) {
 		List<DataElementType<D, ?>> list = List.of(elements);
 		return codec(encodeFull, list);
