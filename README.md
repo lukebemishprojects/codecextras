@@ -6,6 +6,7 @@ Variout extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/D
 - Codecs with comments
 - Record codecs with large numbers of entries
 - Codecs which decode to a different type than they encode from
+- Codecs representing changes to mutable data
 
 Artifacts are available on my maven:
 ```gradle
