@@ -53,7 +53,30 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 	 *          with fields in the opposite order that they were built in
 	 * @return a map codec for the type {@code A}
 	 */
-	public abstract MapCodec<A> buildMap(B b);
+	public final MapCodec<A> buildMap(B b) {
+		return new MapCodec<>() {
+
+			@Override
+			public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+				return encodeChildren(input, ops, prefix);
+			}
+
+			@Override
+			public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
+				return decodePartial(ops, input, b);
+			}
+
+			@Override
+			public <T> Stream<T> keys(DynamicOps<T> ops) {
+				return keysPartial(ops);
+			}
+
+			@Override
+			public String toString() {
+				return ExtendedRecordCodecBuilder.this.toString();
+			}
+		};
+	}
 
 	public non-sealed interface FinalAppFunction<A, B> extends AppFunction {
 		A create(B b);
@@ -100,33 +123,6 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 			return codec.keys(ops);
 		}
 
-
-		@Override
-		public MapCodec<A> buildMap(B b) {
-			return new MapCodec<>() {
-
-				@Override
-				public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-					return encodeChildren(input, ops, prefix);
-				}
-
-				@Override
-				public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-					return decodePartial(ops, input, b);
-				}
-
-				@Override
-				public <T> Stream<T> keys(DynamicOps<T> ops) {
-					return keysPartial(ops);
-				}
-
-				@Override
-				public String toString() {
-					return Endpoint.this.toString();
-				}
-			};
-		}
-
 		@Override
 		public String toString() {
 			return "ExtendedRecordCodec[" + codec + "]";
@@ -160,32 +156,6 @@ public abstract sealed class ExtendedRecordCodecBuilder<A, F, B extends Extended
 		@Override
 		protected <T> Stream<T> keysPartial(DynamicOps<T> ops) {
 			return Stream.concat(keysPartial(ops), delegate.keysPartial(ops));
-		}
-
-		@Override
-		public MapCodec<A> buildMap(B b) {
-			return new MapCodec<>() {
-
-				@Override
-				public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-					return encodeChildren(input, ops, prefix);
-				}
-
-				@Override
-				public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-					return decodePartial(ops, input, b);
-				}
-
-				@Override
-				public <T> Stream<T> keys(DynamicOps<T> ops) {
-					return keysPartial(ops);
-				}
-
-				@Override
-				public String toString() {
-					return Delegating.this.toString();
-				}
-			};
 		}
 
 		@Override
