@@ -7,10 +7,27 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import java.util.function.Function;
 
+/**
+ * A codec for {@link Either} that, unlike the one created by {@link Codec#either(Codec, Codec)}, attempts to use both
+ * constituent codecs on encode in addition to decode. Where a {@link Codec#either(Codec, Codec)} codec will only use
+ * the left or right codec when encoding, depending on whether the provided value is a left or right value, a
+ * {@link BidirectionalEitherCodec} will attempt to use both codecs.
+ * @param <F>
+ * @param <S>
+ */
 public final class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>> {
 	private final Codec<Asymmetry<F, Either<F, S>>> first;
 	private final Codec<Asymmetry<S, Either<F, S>>> second;
 
+	/**
+	 * Creates a new {@link BidirectionalEitherCodec} that will attempt to decode and encode with both codecs. The
+	 * constituent codecs have asymmetrical types as they decode to different types but must encode from the same type.
+	 * @param first the first codec to attempt to encode or decode with
+	 * @param second the second codec to attempt to encode or decode with
+	 * @return a new codec
+	 * @param <F> the left type of the {@link Either} this codec will handle
+	 * @param <S> the right type of the {@link Either} this codec will handle
+	 */
 	public static <F, S> Codec<Either<F, S>> asymmetrical(Codec<Asymmetry<F, Either<F, S>>> first, Codec<Asymmetry<S, Either<F, S>>> second) {
 		return new BidirectionalEitherCodec<>(
 			first,
@@ -18,6 +35,14 @@ public final class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>>
 		);
 	}
 
+	/**
+	 * An equivalent to {@link Codec#either(Codec, Codec)} backed by a {@link BidirectionalEitherCodec}.
+	 * @param first the first codec to attempt to encode or decode with
+	 * @param second the second codec to attempt to encode or decode with
+	 * @return a new codec
+	 * @param <F> the left type of the {@link Either} this codec will handle
+	 * @param <S> the right type of the {@link Either} this codec will handle
+	 */
 	public static <F, S> Codec<Either<F, S>> simple(Codec<F> first, Codec<S> second) {
 		return asymmetrical(
 			Asymmetry.flatMapEncoding(
@@ -31,6 +56,13 @@ public final class BidirectionalEitherCodec<F, S> implements Codec<Either<F, S>>
 		);
 	}
 
+	/**
+	 * Attempts to decode and encode a value of a given type with both codecs, in order.
+	 * @param first the first codec to attempt to encode or decode with
+	 * @param second the second codec to attempt to encode or decode with
+	 * @return a new codec
+	 * @param <F> the type of the value this codec will handle
+	 */
 	public static <F> Codec<F> orElse(Codec<F> first, Codec<F> second) {
 		return asymmetrical(
 			Asymmetry.split(first, Function.identity(), e -> e.map(Function.identity(), Function.identity())),

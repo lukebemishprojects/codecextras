@@ -4,9 +4,15 @@ import java.util.Optional;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
+/**
+ * Various {@link StreamCodec} utilities that do not have homes other places.
+ */
 public final class StreamCodecExtras {
 	private StreamCodecExtras() {}
 
+	/**
+	 * {@return a stream codec which optionally encodes a type}
+	 */
 	public static <B extends FriendlyByteBuf, O> StreamCodec<B, Optional<O>> optional(StreamCodec<B, O> streamCodec) {
 		return new StreamCodec<>() {
 			@Override

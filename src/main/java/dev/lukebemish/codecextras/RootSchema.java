@@ -5,6 +5,10 @@ import com.mojang.datafixers.types.templates.TypeTemplate;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * A schema that does not register any block entities or entities by default. Useful as a base schema for a
+ * {@link com.mojang.datafixers.DataFixerBuilder}.
+ */
 public abstract class RootSchema extends Schema {
 	public RootSchema(int versionKey, Schema parent) {
 		super(versionKey, parent);
