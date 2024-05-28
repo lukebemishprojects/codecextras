@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/dynamic/xml?style=for-the-badge&color=blue&label=Latest%20Version&prefix=v&query=metadata%2F%2Flatest&url=https%3A%2F%2Fmaven.lukebemish.dev%2Freleases%2Fdev%2Flukebemish%2Fcodecextras%2Fmaven-metadata.xml)](https://maven.lukebemish.dev/releases/dev/lukebemish/codecextras/)
 
-Variout extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/DataFixerUpper), including:
+Various extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/DataFixerUpper), including:
 - Codecs with comments
 - Record codecs with large numbers of entries
 - Codecs which decode to a different type than they encode from
