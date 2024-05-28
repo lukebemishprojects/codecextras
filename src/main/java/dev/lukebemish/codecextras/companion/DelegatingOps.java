@@ -1,7 +1,13 @@
 package dev.lukebemish.codecextras.companion;
 
 import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.*;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Decoder;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.Encoder;
+import com.mojang.serialization.ListBuilder;
+import com.mojang.serialization.MapLike;
+import com.mojang.serialization.RecordBuilder;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
@@ -29,11 +35,21 @@ public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
 
 	public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> of(Q token, Companion<T, Q> companion, DynamicOps<T> delegate) {
 		if (delegate instanceof MapDelegatingOps<T> mapOps) {
-			Map<Companion.CompanionToken, Companion<T, ? extends Companion.CompanionToken>> map = new HashMap<>(mapOps.companions);
-			map.put(token, companion);
+			Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
+			map.put(token, Optional.of(companion));
 			return new MapDelegatingOps<>(delegate, map);
 		} else {
-			return new MapDelegatingOps<>(delegate, Map.of(token, companion));
+			return new MapDelegatingOps<>(delegate, Map.of(token, Optional.of(companion)));
+		}
+	}
+
+	public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> without(Q token, DynamicOps<T> delegate) {
+		if (delegate instanceof MapDelegatingOps<T> mapOps) {
+			Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
+			map.put(token, Optional.empty());
+			return new MapDelegatingOps<>(delegate, map);
+		} else {
+			return new MapDelegatingOps<>(delegate, Map.of(token, Optional.empty()));
 		}
 	}
 

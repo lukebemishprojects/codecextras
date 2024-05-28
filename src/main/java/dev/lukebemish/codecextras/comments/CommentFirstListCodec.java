@@ -6,8 +6,8 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.ListBuilder;
 import dev.lukebemish.codecextras.companion.AccompaniedOps;
+import dev.lukebemish.codecextras.companion.DelegatingOps;
 import java.util.List;
-import java.util.Optional;
 
 public final class CommentFirstListCodec<A> implements Codec<List<A>> {
 	private final Codec<A> elementCodec;
@@ -36,9 +36,8 @@ public final class CommentFirstListCodec<A> implements Codec<List<A>> {
 	public <T> DataResult<T> encode(List<A> input, DynamicOps<T> ops, T prefix) {
 		final ListBuilder<T> builder = ops.listBuilder();
 		DynamicOps<T> rest;
-		if (ops instanceof AccompaniedOps<T> accompaniedOps) {
-			Optional<CommentOps<T>> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
-			rest = commentOps.map(CommentOps::parentOps).orElse(ops);
+		if (ops instanceof AccompaniedOps<T>) {
+			rest = DelegatingOps.without(CommentOps.TOKEN, ops);
 		} else {
 			rest = ops;
 		}
