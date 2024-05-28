@@ -4,9 +4,12 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public final class CodecExtras {
 	private CodecExtras() {}
@@ -58,5 +61,24 @@ public final class CodecExtras {
 
 	public static <O> Codec<Optional<O>> optional(Codec<O> codec) {
 		return codec.optionalFieldOf("value").codec();
+	}
+
+	@SuppressWarnings("OptionalGetWithoutIsPresent")
+	public static <T> DataResult<T> withErrors(DataResult<T> result, DataResult<?>... others) {
+		List<DataResult.Error<?>> pieces = new ArrayList<>();
+		if (result.isError()) {
+			pieces.add(result.error().get());
+		}
+		for (DataResult<?> other : others) {
+			if (other.isError()) {
+				pieces.add(other.error().get());
+			}
+		}
+		if (pieces.isEmpty()) {
+			return result;
+		}
+		return DataResult.error(() ->
+			pieces.stream().map(DataResult.Error::message).collect(Collectors.joining("; "))
+		);
 	}
 }
