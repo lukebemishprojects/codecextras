@@ -90,8 +90,10 @@ public interface DataElement<T> {
 
 		@Override
 		public synchronized void set(T t) {
-			this.value = t;
-			setDirty(true);
+			if (!Objects.equals(this.value, t)) {
+				this.value = t;
+				setDirty(true);
+			}
 		}
 
 		@Override
