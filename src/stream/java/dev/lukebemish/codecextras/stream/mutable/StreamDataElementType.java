@@ -6,13 +6,12 @@ import dev.lukebemish.codecextras.Asymmetry;
 import dev.lukebemish.codecextras.mutable.DataElement;
 import dev.lukebemish.codecextras.mutable.DataElementType;
 import io.netty.handler.codec.DecoderException;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 
 /**
  * A {@link DataElementType} with support for {@link StreamCodec}s.
