@@ -6,16 +6,36 @@ import dev.lukebemish.codecextras.Asymmetry;
 import dev.lukebemish.codecextras.mutable.DataElement;
 import dev.lukebemish.codecextras.mutable.DataElementType;
 import io.netty.handler.codec.DecoderException;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
 
+/**
+ * A {@link DataElementType} with support for {@link StreamCodec}s.
+ * @param <B> the type of buffer used by the stream codec
+ * @param <D> the type of the holder object
+ * @param <T> the type of data being retrieved
+ */
 public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
+	/**
+	 * {@return the stream codec to (de)serialize the element}
+	 */
 	StreamCodec<B, T> streamCodec();
 
+	/**
+	 * {@return a new {@link StreamDataElementType} with the provided name, codec, stream codec, and getter}
+	 * @param name the name of the data type
+	 * @param codec the codec to (de)serialize the data type
+	 * @param streamCodec the stream codec to (de)serialize the data type
+	 * @param getter a function to retrieve the data element from the object
+	 * @param <B> the type of buffer used by the stream codec
+	 * @param <D> the type of the holder object
+	 * @param <T> the type of the data
+	 */
 	static <B, D, T> StreamDataElementType<B, D, T> create(String name, Codec<T> codec, StreamCodec<B, T> streamCodec, Function<D, DataElement<T>> getter) {
 		return new StreamDataElementType<>() {
 			@Override
@@ -40,22 +60,43 @@ public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 		};
 	}
 
+	/**
+	 * Creates a {@link StreamCodec} for a series of data elements. This codec will encode from an instance of the type that
+	 * holds the data elements, and will decode to a {@link Consumer} that can be applied to an instance of that type to
+	 * set the data elements' values. The codec can encode either the full state of the data elements, or just the changes
+	 * since the last time they were marked as clean. Elements are encoded prefixed by the index of the data type in the
+	 * provided collection.
+	 * @param encodeFull whether to encode the full state of the data elements
+	 * @param elements the data elements to encode
+	 * @return a new {@link StreamCodec}
+	 * @param <B> the type of buffer used by the stream codec
+	 * @param <D> the type of the holder object
+	 */
 	@SafeVarargs
 	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeFull, StreamDataElementType<B, D, ?>... elements) {
 		List<StreamDataElementType<B, D, ?>> list = List.of(elements);
 		return streamCodec(encodeFull, list);
 	}
 
+	/**
+	 * Creates a {@link StreamCodec} for a series of data elements. This codec will encode from an instance of the type that
+	 * holds the data elements, and will decode to a {@link Consumer} that can be applied to an instance of that type to
+	 * set the data elements' values. The codec can encode either the full state of the data elements, or just the changes
+	 * since the last time they were marked as clean. Elements are encoded prefixed by the index of the data type in the
+	 * provided collection.
+	 * @param encodeFull whether to encode the full state of the data elements
+	 * @param elements the data elements to encode
+	 * @return a new {@link StreamCodec}
+	 * @param <B> the type of buffer used by the stream codec
+	 * @param <D> the type of the holder object
+	 */
 	static <B extends FriendlyByteBuf, D> StreamCodec<B, Asymmetry<Consumer<D>, D>> streamCodec(boolean encodeFull, List<? extends StreamDataElementType<B, D, ?>> elements) {
 		return StreamCodec.of((buffer, asymmetry) -> {
 			var data = asymmetry.encoding().getOrThrow();
 			List<Pair<Integer, Consumer<B>>> toEncode = new ArrayList<>();
 			for (int i = 0; i < elements.size(); i++) {
 				var type = elements.get(i);
-				var dataElement = type.from(data);
-				if ((encodeFull && dataElement.includeInFullEncoding()) || dataElement.dirty()) {
-					toEncode.add(Pair.of(i, b -> write(b, type, data)));
-				}
+				write(type, data, encodeFull, toEncode, i);
 			}
 			buffer.writeVarInt(toEncode.size());
 			for (var pair : toEncode) {
@@ -91,7 +132,10 @@ public interface StreamDataElementType<B, D, T> extends DataElementType<D, T> {
 		});
 	}
 
-	private static <B, D, T> void write(B buffer, StreamDataElementType<B, D, T> element, D data) {
-		element.streamCodec().encode(buffer, element.from(data).get());
+	private static <B, D, T> void write(StreamDataElementType<B, D, T> type, D data, boolean encodeFull, List<Pair<Integer, Consumer<B>>> toEncode, int index) {
+		var element = type.from(data);
+		element.ifEncoding(encodeFull, value ->
+			toEncode.add(Pair.of(index, b -> type.streamCodec().encode(b, value)))
+		);
 	}
 }
