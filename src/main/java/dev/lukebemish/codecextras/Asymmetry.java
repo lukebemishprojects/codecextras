@@ -21,10 +21,11 @@ import com.mojang.serialization.Decoder;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.Encoder;
 import com.mojang.serialization.MapCodec;
+import org.jspecify.annotations.Nullable;
+
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a type that can be encoded and decoded by {@link Codec}s in an asymmetric manner. Specifically, the value
@@ -46,6 +47,16 @@ public abstract sealed class Asymmetry<D, E> {
 	 */
 	public abstract DataResult<D> decoding();
 
+	/**
+	 * {@return an asymmetry moving in the encoding direction with the same value, or an error if this asymmetry is moving in the wrong direction}
+	 */
+	public abstract <T> Asymmetry<T, E> asEncoding();
+
+	/**
+	 * {@return an asymmetry moving in the decoding direction with the same value, or an error if this asymmetry is moving in the wrong direction}
+	 */
+	public abstract <T> Asymmetry<D, T> asDecoding();
+
 	private static final class Decoding<D, E> extends Asymmetry<D, E> {
 		private final D decoding;
 
@@ -61,6 +72,17 @@ public abstract sealed class Asymmetry<D, E> {
 		@Override
 		public DataResult<D> decoding() {
 			return DataResult.success(decoding);
+		}
+
+		@Override
+		public <T> Asymmetry<T, E> asEncoding() {
+			return discontinuous();
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T> Asymmetry<D, T> asDecoding() {
+			return (Asymmetry<D, T>) this;
 		}
 	}
 
@@ -79,6 +101,17 @@ public abstract sealed class Asymmetry<D, E> {
 		@Override
 		public DataResult<D> decoding() {
 			return DataResult.error(() -> "Attempted to access decoding value of an encoding asymmetry.");
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T> Asymmetry<T, E> asEncoding() {
+			return (Asymmetry<T, E>) this;
+		}
+
+		@Override
+		public <T> Asymmetry<D, T> asDecoding() {
+			return discontinuous();
 		}
 	}
 
@@ -105,6 +138,18 @@ public abstract sealed class Asymmetry<D, E> {
 				return DataResult.error(() -> "Attempted to access decoding value of a discontinuous asymmetry.");
 			}
 			return DataResult.error(error);
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T> Asymmetry<T, E> asEncoding() {
+			return (Asymmetry<T, E>) this;
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T> Asymmetry<D, T> asDecoding() {
+			return (Asymmetry<D, T>) this;
 		}
 
 		@SuppressWarnings({"unchecked", "OptionalGetWithoutIsPresent"})
@@ -220,7 +265,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @param <E1> the type of the encoding value after mapping
 	 */
 	public static <E0, D, E1> Codec<Asymmetry<D, E1>> mapEncoding(Codec<Asymmetry<D, E0>> codec, Function<E1, E0> mapEncoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(mapEncoding).map(Asymmetry::ofEncoding));
+		return codec.flatComapMap(Asymmetry::asDecoding, asymmetry -> asymmetry.encoding().map(mapEncoding).map(Asymmetry::ofEncoding));
 	}
 
 	/**
@@ -228,7 +273,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #mapEncoding(Codec, Function)
 	 */
 	public static <E0, D, E1> Codec<Asymmetry<D, E1>> flatMapEncoding(Codec<Asymmetry<D, E0>> codec, Function<E1, DataResult<E0>> mapEncoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().flatMap(mapEncoding).map(Asymmetry::ofEncoding));
+		return codec.flatComapMap(Asymmetry::asDecoding, asymmetry -> asymmetry.encoding().flatMap(mapEncoding).map(Asymmetry::ofEncoding));
 	}
 
 	/**
@@ -241,7 +286,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @param <D1> the type of the decoding value after mapping
 	 */
 	public static <E, D0, D1> Codec<Asymmetry<D1, E>> mapDecoding(Codec<Asymmetry<D0, E>> codec, Function<D0, D1> mapDecoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(Asymmetry::ofEncoding));
+		return codec.comapFlatMap(asymmetry -> asymmetry.decoding().map(mapDecoding).map(Asymmetry::ofDecoding), Asymmetry::asEncoding);
 	}
 
 	/**
@@ -249,7 +294,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #mapDecoding(Codec, Function)
 	 */
 	public static <E, D0, D1> Codec<Asymmetry<D1, E>> flatMapDecoding(Codec<Asymmetry<D0, E>> codec, Function<D0, DataResult<D1>> mapDecoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().flatMap(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(Asymmetry::ofEncoding));
+		return codec.comapFlatMap(asymmetry -> asymmetry.decoding().flatMap(mapDecoding).map(Asymmetry::ofDecoding), Asymmetry::asEncoding);
 	}
 
 	/**
@@ -276,12 +321,11 @@ public abstract sealed class Asymmetry<D, E> {
 	}
 
 	/**
-	 * Split an asymmetrical codec into two types by providing a pair of functions applied on the end of the codec
-	 * closest to the data.
+	 * Split a codec into two types by providing a pair of functions applied on the end of the codec closest to the data.
 	 * @param codec the codec to split
 	 * @param mapDecoding the function to apply to the decoding value when decoding
 	 * @param mapEncoding the function to apply to the encoding value when encoding
-	 * @return a codec of a single type
+	 * @return an asymmetrical codec
 	 * @param <E> the type of the encoding value
 	 * @param <D> the type of the decoding value
 	 * @param <O> the type of the split codec
@@ -319,7 +363,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #mapEncoding(Codec, Function)
 	 */
 	public static <E0, D, E1> MapCodec<Asymmetry<D, E1>> mapEncoding(MapCodec<Asymmetry<D, E0>> codec, Function<E1, E0> mapEncoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(mapEncoding).map(Asymmetry::ofEncoding));
+		return codec.flatXmap(asymmetry -> DataResult.success(asymmetry.asDecoding()), asymmetry -> asymmetry.encoding().map(mapEncoding).map(Asymmetry::ofEncoding));
 	}
 
 	/**
@@ -327,7 +371,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #flatMapEncoding(Codec, Function)
 	 */
 	public static <E0, D, E1> MapCodec<Asymmetry<D, E1>> flatMapEncoding(MapCodec<Asymmetry<D, E0>> codec, Function<E1, DataResult<E0>> mapEncoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().flatMap(mapEncoding).map(Asymmetry::ofEncoding));
+		return codec.flatXmap(asymmetry -> DataResult.success(asymmetry.asDecoding()), asymmetry -> asymmetry.encoding().flatMap(mapEncoding).map(Asymmetry::ofEncoding));
 	}
 
 	/**
@@ -335,7 +379,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #mapDecoding(Codec, Function)
 	 */
 	public static <E, D0, D1> MapCodec<Asymmetry<D1, E>> mapDecoding(MapCodec<Asymmetry<D0, E>> codec, Function<D0, D1> mapDecoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(Asymmetry::ofEncoding));
+		return codec.flatXmap(asymmetry -> asymmetry.decoding().map(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> DataResult.success(asymmetry.asEncoding()));
 	}
 
 	/**
@@ -343,7 +387,7 @@ public abstract sealed class Asymmetry<D, E> {
 	 * @see #flatMapDecoding(Codec, Function)
 	 */
 	public static <E, D0, D1> MapCodec<Asymmetry<D1, E>> flatMapDecoding(MapCodec<Asymmetry<D0, E>> codec, Function<D0, DataResult<D1>> mapDecoding) {
-		return codec.flatXmap(asymmetry -> asymmetry.decoding().flatMap(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> asymmetry.encoding().map(Asymmetry::ofEncoding));
+		return codec.flatXmap(asymmetry -> asymmetry.decoding().flatMap(mapDecoding).map(Asymmetry::ofDecoding), asymmetry -> DataResult.success(asymmetry.asEncoding()));
 	}
 
 	/**
