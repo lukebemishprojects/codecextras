@@ -3,11 +3,10 @@ package dev.lukebemish.codecextras.stream.mutable.dev.lukebemish.codecextras.str
 import dev.lukebemish.codecextras.Asymmetry;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
+import java.util.function.Function;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.codec.StreamDecoder;
 import net.minecraft.network.codec.StreamEncoder;
-
-import java.util.function.Function;
 
 /**
  * Utilities for using {@link StreamCodec} with {@link Asymmetry}.

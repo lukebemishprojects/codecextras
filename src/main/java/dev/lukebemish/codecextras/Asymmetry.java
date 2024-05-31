@@ -21,11 +21,10 @@ import com.mojang.serialization.Decoder;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.Encoder;
 import com.mojang.serialization.MapCodec;
-import org.jspecify.annotations.Nullable;
-
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a type that can be encoded and decoded by {@link Codec}s in an asymmetric manner. Specifically, the value

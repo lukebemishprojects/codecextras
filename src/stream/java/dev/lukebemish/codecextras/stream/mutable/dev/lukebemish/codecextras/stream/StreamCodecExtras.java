@@ -1,9 +1,8 @@
 package dev.lukebemish.codecextras.stream.mutable.dev.lukebemish.codecextras.stream;
 
+import java.util.Optional;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
-
-import java.util.Optional;
 
 /**
  * Various {@link StreamCodec} utilities that do not have homes other places.
