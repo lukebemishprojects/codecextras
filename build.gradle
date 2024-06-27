@@ -81,6 +81,7 @@ println "Building: $version"
 sourceSets {
 	stream {}
 	streamIntermediary {}
+	jmh {}
 }
 
 java {
@@ -110,6 +111,11 @@ repositories {
 dependencies {
 	api 'com.mojang:datafixerupper:7.0.14'
 	api 'org.slf4j:slf4j-api:2.0.1'
+
+	jmhCompileOnly cLibs.bundles.compileonly
+	jmhImplementation project(':')
+	jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
+	jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 
 	testCompileOnly cLibs.bundles.compileonly
 
@@ -146,6 +152,15 @@ dependencies {
 			)
 		}
 	}
+}
+
+tasks.register('jmh', JavaExec) {
+	group = 'benchmark'
+	dependsOn sourceSets.jmh.output
+	mainClass = 'org.openjdk.jmh.Main'
+	systemProperty 'jmh.executor', 'VIRTUAL'
+	systemProperty 'jmh.blackhole.mode', 'COMPILER'
+	classpath = sourceSets.jmh.runtimeClasspath
 }
 
 streamJar {
