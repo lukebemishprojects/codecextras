@@ -24,6 +24,16 @@ managedVersioning {
 				mavenSnapshot('github')
 			}
 		}
+		benchmark {
+			prettyName.set 'Benchmark'
+			workflowDispatch.set(true)
+			gradleJob {
+				buildCache()
+				javaVersion.set '21'
+				name.set 'build'
+				gradlew 'JMH', 'jmh'
+			}
+		}
 		release {
 			prettyName.set 'Release'
 			workflowDispatch.set(true)

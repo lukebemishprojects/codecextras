@@ -7,13 +7,12 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import org.jetbrains.annotations.ApiStatus;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Similar to {@link ExtendedRecordCodecBuilder}, an alternative to {@link RecordCodecBuilder} that allows for any
