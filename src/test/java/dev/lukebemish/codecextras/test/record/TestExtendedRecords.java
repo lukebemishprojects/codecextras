@@ -1,8 +1,9 @@
-package dev.lukebemish.codecextras.test;
+package dev.lukebemish.codecextras.test.record;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
+import dev.lukebemish.codecextras.test.CodecAssertions;
 import org.junit.jupiter.api.Test;
 
 class TestExtendedRecords {

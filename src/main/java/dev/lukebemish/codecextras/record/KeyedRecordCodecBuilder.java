@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras;
+package dev.lukebemish.codecextras.record;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -7,6 +7,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;

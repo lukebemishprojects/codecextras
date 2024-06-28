@@ -7,6 +7,7 @@ import java.util.stream.Stream;
 
 /**
  * An equivalent to {@link RecordCodecBuilder} that allows for any number of fields.
+ * <em>Note: this will be moved to {@link dev.lukebemish.codecextras.record} and potentially renamed in a future version.</em>
  * @param <A> the type of the object being encoded/decoded
  * @param <F> the type of the highest level field
  * @param <B> the type of the final builder function used during decoding

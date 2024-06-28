@@ -4,7 +4,7 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
-import dev.lukebemish.codecextras.KeyedRecordCodecBuilder;
+import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
 
 record TestRecord(
 	int a, int b, int c, int d,
