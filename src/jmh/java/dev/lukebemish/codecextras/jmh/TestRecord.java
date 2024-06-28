@@ -55,7 +55,7 @@ record TestRecord(
 			m, n, o, p
 		));
 
-	public static Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(i ->
+	public static final Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(i ->
 		i.with(Codec.INT.fieldOf("a"), TestRecord::a, (aI, aK) ->
 			aI.with(Codec.INT.fieldOf("b"), TestRecord::b, (bI, bK) ->
 				bI.with(Codec.INT.fieldOf("c"), TestRecord::c, (cI, cK) ->
