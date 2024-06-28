@@ -37,7 +37,7 @@ managedVersioning {
 				gradlew 'JMH', 'jmhResults'
 				step {
 					name.set 'Record JMH Output'
-					run.set 'echo \'### JMH Results\' >> $GITHUB_STEP_SUMMARY && cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
+					run.set 'cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
 				}
 			}
 		}

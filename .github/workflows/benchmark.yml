@@ -48,7 +48,7 @@
                 },
                 {
                     "name": "Record JMH Output",
-                    "run": "echo '### JMH Results' >> $GITHUB_STEP_SUMMARY && cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY"
+                    "run": "cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY"
                 }
             ]
         }
