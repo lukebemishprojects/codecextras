@@ -61,14 +61,19 @@ public final class KeyedRecordCodecBuilder<A> {
 	 * Holds the values of fields for the {@link KeyedRecordCodecBuilder} being built, when an object is being decoded.
 	 */
 	public static final class Container {
+		private final Key<?>[] keys;
 		private final Object[] array;
 
-		private Container(Object[] array) {
+		private Container(Key<?>[] keys, Object[] array) {
 			this.array = array;
+			this.keys = keys;
 		}
 
 		@SuppressWarnings("unchecked")
 		public <T> T get(Key<T> key) {
+			if (key.count > array.length || key != keys[key.count]) {
+				throw new IllegalArgumentException("Key does not belong to the container");
+			}
 			return (T) array[key.count];
 		}
 	}
@@ -110,9 +115,11 @@ public final class KeyedRecordCodecBuilder<A> {
 
 			@Override
 			public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-				Container container = new Container(new Object[built.builder.fields.size()]);
+				Key<?>[] keys = new Key[built.builder.fields.size()];
+				Container container = new Container(keys, new Object[built.builder.fields.size()]);
 				List<DataResult.Error<?>> errors = new ArrayList<>();
 				for (Field<A, ?> field : built.builder.fields) {
+					keys[field.key.count] = field.key;
 					decodePartial(ops, input, container, field, errors);
 				}
 				if (!errors.isEmpty()) {
