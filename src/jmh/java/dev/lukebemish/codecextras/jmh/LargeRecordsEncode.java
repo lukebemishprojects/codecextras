@@ -1,7 +1,6 @@
 package dev.lukebemish.codecextras.jmh;
 
 import com.mojang.serialization.JsonOps;
-import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -14,9 +13,11 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
+import java.util.concurrent.TimeUnit;
+
 public class LargeRecordsEncode {
-	@Measurement(time = 2)
-	@Warmup(time = 2)
+	@Measurement(time = 2, iterations = 5)
+	@Warmup(time = 2, iterations = 2)
 	@OutputTimeUnit(TimeUnit.MICROSECONDS)
 	@BenchmarkMode(Mode.AverageTime)
 	@State(value = Scope.Thread)
@@ -55,6 +56,9 @@ public class LargeRecordsEncode {
 		@Setup
 		public void setup() {
 			record = TestRecord.makeRecord(0);
+			TestRecord.RCB.encodeStart(JsonOps.INSTANCE, record);
+			TestRecord.KRCB.encodeStart(JsonOps.INSTANCE, record);
+			TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
 		}
 
 		@Benchmark
