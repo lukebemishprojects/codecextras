@@ -6,6 +6,14 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
+import org.jetbrains.annotations.ApiStatus;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.ConstantDynamic;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -16,13 +24,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.ApiStatus;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.ConstantDynamic;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 
 @ApiStatus.Experimental
 public final class MethodHandleRecordCodecBuilder<A> {
@@ -82,7 +83,7 @@ public final class MethodHandleRecordCodecBuilder<A> {
 				throw new IllegalArgumentException("Handle must have the same number of parameters as fields");
 			}
 			List<Class<?>> params = new ArrayList<>();
-			for (var field : fields) {
+			for (var ignored : fields) {
 				params.add(Object.class);
 			}
 			handle = originalHandle.asType(
@@ -236,6 +237,7 @@ public final class MethodHandleRecordCodecBuilder<A> {
 		return new ConstantCallSite(handle);
 	}
 
+	@SuppressWarnings("unused")
 	private static <A> DataResult<A> withError(DataResult.Error<?> original) {
 		return DataResult.error(original::message);
 	}
