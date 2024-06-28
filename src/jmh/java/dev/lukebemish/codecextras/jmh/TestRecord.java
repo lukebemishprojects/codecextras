@@ -5,6 +5,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
+import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
+import java.lang.invoke.MethodHandles;
 
 record TestRecord(
 	int a, int b, int c, int d,
@@ -54,6 +56,25 @@ record TestRecord(
 			i, j, k, l,
 			m, n, o, p
 		));
+
+	public static final Codec<TestRecord> MHRCB = MethodHandleRecordCodecBuilder.<TestRecord>start()
+		.with(Codec.INT.fieldOf("a"), TestRecord::a)
+		.with(Codec.INT.fieldOf("c"), TestRecord::c)
+		.with(Codec.INT.fieldOf("d"), TestRecord::d)
+		.with(Codec.INT.fieldOf("b"), TestRecord::b)
+		.with(Codec.INT.fieldOf("e"), TestRecord::e)
+		.with(Codec.INT.fieldOf("f"), TestRecord::f)
+		.with(Codec.INT.fieldOf("g"), TestRecord::g)
+		.with(Codec.INT.fieldOf("h"), TestRecord::h)
+		.with(Codec.INT.fieldOf("i"), TestRecord::i)
+		.with(Codec.INT.fieldOf("j"), TestRecord::j)
+		.with(Codec.INT.fieldOf("k"), TestRecord::k)
+		.with(Codec.INT.fieldOf("l"), TestRecord::l)
+		.with(Codec.INT.fieldOf("m"), TestRecord::m)
+		.with(Codec.INT.fieldOf("n"), TestRecord::n)
+		.with(Codec.INT.fieldOf("o"), TestRecord::o)
+		.with(Codec.INT.fieldOf("p"), TestRecord::p)
+		.build(() -> MethodHandles.lookup().unreflectConstructor(TestRecord.class.getDeclaredConstructors()[0]));
 
 	public static final Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(i ->
 		i.with(Codec.INT.fieldOf("a"), TestRecord::a, (aI, aK) ->

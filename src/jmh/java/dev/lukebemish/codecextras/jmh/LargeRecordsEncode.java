@@ -43,6 +43,13 @@ public class LargeRecordsEncode {
 			var result = TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
 			blackhole.consume(result.result().orElseThrow());
 		}
+
+		@Benchmark
+		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+			TestRecord record = TestRecord.makeRecord(counter++);
+			var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
+			blackhole.consume(result.result().orElseThrow());
+		}
 	}
 
 	@OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -75,6 +82,12 @@ public class LargeRecordsEncode {
 		@Benchmark
 		public void extendedRecordCodecBuilder(Blackhole blackhole) {
 			var result = TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
+			blackhole.consume(result.result().orElseThrow());
+		}
+
+		@Benchmark
+		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+			var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
 			blackhole.consume(result.result().orElseThrow());
 		}
 	}

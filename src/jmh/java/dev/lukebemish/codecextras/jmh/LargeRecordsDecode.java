@@ -44,6 +44,13 @@ public class LargeRecordsDecode {
 			var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
 			blackhole.consume(result.result().orElseThrow());
 		}
+
+		@Benchmark
+		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+			JsonElement json = TestRecord.makeData(counter++);
+			var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+			blackhole.consume(result.result().orElseThrow());
+		}
 	}
 
 	@OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -76,6 +83,12 @@ public class LargeRecordsDecode {
 		@Benchmark
 		public void extendedRecordCodecBuilder(Blackhole blackhole) {
 			var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
+			blackhole.consume(result.result().orElseThrow());
+		}
+
+		@Benchmark
+		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+			var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
 			blackhole.consume(result.result().orElseThrow());
 		}
 	}

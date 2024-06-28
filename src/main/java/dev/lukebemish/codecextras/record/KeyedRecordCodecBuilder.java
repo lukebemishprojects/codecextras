@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -110,15 +111,20 @@ public final class KeyedRecordCodecBuilder<A> {
 			@Override
 			public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
 				Container container = new Container(new Object[built.builder.fields.size()]);
+				List<DataResult.Error<?>> errors = new ArrayList<>();
 				for (Field<A, ?> field : built.builder.fields) {
-					decodePartial(ops, input, container, field);
+					decodePartial(ops, input, container, field, errors);
+				}
+				if (!errors.isEmpty()) {
+					return DataResult.error(() -> "Failed to decode object: " + errors.stream().map(DataResult.Error::message).collect(Collectors.joining("; ")));
 				}
 				return built.function.apply(container);
 			}
 
-			private <T, P> void decodePartial(DynamicOps<T> ops, MapLike<T> input, Container container, Field<A, P> field) {
+			private <T, P> void decodePartial(DynamicOps<T> ops, MapLike<T> input, Container container, Field<A, P> field, List<DataResult.Error<?>> errors) {
 				DataResult<P> result = field.partial.decode(ops, input);
 				result.result().ifPresent(value -> container.array[field.key.count] = value);
+				result.error().ifPresent(errors::add);
 			}
 
 			@Override
