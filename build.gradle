@@ -1,3 +1,5 @@
+import dev.lukebemish.codecextras.gradle.FormatJmhOutput
+
 plugins {
 	alias cLibs.plugins.conventions.java
 	alias cLibs.plugins.managedversioning
@@ -17,6 +19,7 @@ managedVersioning {
 			onBranches.add 'main'
 			gradleJob {
 				buildCache()
+				cacheReadOnly.set false
 				javaVersion.set '21'
 				name.set 'build'
 				gradlew 'Build', 'build'
@@ -31,7 +34,11 @@ managedVersioning {
 				buildCache()
 				javaVersion.set '21'
 				name.set 'build'
-				gradlew 'JMH', 'jmh'
+				gradlew 'JMH', 'jmhResults'
+				step {
+					name.set 'Record JMH Output'
+					run.set 'echo \'### JMH Results\' >> $GITHUB_STEP_SUMMARY && cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
+				}
 			}
 		}
 		release {
@@ -170,7 +177,19 @@ tasks.register('jmh', JavaExec) {
 	mainClass = 'org.openjdk.jmh.Main'
 	systemProperty 'jmh.executor', 'VIRTUAL'
 	systemProperty 'jmh.blackhole.mode', 'COMPILER'
+	args '-rf', 'json', '-rff', 'build/reports/jmh/results.json'
 	classpath = sourceSets.jmh.runtimeClasspath
+	doFirst {
+		mkdir('build/reports/jmh')
+	}
+	outputs.file('build/reports/jmh/results.json')
+}
+
+tasks.register('jmhResults', FormatJmhOutput) {
+	group = 'benchmark'
+	dependsOn tasks.jmh
+	jmhResults.set project.file('build/reports/jmh/results.json')
+	formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
 streamJar {

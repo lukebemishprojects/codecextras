@@ -38,13 +38,17 @@
                 },
                 {
                     "name": "JMH",
-                    "run": "./gradlew jmh",
+                    "run": "./gradlew jmhResults",
                     "id": "jmh",
                     "env": {
                         "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
                         "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
                         "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}"
                     }
+                },
+                {
+                    "name": "Record JMH Output",
+                    "run": "echo '### JMH Results' >> $GITHUB_STEP_SUMMARY && cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY"
                 }
             ]
         }
