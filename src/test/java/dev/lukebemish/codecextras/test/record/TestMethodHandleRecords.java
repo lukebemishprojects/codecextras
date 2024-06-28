@@ -5,7 +5,6 @@ import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
 import dev.lukebemish.codecextras.test.CodecAssertions;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import org.junit.jupiter.api.Test;
 
 class TestMethodHandleRecords {
@@ -14,9 +13,7 @@ class TestMethodHandleRecords {
 			.with(Codec.INT.fieldOf("a"), TestRecord::a)
 			.with(Codec.INT.fieldOf("b"), TestRecord::b)
 			.with(Codec.FLOAT.fieldOf("c"), TestRecord::c)
-			.build(() ->
-				MethodHandles.lookup().findConstructor(TestRecord.class, MethodType.methodType(void.class, int.class, int.class, float.class))
-			);
+			.buildWithConstructor(MethodHandles.lookup(), TestRecord.class);
 	}
 
 	private final String json = """

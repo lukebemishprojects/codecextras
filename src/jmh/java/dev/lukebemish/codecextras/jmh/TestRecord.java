@@ -74,7 +74,7 @@ record TestRecord(
 		.with(Codec.INT.fieldOf("n"), TestRecord::n)
 		.with(Codec.INT.fieldOf("o"), TestRecord::o)
 		.with(Codec.INT.fieldOf("p"), TestRecord::p)
-		.build(() -> MethodHandles.lookup().unreflectConstructor(TestRecord.class.getDeclaredConstructors()[0]));
+		.buildWithConstructor(MethodHandles.lookup(), TestRecord.class);
 
 	public static final Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(i ->
 		i.with(Codec.INT.fieldOf("a"), TestRecord::a, (aI, aK) ->

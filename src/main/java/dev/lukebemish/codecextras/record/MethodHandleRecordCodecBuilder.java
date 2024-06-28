@@ -40,6 +40,22 @@ public final class MethodHandleRecordCodecBuilder<A> {
 		return new MethodHandleRecordCodecBuilder<>(newFields);
 	}
 
+	public Codec<A> buildWithConstructor(MethodHandles.Lookup lookup, Class<?> clazz) {
+		return buildMapWithConstructor(lookup, clazz).codec();
+	}
+
+	public MapCodec<A> buildMapWithConstructor(MethodHandles.Lookup lookup, Class<?> clazz) {
+		return buildMap(() -> {
+			var ctors =Arrays.stream(clazz.getDeclaredConstructors()).filter(c -> c.getParameterCount() == fields.size()).toList();
+			if (ctors.isEmpty()) {
+				throw new IllegalArgumentException("No constructor with " + fields.size() + " parameters found");
+			} else if (ctors.size() > 1) {
+				throw new IllegalArgumentException("Multiple constructors with " + fields.size() + " parameters found");
+			}
+			return lookup.unreflectConstructor(ctors.get(0));
+		});
+	}
+
 	public Codec<A> build(HandleSupplier constructor) {
 		return buildMap(constructor).codec();
 	}
