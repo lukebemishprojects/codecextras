@@ -71,7 +71,7 @@ public final class KeyedRecordCodecBuilder<A> {
 
 		@SuppressWarnings("unchecked")
 		public <T> T get(Key<T> key) {
-			if (key.count > array.length || key != keys[key.count]) {
+			if (key.count >= array.length || key != keys[key.count]) {
 				throw new IllegalArgumentException("Key does not belong to the container");
 			}
 			return (T) array[key.count];
