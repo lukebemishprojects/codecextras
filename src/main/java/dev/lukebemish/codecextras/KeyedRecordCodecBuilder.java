@@ -31,7 +31,7 @@ public final class KeyedRecordCodecBuilder<A> {
 	/**
 	 * A key for a field in a {@link KeyedRecordCodecBuilder}; can be used to retrieve the value of that field from a
 	 * {@link Container} created by the corresponding {@link KeyedRecordCodecBuilder}.
-	 * @param <T>
+	 * @param <T> the type of the matching field
 	 */
 	public static final class Key<T> {
 		private final int count;
