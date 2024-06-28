@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
@@ -23,6 +24,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
+@ApiStatus.Experimental
 public final class MethodHandleRecordCodecBuilder<A> {
 	private final List<Field<A, ?>> fields;
 
