@@ -28,6 +28,11 @@ public final class KeyedRecordCodecBuilder<A> {
 		this.fields = fields;
 	}
 
+	/**
+	 * A key for a field in a {@link KeyedRecordCodecBuilder}; can be used to retrieve the value of that field from a
+	 * {@link Container} created by the corresponding {@link KeyedRecordCodecBuilder}.
+	 * @param <T>
+	 */
 	public static final class Key<T> {
 		private final int count;
 
@@ -36,6 +41,10 @@ public final class KeyedRecordCodecBuilder<A> {
 		}
 	}
 
+	/**
+	 * A completed {@link KeyedRecordCodecBuilder}.
+	 * @param <A> the type of the object being encoded/decoded
+	 */
 	public static final class Built<A> {
 		private final KeyedRecordCodecBuilder<A> builder;
 		private final Function<Container, DataResult<A>> function;
@@ -46,6 +55,9 @@ public final class KeyedRecordCodecBuilder<A> {
 		}
 	}
 
+	/**
+	 * Holds the values of fields for the {@link KeyedRecordCodecBuilder} being built, when an object is being decoded.
+	 */
 	public static final class Container {
 		private final Object[] array;
 
@@ -61,10 +73,22 @@ public final class KeyedRecordCodecBuilder<A> {
 
 	private record Field<A, T>(Key<T> key, Function<A, T> getter, MapCodec<T> partial) {}
 
+	/**
+	 * Creates a codec given a {@link KeyedRecordCodecBuilder} building function.
+	 * @param function should add all necessary fields and the function to assemble the object on decode
+	 * @return a {@link Codec} for the type {@code A}
+	 * @param <A> the type of the object being encoded/decoded
+	 */
 	public static <A> Codec<A> codec(Function<KeyedRecordCodecBuilder<A>, Built<A>> function) {
 		return mapCodec(function).codec();
 	}
 
+	/**
+	 * An equivalent to {@link #codec(Function)} that returns a {@link MapCodec} instead of a {@link Codec}.
+	 * @param function should add all necessary fields and the function to assemble the object on decode
+	 * @return a {@link MapCodec} for the type {@code A}
+	 * @param <A> the type of the object being encoded/decoded
+	 */
 	public static <A> MapCodec<A> mapCodec(Function<KeyedRecordCodecBuilder<A>, Built<A>> function) {
 		KeyedRecordCodecBuilder<A> builder = new KeyedRecordCodecBuilder<>(List.of());
 		Built<A> built = function.apply(builder);
@@ -103,14 +127,37 @@ public final class KeyedRecordCodecBuilder<A> {
 		};
 	}
 
+	/**
+	 * Similar to {@link #build(Function)}, but allows for returning a {@link DataResult} instead of the object
+	 * directly. Useful for if the object may not be able to be decoded in some cases.
+	 * @param function the function to assemble the object on decode
+	 * @return a {@link Built} object
+	 */
 	public Built<A> flatBuild(Function<Container, DataResult<A>> function) {
 		return new Built<>(this, function);
 	}
 
+	/**
+	 * Finish building a {@link KeyedRecordCodecBuilder}. The {@link Function} parameter accepts a {@link Container}
+	 * from which any {@link Key} corresponding to a field on the builder can be used to retrieve the value of that
+	 * field for the object being decoded.
+	 * @param function the function to assemble the object on decode
+	 * @return a {@link Built} object
+	 */
 	public Built<A> build(Function<Container, A> function) {
 		return flatBuild(function.andThen(DataResult::success));
 	}
 
+	/**
+	 * Adds a field to the builder. Inputs to the {@link BiFunction} parameter are a {@link KeyedRecordCodecBuilder} to
+	 * continue building from, and a {@link Key} that can be used to retrieve the value of the field from a
+	 * {@link Container} when the object is being assembled.
+	 * @param partial the codec for the field
+	 * @param getter the getter for the field
+	 * @param rest the next step in building the codec
+	 * @return a new {@link Built} object
+	 * @param <T> the type of the field
+	 */
 	public <T> Built<A> with(MapCodec<T> partial, Function<A, T> getter, BiFunction<KeyedRecordCodecBuilder<A>, Key<T>, Built<A>> rest) {
 		Key<T> key = new Key<>(fields.size());
 		Field<A, T> field = new Field<>(key, getter, partial);
