@@ -8,6 +8,35 @@ import java.util.List;
 
 public interface Structure<A> {
 	<Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);
+	default Annotations annotations() {
+		return Annotations.empty();
+	}
+
+	default <T> Structure<A> annotate(Key<T> key, T value) {
+		var outer = this;
+		var annotations = annotations().with(key, value);
+		return annotatedDelegatingStructure(outer, annotations);
+	}
+
+	default Structure<A> annotate(Annotations annotations) {
+		var outer = this;
+		var combined = annotations().join(annotations);
+		return annotatedDelegatingStructure(outer, combined);
+	}
+
+	private static <A> Structure<A> annotatedDelegatingStructure(Structure<A> outer, Annotations annotations) {
+		return new Structure<A>() {
+			@Override
+			public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+				return outer.interpret(interpreter);
+			}
+
+			@Override
+			public Annotations annotations() {
+				return annotations;
+			}
+		};
+	}
 
 	default Structure<List<A>> listOf() {
 		var outer = this;

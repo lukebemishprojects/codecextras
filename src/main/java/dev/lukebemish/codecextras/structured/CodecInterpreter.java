@@ -5,6 +5,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import java.util.List;
 import java.util.function.Function;
 
@@ -30,7 +31,7 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
 
 	@Override
 	public <A> DataResult<App<Holder.Mu, List<A>>> list(App<Holder.Mu, A> single) {
-		return DataResult.success(new Holder<>(Holder.unbox(single).codec.listOf()));
+		return DataResult.success(new Holder<>(CommentFirstListCodec.of(Holder.unbox(single).codec)));
 	}
 
 	@Override

@@ -8,6 +8,7 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
+import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -43,7 +44,11 @@ class StructuredMapCodec<A> extends MapCodec<A> {
 		if (result.error().isPresent()) {
 			return DataResult.error(result.error().orElseThrow().messageSupplier());
 		}
-		mapCodecFields.add(new StructuredMapCodec.Field<>(unboxer.unbox(result.result().orElseThrow()).fieldOf(field.name()), field.key(), field.getter()));
+		Codec<F> fieldCodec = unboxer.unbox(result.result().orElseThrow());
+		MapCodec<F> fieldMapCodec = field.structure().annotations().get(Annotations.COMMENT)
+			.map(comment -> CommentMapCodec.of(fieldCodec.fieldOf(field.name()), comment))
+			.orElseGet(() -> fieldCodec.fieldOf(field.name()));
+		mapCodecFields.add(new StructuredMapCodec.Field<>(fieldMapCodec, field.key(), field.getter()));
 		return null;
 	}
 

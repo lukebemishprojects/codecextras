@@ -20,14 +20,14 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 	public StreamCodecInterpreter(Keys<Holder.Mu<B>> keys) {
 		super(keys.join(Keys.<Holder.Mu<B>>builder()
 			.add(Interpreter.UNIT, new Holder<>(StreamCodec.of((buf, data) -> {}, buf -> Unit.INSTANCE)))
-			.add(Interpreter.BOOL, new Holder<>(ByteBufCodecs.BOOL))
-			.add(Interpreter.BYTE, new Holder<>(ByteBufCodecs.BYTE))
-			.add(Interpreter.SHORT, new Holder<>(ByteBufCodecs.SHORT))
-			.add(Interpreter.INT, new Holder<>(ByteBufCodecs.VAR_INT))
-			.add(Interpreter.LONG, new Holder<>(ByteBufCodecs.VAR_LONG))
-			.add(Interpreter.FLOAT, new Holder<>(ByteBufCodecs.FLOAT))
-			.add(Interpreter.DOUBLE, new Holder<>(ByteBufCodecs.DOUBLE))
-			.add(Interpreter.STRING, new Holder<>(ByteBufCodecs.STRING_UTF8))
+			.add(Interpreter.BOOL, new Holder<>(ByteBufCodecs.BOOL.cast()))
+			.add(Interpreter.BYTE, new Holder<>(ByteBufCodecs.BYTE.cast()))
+			.add(Interpreter.SHORT, new Holder<>(ByteBufCodecs.SHORT.cast()))
+			.add(Interpreter.INT, new Holder<>(ByteBufCodecs.VAR_INT.cast()))
+			.add(Interpreter.LONG, new Holder<>(ByteBufCodecs.VAR_LONG.cast()))
+			.add(Interpreter.FLOAT, new Holder<>(ByteBufCodecs.FLOAT.cast()))
+			.add(Interpreter.DOUBLE, new Holder<>(ByteBufCodecs.DOUBLE.cast()))
+			.add(Interpreter.STRING, new Holder<>(ByteBufCodecs.STRING_UTF8.cast()))
 			.build()
 		));
 	}
@@ -38,7 +38,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
 	@Override
 	public <A> DataResult<App<Holder.Mu<B>, List<A>>> list(App<Holder.Mu<B>, A> single) {
-		return DataResult.success(new Holder<>(list(unbox(single))));
+		return DataResult.success(new Holder<>(StreamCodecInterpreter.list(unbox(single))));
 	}
 
 	private static <B extends ByteBuf, T> StreamCodec<B, List<T>> list(StreamCodec<B, T> elementCodec) {
@@ -86,14 +86,14 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 		return null;
 	}
 
-	public static <B, T> StreamCodec<? super B, T> unbox(App<Holder.Mu<B>, T> box) {
+	public static <B extends ByteBuf, T> StreamCodec<B, T> unbox(App<Holder.Mu<B>, T> box) {
 		return Holder.unbox(box).streamCodec();
 	}
 
-	public record Holder<B, T>(StreamCodec<? super B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {
-		public static final class Mu<B> implements K1 {}
+	public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {
+		public static final class Mu<B extends ByteBuf> implements K1 {}
 
-		static <B, T> StreamCodecInterpreter.Holder<B, T> unbox(App<StreamCodecInterpreter.Holder.Mu<B>, T> box) {
+		static <B extends ByteBuf, T> StreamCodecInterpreter.Holder<B, T> unbox(App<StreamCodecInterpreter.Holder.Mu<B>, T> box) {
 			return (StreamCodecInterpreter.Holder<B, T>) box;
 		}
 	}
