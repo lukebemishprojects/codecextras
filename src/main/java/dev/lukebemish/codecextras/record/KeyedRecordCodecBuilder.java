@@ -10,7 +10,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -19,16 +18,13 @@ import org.jetbrains.annotations.ApiStatus;
 /**
  * Similar to {@link ExtendedRecordCodecBuilder}, an alternative to {@link RecordCodecBuilder} that allows for any
  * number of fields. Unlike {@link ExtendedRecordCodecBuilder}, this does not require massively curried lambdas and so
- * is less likely to make IDEs cry, and may be slightly faster in some scenarios; the tradeoff is some particularly
- * nested lambdas to build it.
+ * is less likely to make IDEs cry, and may be slightly faster in some scenarios.
  */
 @ApiStatus.Experimental
 public final class KeyedRecordCodecBuilder<A> {
-	private final List<Field<A, ?>> fields;
+	private final List<Field<A, ?>> fields = new ArrayList<>();
 
-	private KeyedRecordCodecBuilder(List<Field<A, ?>> fields) {
-		this.fields = fields;
-	}
+	private KeyedRecordCodecBuilder() {}
 
 	/**
 	 * A key for a field in a {@link KeyedRecordCodecBuilder}; can be used to retrieve the value of that field from a
@@ -40,20 +36,6 @@ public final class KeyedRecordCodecBuilder<A> {
 
 		private Key(int i) {
 			this.count = i;
-		}
-	}
-
-	/**
-	 * A completed {@link KeyedRecordCodecBuilder}.
-	 * @param <A> the type of the object being encoded/decoded
-	 */
-	public static final class Built<A> {
-		private final KeyedRecordCodecBuilder<A> builder;
-		private final Function<Container, DataResult<A>> function;
-
-		private Built(KeyedRecordCodecBuilder<A> builder, Function<Container, DataResult<A>> function) {
-			this.builder = builder;
-			this.function = function;
 		}
 	}
 
@@ -82,27 +64,47 @@ public final class KeyedRecordCodecBuilder<A> {
 
 	/**
 	 * Creates a codec given a {@link KeyedRecordCodecBuilder} building function.
-	 * @param function should add all necessary fields and the function to assemble the object on decode
+	 * @param function should add all necessary fields and return the function to assemble the object on decode
 	 * @return a {@link Codec} for the type {@code A}
 	 * @param <A> the type of the object being encoded/decoded
 	 */
-	public static <A> Codec<A> codec(Function<KeyedRecordCodecBuilder<A>, Built<A>> function) {
-		return mapCodec(function).codec();
+	public static <A> Codec<A> codec(Function<KeyedRecordCodecBuilder<A>, Function<Container, A>> function) {
+		return codecFlat(function.andThen(f -> f.andThen(DataResult::success)));
 	}
 
 	/**
 	 * An equivalent to {@link #codec(Function)} that returns a {@link MapCodec} instead of a {@link Codec}.
-	 * @param function should add all necessary fields and the function to assemble the object on decode
+	 * @param function should add all necessary fields and return the function to assemble the object on decode
 	 * @return a {@link MapCodec} for the type {@code A}
 	 * @param <A> the type of the object being encoded/decoded
 	 */
-	public static <A> MapCodec<A> mapCodec(Function<KeyedRecordCodecBuilder<A>, Built<A>> function) {
-		KeyedRecordCodecBuilder<A> builder = new KeyedRecordCodecBuilder<>(List.of());
-		Built<A> built = function.apply(builder);
+	public static <A> MapCodec<A> mapCodec(Function<KeyedRecordCodecBuilder<A>, Function<Container, A>> function) {
+		return mapCodecFlat(function.andThen(f -> f.andThen(DataResult::success)));
+	}
+
+	/**
+	 * An equivalent to {@link #codec(Function)} that allows for optionally-successful combining of fields.
+	 * @param function should add all necessary fields and return the function to assemble the object on decode
+	 * @return a {@link MapCodec} for the type {@code A}
+	 * @param <A> the type of the object being encoded/decoded
+	 */
+	public static <A> Codec<A> codecFlat(Function<KeyedRecordCodecBuilder<A>, Function<Container, DataResult<A>>> function) {
+		return mapCodecFlat(function).codec();
+	}
+
+	/**
+	 * An equivalent to {@link #mapCodec(Function)} that allows for optionally-successful combining of fields.
+	 * @param function should add all necessary fields and return the function to assemble the object on decode
+	 * @return a {@link MapCodec} for the type {@code A}
+	 * @param <A> the type of the object being encoded/decoded
+	 */
+	public static <A> MapCodec<A> mapCodecFlat(Function<KeyedRecordCodecBuilder<A>, Function<Container, DataResult<A>>> function) {
+		KeyedRecordCodecBuilder<A> builder = new KeyedRecordCodecBuilder<>();
+		var combiner = function.apply(builder);
 		return new MapCodec<>() {
 			@Override
 			public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-				for (Field<A, ?> field : built.builder.fields) {
+				for (Field<A, ?> field : builder.fields) {
 					prefix = encodePartial(input, ops, prefix, field);
 				}
 				return prefix;
@@ -115,17 +117,17 @@ public final class KeyedRecordCodecBuilder<A> {
 
 			@Override
 			public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-				Key<?>[] keys = new Key[built.builder.fields.size()];
-				Container container = new Container(keys, new Object[built.builder.fields.size()]);
+				Key<?>[] keys = new Key[builder.fields.size()];
+				Container container = new Container(keys, new Object[builder.fields.size()]);
 				List<DataResult.Error<?>> errors = new ArrayList<>();
-				for (Field<A, ?> field : built.builder.fields) {
+				for (Field<A, ?> field : builder.fields) {
 					keys[field.key.count] = field.key;
 					decodePartial(ops, input, container, field, errors);
 				}
 				if (!errors.isEmpty()) {
 					return DataResult.error(() -> "Failed to decode object: " + errors.stream().map(DataResult.Error::message).collect(Collectors.joining("; ")));
 				}
-				return built.function.apply(container);
+				return combiner.apply(container);
 			}
 
 			private <T, P> void decodePartial(DynamicOps<T> ops, MapLike<T> input, Container container, Field<A, P> field, List<DataResult.Error<?>> errors) {
@@ -136,48 +138,23 @@ public final class KeyedRecordCodecBuilder<A> {
 
 			@Override
 			public <T> Stream<T> keys(DynamicOps<T> ops) {
-				return built.builder.fields.stream().flatMap(field -> field.partial.keys(ops));
+				return builder.fields.stream().flatMap(field -> field.partial.keys(ops));
 			}
 		};
 	}
 
 	/**
-	 * Similar to {@link #build(Function)}, but allows for returning a {@link DataResult} instead of the object
-	 * directly. Useful for if the object may not be able to be decoded in some cases.
-	 * @param function the function to assemble the object on decode
-	 * @return a {@link Built} object
-	 */
-	public Built<A> flatBuild(Function<Container, DataResult<A>> function) {
-		return new Built<>(this, function);
-	}
-
-	/**
-	 * Finish building a {@link KeyedRecordCodecBuilder}. The {@link Function} parameter accepts a {@link Container}
-	 * from which any {@link Key} corresponding to a field on the builder can be used to retrieve the value of that
-	 * field for the object being decoded.
-	 * @param function the function to assemble the object on decode
-	 * @return a {@link Built} object
-	 */
-	public Built<A> build(Function<Container, A> function) {
-		return flatBuild(function.andThen(DataResult::success));
-	}
-
-	/**
-	 * Adds a field to the builder. Inputs to the {@link BiFunction} parameter are a {@link KeyedRecordCodecBuilder} to
-	 * continue building from, and a {@link Key} that can be used to retrieve the value of the field from a
+	 * Adds a field to the builder, and provides a key which can be used to retrieve that field's value from a
 	 * {@link Container} when the object is being assembled.
 	 * @param partial the codec for the field
 	 * @param getter the getter for the field
-	 * @param rest the next step in building the codec
-	 * @return a new {@link Built} object
+	 * @return a {@link Key} that can be used to retrieve the value of the field
 	 * @param <T> the type of the field
 	 */
-	public <T> Built<A> with(MapCodec<T> partial, Function<A, T> getter, BiFunction<KeyedRecordCodecBuilder<A>, Key<T>, Built<A>> rest) {
+	public <T> Key<T> add(MapCodec<T> partial, Function<A, T> getter) {
 		Key<T> key = new Key<>(fields.size());
 		Field<A, T> field = new Field<>(key, getter, partial);
-		List<Field<A, ?>> newFields = new ArrayList<>(fields);
-		newFields.add(field);
-		KeyedRecordCodecBuilder<A> newBuilder = new KeyedRecordCodecBuilder<>(newFields);
-		return rest.apply(newBuilder, key);
+		fields.add(field);
+		return key;
 	}
 }

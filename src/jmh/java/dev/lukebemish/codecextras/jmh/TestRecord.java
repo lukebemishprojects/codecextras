@@ -76,48 +76,30 @@ record TestRecord(
 		.with(Codec.INT.fieldOf("p"), TestRecord::p)
 		.buildWithConstructor(MethodHandles.lookup(), TestRecord.class);
 
-	public static final Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(i ->
-		i.with(Codec.INT.fieldOf("a"), TestRecord::a, (aI, aK) ->
-			aI.with(Codec.INT.fieldOf("b"), TestRecord::b, (bI, bK) ->
-				bI.with(Codec.INT.fieldOf("c"), TestRecord::c, (cI, cK) ->
-					cI.with(Codec.INT.fieldOf("d"), TestRecord::d, (dI, dK) ->
-						dI.with(Codec.INT.fieldOf("e"), TestRecord::e, (eI, eK) ->
-							eI.with(Codec.INT.fieldOf("f"), TestRecord::f, (fI, fK) ->
-								fI.with(Codec.INT.fieldOf("g"), TestRecord::g, (gI, gK) ->
-									gI.with(Codec.INT.fieldOf("h"), TestRecord::h, (hI, hK) ->
-										hI.with(Codec.INT.fieldOf("i"), TestRecord::i, (iI, iK) ->
-											iI.with(Codec.INT.fieldOf("j"), TestRecord::j, (jI, jK) ->
-												jI.with(Codec.INT.fieldOf("k"), TestRecord::k, (kI, kK) ->
-													kI.with(Codec.INT.fieldOf("l"), TestRecord::l, (lI, lK) ->
-														lI.with(Codec.INT.fieldOf("m"), TestRecord::m, (mI, mK) ->
-															mI.with(Codec.INT.fieldOf("n"), TestRecord::n, (nI, nK) ->
-																nI.with(Codec.INT.fieldOf("o"), TestRecord::o, (oI, oK) ->
-																	oI.with(Codec.INT.fieldOf("p"), TestRecord::p, (pI, pK) ->
-																		pI.build(container ->
-																			new TestRecord(
-																				container.get(aK), container.get(bK), container.get(cK), container.get(dK),
-																				container.get(eK), container.get(fK), container.get(gK), container.get(hK),
-																				container.get(iK), container.get(jK), container.get(kK), container.get(lK),
-																				container.get(mK), container.get(nK), container.get(oK), container.get(pK)
-																			)
-																		)
-																	)
-																)
-															)
-														)
-													)
-												)
-											)
-										)
-									)
-								)
-							)
-						)
-					)
-				)
-			)
-		)
-	);
+	public static final Codec<TestRecord> KRCB = KeyedRecordCodecBuilder.codec(builder -> {
+		var a = builder.add(Codec.INT.fieldOf("a"), TestRecord::a);
+		var b = builder.add(Codec.INT.fieldOf("b"), TestRecord::b);
+		var c = builder.add(Codec.INT.fieldOf("c"), TestRecord::c);
+		var d = builder.add(Codec.INT.fieldOf("d"), TestRecord::d);
+		var e = builder.add(Codec.INT.fieldOf("e"), TestRecord::e);
+		var f = builder.add(Codec.INT.fieldOf("f"), TestRecord::f);
+		var g = builder.add(Codec.INT.fieldOf("g"), TestRecord::g);
+		var h = builder.add(Codec.INT.fieldOf("h"), TestRecord::h);
+		var i = builder.add(Codec.INT.fieldOf("i"), TestRecord::i);
+		var j = builder.add(Codec.INT.fieldOf("j"), TestRecord::j);
+		var k = builder.add(Codec.INT.fieldOf("k"), TestRecord::k);
+		var l = builder.add(Codec.INT.fieldOf("l"), TestRecord::l);
+		var m = builder.add(Codec.INT.fieldOf("m"), TestRecord::m);
+		var n = builder.add(Codec.INT.fieldOf("n"), TestRecord::n);
+		var o = builder.add(Codec.INT.fieldOf("o"), TestRecord::o);
+		var p = builder.add(Codec.INT.fieldOf("p"), TestRecord::p);
+		return container -> new TestRecord(
+			container.get(a), container.get(b), container.get(c), container.get(d),
+			container.get(e), container.get(f), container.get(g), container.get(h),
+			container.get(i), container.get(j), container.get(k), container.get(l),
+			container.get(m), container.get(n), container.get(o), container.get(p)
+		);
+	});
 
 	public static TestRecord makeRecord(int i) {
 		return new TestRecord(

@@ -8,15 +8,12 @@ import org.junit.jupiter.api.Test;
 
 class TestKeyedRecords {
 	private record TestRecord(int a, int b, float c) {
-		public static final Codec<TestRecord> CODEC = KeyedRecordCodecBuilder.codec(i ->
-			i.with(Codec.INT.fieldOf("a"), TestRecord::a, (aI, aK) ->
-				aI.with(Codec.INT.fieldOf("b"), TestRecord::b, (bI, bK) ->
-					bI.with(Codec.FLOAT.fieldOf("c"), TestRecord::c, (cI, cK) ->
-						cI.build(container -> new TestRecord(container.get(aK), container.get(bK), container.get(cK)))
-					)
-				)
-			)
-		);
+		public static final Codec<TestRecord> CODEC = KeyedRecordCodecBuilder.codec(i -> {
+			var a = i.add(Codec.INT.fieldOf("a"), TestRecord::a);
+			var b = i.add(Codec.INT.fieldOf("b"), TestRecord::b);
+			var c = i.add(Codec.FLOAT.fieldOf("c"), TestRecord::c);
+			return container -> new TestRecord(container.get(a), container.get(b), container.get(c));
+		});
 	}
 
 	private final String json = """
