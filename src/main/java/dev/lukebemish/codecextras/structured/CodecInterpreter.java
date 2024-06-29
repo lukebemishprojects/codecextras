@@ -5,7 +5,6 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-
 import java.util.List;
 import java.util.function.Function;
 

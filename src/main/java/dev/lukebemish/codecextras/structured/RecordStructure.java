@@ -3,7 +3,6 @@ package dev.lukebemish.codecextras.structured;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;

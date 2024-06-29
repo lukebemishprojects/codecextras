@@ -2,7 +2,6 @@ package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
-
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;

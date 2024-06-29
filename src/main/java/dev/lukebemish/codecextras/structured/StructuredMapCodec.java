@@ -8,12 +8,11 @@ import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 class StructuredMapCodec<A> extends MapCodec<A> {
 	private record Field<A, T>(MapCodec<T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}

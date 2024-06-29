@@ -9,13 +9,12 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import org.jspecify.annotations.Nullable;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>> {
 	public StreamCodecInterpreter(Keys<Holder.Mu<B>> keys) {
