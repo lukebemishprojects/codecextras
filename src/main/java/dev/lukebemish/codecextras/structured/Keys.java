@@ -19,6 +19,16 @@ public final class Keys<Mu extends K1> {
 		return Optional.ofNullable((App<Mu, A>) keys.get(key));
 	}
 
+	public <N extends K1> Keys<N> map(Converter<Mu, N> converter) {
+		var map = new IdentityHashMap<Key<?>, App<N, ?>>();
+		keys.forEach((key, value) -> map.put(key, converter.convert(value)));
+		return new Keys<>(map);
+	}
+
+	public interface Converter<Mu extends K1, N extends K1> {
+		<A> App<N, A> convert(App<Mu, A> input);
+	}
+
 	public static <Mu extends K1> Builder<Mu> builder() {
 		return new Builder<>();
 	}
