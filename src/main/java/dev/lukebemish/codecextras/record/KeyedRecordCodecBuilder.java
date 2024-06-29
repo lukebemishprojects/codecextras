@@ -101,10 +101,11 @@ public final class KeyedRecordCodecBuilder<A> {
 	public static <A> MapCodec<A> mapCodecFlat(Function<KeyedRecordCodecBuilder<A>, Function<Container, DataResult<A>>> function) {
 		KeyedRecordCodecBuilder<A> builder = new KeyedRecordCodecBuilder<>();
 		var combiner = function.apply(builder);
+		List<Field<A, ?>> fields = List.copyOf(builder.fields);
 		return new MapCodec<>() {
 			@Override
 			public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-				for (Field<A, ?> field : builder.fields) {
+				for (Field<A, ?> field : fields) {
 					prefix = encodePartial(input, ops, prefix, field);
 				}
 				return prefix;
@@ -117,10 +118,10 @@ public final class KeyedRecordCodecBuilder<A> {
 
 			@Override
 			public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-				Key<?>[] keys = new Key[builder.fields.size()];
-				Container container = new Container(keys, new Object[builder.fields.size()]);
+				Key<?>[] keys = new Key[fields.size()];
+				Container container = new Container(keys, new Object[fields.size()]);
 				List<DataResult.Error<?>> errors = new ArrayList<>();
-				for (Field<A, ?> field : builder.fields) {
+				for (Field<A, ?> field : fields) {
 					keys[field.key.count] = field.key;
 					decodePartial(ops, input, container, field, errors);
 				}
@@ -138,7 +139,7 @@ public final class KeyedRecordCodecBuilder<A> {
 
 			@Override
 			public <T> Stream<T> keys(DynamicOps<T> ops) {
-				return builder.fields.stream().flatMap(field -> field.partial.keys(ops));
+				return fields.stream().flatMap(field -> field.partial.keys(ops));
 			}
 		};
 	}
