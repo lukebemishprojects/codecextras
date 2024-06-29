@@ -6,11 +6,14 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 
 import java.util.List;
+import java.util.function.Function;
 
 public interface Interpreter<Mu extends K1> {
 	<A> DataResult<App<Mu, List<A>>> list(App<Mu, A> single);
 
 	<A> DataResult<App<Mu, A>> keyed(Key<A> key);
+
+	<A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
 
 	Key<Unit> UNIT = Key.create("UNIT");
 	Key<Boolean> BOOL = Key.create("BOOL");

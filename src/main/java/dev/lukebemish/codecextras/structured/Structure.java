@@ -29,6 +29,10 @@ public interface Structure<A> {
 		};
 	}
 
+	static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
+		return RecordStructure.create(builder);
+	}
+
 	Structure<Unit> UNIT = keyed(Interpreter.UNIT);
 	Structure<Boolean> BOOL = keyed(Interpreter.BOOL);
 	Structure<Byte> BYTE = keyed(Interpreter.BYTE);

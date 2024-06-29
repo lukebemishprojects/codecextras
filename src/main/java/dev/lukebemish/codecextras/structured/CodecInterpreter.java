@@ -2,29 +2,53 @@ package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 
 import java.util.List;
+import java.util.function.Function;
 
-public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.CodecHolder.Mu> {
-	public CodecInterpreter(Keys<CodecHolder.Mu> keys) {
-		super(keys.join(Keys.<CodecHolder.Mu>builder()
-				.add(Interpreter.STRING, new CodecHolder<>(Codec.STRING))
-				.build()
+public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu> {
+	public CodecInterpreter(Keys<Holder.Mu> keys) {
+		super(keys.join(Keys.<Holder.Mu>builder()
+			.add(Interpreter.UNIT, new Holder<>(Codec.unit(Unit.INSTANCE)))
+			.add(Interpreter.BOOL, new Holder<>(Codec.BOOL))
+			.add(Interpreter.BYTE, new Holder<>(Codec.BYTE))
+			.add(Interpreter.SHORT, new Holder<>(Codec.SHORT))
+			.add(Interpreter.INT, new Holder<>(Codec.INT))
+			.add(Interpreter.LONG, new Holder<>(Codec.LONG))
+			.add(Interpreter.FLOAT, new Holder<>(Codec.FLOAT))
+			.add(Interpreter.DOUBLE, new Holder<>(Codec.DOUBLE))
+			.add(Interpreter.STRING, new Holder<>(Codec.STRING))
+			.build()
 		));
 	}
 
-	@Override
-	public <A> DataResult<App<CodecHolder.Mu, List<A>>> list(App<CodecHolder.Mu, A> single) {
-		return DataResult.success(new CodecHolder<>(CodecHolder.unbox(single).codec.listOf()));
+	public CodecInterpreter() {
+		this(Keys.<Holder.Mu>builder().build());
 	}
 
-	public record CodecHolder<T>(Codec<T> codec) implements App<CodecHolder.Mu, T> {
+	@Override
+	public <A> DataResult<App<Holder.Mu, List<A>>> list(App<Holder.Mu, A> single) {
+		return DataResult.success(new Holder<>(Holder.unbox(single).codec.listOf()));
+	}
+
+	@Override
+	public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+		return StructuredMapCodec.of(fields, creator, this, CodecInterpreter::unbox)
+			.map(mapCodec -> new Holder<>(mapCodec.codec()));
+	}
+
+	public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {
+		return Holder.unbox(box).codec();
+	}
+
+	public record Holder<T>(Codec<T> codec) implements App<Holder.Mu, T> {
 		public static final class Mu implements K1 {}
 
-		static <T> CodecHolder<T> unbox(App<Mu, T> box) {
-			return (CodecHolder<T>) box;
+		static <T> Holder<T> unbox(App<Mu, T> box) {
+			return (Holder<T>) box;
 		}
 	}
 }
