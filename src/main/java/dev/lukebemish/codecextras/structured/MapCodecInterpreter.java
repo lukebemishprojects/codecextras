@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -33,6 +34,12 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
 	public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
 		return StructuredMapCodec.of(fields, creator, codecInterpreter, CodecInterpreter::unbox)
 			.map(Holder::new);
+	}
+
+	@Override
+	public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+		var mapCodec = unbox(input);
+		return DataResult.success(new Holder<>(mapCodec.flatXmap(deserializer, serializer)));
 	}
 
 	public static <T> MapCodec<T> unbox(App<Holder.Mu, T> box) {

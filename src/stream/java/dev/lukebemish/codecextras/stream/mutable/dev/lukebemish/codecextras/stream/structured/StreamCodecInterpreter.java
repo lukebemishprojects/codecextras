@@ -9,12 +9,14 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import io.netty.buffer.ByteBuf;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Function;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>> {
 	public StreamCodecInterpreter(Keys<Holder.Mu<B>> keys) {
@@ -68,13 +70,43 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 		)));
 	}
 
+	@Override
+	public <X, Y> DataResult<App<Holder.Mu<B>, Y>> flatXmap(App<Holder.Mu<B>, X> input, Function<X, DataResult<Y>> deserializer, Function<Y, DataResult<X>> serializer) {
+		var streamCodec = unbox(input);
+		return DataResult.success(new Holder<>(streamCodec.map(
+			x -> deserializer.apply(x).getOrThrow(),
+			y -> serializer.apply(y).getOrThrow()
+		)));
+	}
+
 	private static <B extends ByteBuf, A, F> void encodeSingleField(B buf, Field<A, B, F> field, A data) {
-		field.codec.encode(buf, field.getter.apply(data));
+		var missingBehaviour = field.missingBehavior();
+		if (missingBehaviour.isEmpty()) {
+			field.codec.encode(buf, field.getter.apply(data));
+		} else {
+			var behavior = missingBehaviour.get();
+			if (behavior.predicate().test(field.getter.apply(data))) {
+				buf.writeBoolean(true);
+				field.codec.encode(buf, field.getter.apply(data));
+			} else {
+				buf.writeBoolean(false);
+			}
+		}
 	}
 
 	private static <B extends ByteBuf, A, F> void decodeSingleField(B buf, Field<A, B, F> field, RecordStructure.Container.Builder builder) {
-		var value = field.codec.decode(buf);
-		builder.add(field.key(), value);
+		var missingBehaviour = field.missingBehavior();
+		if (missingBehaviour.isEmpty()) {
+			var value = field.codec.decode(buf);
+			builder.add(field.key(), value);
+		} else {
+			if (buf.readBoolean()) {
+				var value = field.codec.decode(buf);
+				builder.add(field.key(), value);
+			} else {
+				builder.add(field.key(), missingBehaviour.get().missing().get());
+			}
+		}
 	}
 
 	private <A, F> @Nullable DataResult<App<Holder.Mu<B>, A>> recordSingleField(RecordStructure.Field<A, F> field, ArrayList<Field<A, B, ?>> streamFields) {
@@ -82,7 +114,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 		if (result.error().isPresent()) {
 			return DataResult.error(result.error().orElseThrow().messageSupplier());
 		}
-		streamFields.add(new Field<>(unbox(result.result().orElseThrow()), field.key(), field.getter()));
+		streamFields.add(new Field<>(unbox(result.result().orElseThrow()), field.key(), field.getter(), field.missingBehavior()));
 		return null;
 	}
 
@@ -98,5 +130,5 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 		}
 	}
 
-	private record Field<A, B, T>(StreamCodec<? super B, T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}
+	private record Field<A, B, T>(StreamCodec<? super B, T> codec, RecordStructure.Key<T> key, Function<A, T> getter, Optional<RecordStructure.Field.MissingBehavior<T>> missingBehavior) {}
 }

@@ -4,7 +4,11 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface Structure<A> {
 	<Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);
@@ -46,6 +50,32 @@ public interface Structure<A> {
 				return outer.interpret(interpreter).flatMap(interpreter::list);
 			}
 		};
+	}
+
+	default RecordStructure.Builder<A> fieldOf(String name) {
+		return builder -> builder.add(name, this, Function.identity());
+	}
+
+	default RecordStructure.Builder<Optional<A>> optionalFieldOf(String name) {
+		return builder -> builder.addOptional(name, this, Function.identity());
+	}
+
+	default RecordStructure.Builder<A> optionalFieldOf(String name, Supplier<A> defaultValue) {
+		return builder -> builder.addOptional(name, this, Function.identity(), defaultValue);
+	}
+
+	default <B> Structure<B> flatXmap(Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+		var outer = this;
+		return new Structure<>() {
+			@Override
+			public <Mu extends K1> DataResult<App<Mu, B>> interpret(Interpreter<Mu> interpreter) {
+				return outer.interpret(interpreter).flatMap(app -> interpreter.flatXmap(app, deserializer, serializer));
+			}
+		};
+	}
+
+	default <B> Structure<B> xmap(Function<A, B> deserializer, Function<B, A> serializer) {
+		return flatXmap(a -> DataResult.success(deserializer.apply(a)), b -> DataResult.success(serializer.apply(b)));
 	}
 
 	static <A> Structure<A> keyed(Key<A> key) {

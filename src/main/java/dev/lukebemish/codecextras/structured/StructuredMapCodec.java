@@ -9,11 +9,13 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.jspecify.annotations.Nullable;
 
 class StructuredMapCodec<A> extends MapCodec<A> {
 	private record Field<A, T>(MapCodec<T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}
@@ -46,10 +48,17 @@ class StructuredMapCodec<A> extends MapCodec<A> {
 		}
 		Codec<F> fieldCodec = unboxer.unbox(result.result().orElseThrow());
 		MapCodec<F> fieldMapCodec = field.structure().annotations().get(Annotations.COMMENT)
-			.map(comment -> CommentMapCodec.of(fieldCodec.fieldOf(field.name()), comment))
+			.map(comment -> CommentMapCodec.of(makeFieldCodec(fieldCodec, field), comment))
 			.orElseGet(() -> fieldCodec.fieldOf(field.name()));
 		mapCodecFields.add(new StructuredMapCodec.Field<>(fieldMapCodec, field.key(), field.getter()));
 		return null;
+	}
+
+	private static <A,F> MapCodec<F> makeFieldCodec(Codec<F> fieldCodec, RecordStructure.Field<A,F> field) {
+		return field.missingBehavior().map(behavior -> fieldCodec.optionalFieldOf(field.name()).xmap(
+			optional -> optional.orElseGet(behavior.missing()),
+			value -> behavior.predicate().test(value) ? Optional.of(value) : Optional.empty()
+		)).orElseGet(() -> fieldCodec.fieldOf(field.name()));
 	}
 
 	@Override

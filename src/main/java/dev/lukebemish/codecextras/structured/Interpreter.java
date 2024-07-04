@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -13,6 +14,8 @@ public interface Interpreter<Mu extends K1> {
 	<A> DataResult<App<Mu, A>> keyed(Key<A> key);
 
 	<A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
+
+	<A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
 	Key<Unit> UNIT = Key.create("UNIT");
 	Key<Boolean> BOOL = Key.create("BOOL");

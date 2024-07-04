@@ -6,6 +6,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -38,6 +39,11 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
 	public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
 		return StructuredMapCodec.of(fields, creator, this, CodecInterpreter::unbox)
 			.map(mapCodec -> new Holder<>(mapCodec.codec()));
+	}
+
+	@Override
+	public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+		return null;
 	}
 
 	public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {
