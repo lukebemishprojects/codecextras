@@ -46,6 +46,10 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
 		return Holder.unbox(box).mapCodec();
 	}
 
+	public <T> DataResult<MapCodec<T>> interpret(Structure<T> structure) {
+		return structure.interpret(this).map(MapCodecInterpreter::unbox);
+	}
+
 	public record Holder<T>(MapCodec<T> mapCodec) implements App<Holder.Mu, T> {
 		public static final class Mu implements K1 {}
 

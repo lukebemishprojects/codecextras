@@ -8,6 +8,7 @@ import dev.lukebemish.codecextras.structured.Interpreter;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
+import dev.lukebemish.codecextras.structured.Structure;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -120,6 +121,10 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
 	public static <B extends ByteBuf, T> StreamCodec<B, T> unbox(App<Holder.Mu<B>, T> box) {
 		return Holder.unbox(box).streamCodec();
+	}
+
+	public <T> DataResult<StreamCodec<B, T>> interpret(Structure<T> structure) {
+		return structure.interpret(this).map(StreamCodecInterpreter::unbox);
 	}
 
 	public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

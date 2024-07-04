@@ -43,11 +43,16 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
 
 	@Override
 	public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
-		return null;
+		var codec = Holder.unbox(input).codec();
+		return DataResult.success(new Holder<>(codec.flatXmap(deserializer, serializer)));
 	}
 
 	public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {
 		return Holder.unbox(box).codec();
+	}
+
+	public <T> DataResult<Codec<T>> interpret(Structure<T> structure) {
+		return structure.interpret(this).map(CodecInterpreter::unbox);
 	}
 
 	public record Holder<T>(Codec<T> codec) implements App<Holder.Mu, T> {
