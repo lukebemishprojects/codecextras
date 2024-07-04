@@ -26,7 +26,7 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
 		Map<String, String> map = codec.keys(JsonOps.INSTANCE)
 			.filter(json -> json.isJsonPrimitive() && json.getAsJsonPrimitive().isString())
 			.map(json -> json.getAsJsonPrimitive().getAsString())
-			.collect(Collectors.toMap(Function.identity(), s -> comment));
+			.collect(Collectors.toMap(Function.identity(), s -> comment, (a, b) -> a));
 		return of(codec, map);
 	}
 

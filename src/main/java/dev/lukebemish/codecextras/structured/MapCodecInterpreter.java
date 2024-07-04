@@ -4,7 +4,6 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
-
 import java.util.List;
 import java.util.function.Function;
 

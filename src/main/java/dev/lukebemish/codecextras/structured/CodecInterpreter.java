@@ -6,7 +6,6 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
-
 import java.util.List;
 import java.util.function.Function;
 

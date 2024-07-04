@@ -3,7 +3,6 @@ package dev.lukebemish.codecextras.structured;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -105,7 +104,7 @@ public class RecordStructure<A> {
 			name,
 			structure.flatXmap(
 				t -> DataResult.success(Optional.of(t)),
-				o -> o.map(DataResult::success).orElseGet(() -> DataResult.error(() ->"Optional default value not handed by interpreter"))
+				o -> o.map(DataResult::success).orElseGet(() -> DataResult.error(() ->"Optional default value not handled by interpreter"))
 			),
 			getter,
 			Optional.of(new MissingBehaviorImpl<>(Optional::empty, Optional::isPresent)),

@@ -4,7 +4,6 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;

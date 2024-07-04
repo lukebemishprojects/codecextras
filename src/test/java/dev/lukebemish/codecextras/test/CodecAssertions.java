@@ -19,7 +19,7 @@ public final class CodecAssertions {
 
 	public static <O, T> void assertDecodes(DynamicOps<T> ops, T data, O expected, Codec<O> codec) {
 		DataResult<O> dataResult = codec.parse(ops, data);
-		Assertions.assertTrue(dataResult.result().isPresent());
+		Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
 		Assertions.assertEquals(expected, dataResult.result().get());
 	}
 
@@ -31,7 +31,7 @@ public final class CodecAssertions {
 
 	public static <O, T> void assertEncodes(DynamicOps<T> ops, O value, T expected, Codec<O> codec) {
 		DataResult<T> dataResult = codec.encodeStart(ops, value);
-		Assertions.assertTrue(dataResult.result().isPresent());
+		Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
 		Assertions.assertEquals(expected, dataResult.result().get());
 	}
 
