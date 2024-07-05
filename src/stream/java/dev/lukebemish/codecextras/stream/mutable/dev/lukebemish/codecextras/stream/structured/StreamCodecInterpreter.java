@@ -4,19 +4,21 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.structured.Annotations;
 import dev.lukebemish.codecextras.structured.Interpreter;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import org.jspecify.annotations.Nullable;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>> {
 	public StreamCodecInterpreter(Keys<Holder.Mu<B>> keys) {
@@ -77,6 +79,12 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 			x -> deserializer.apply(x).getOrThrow(),
 			y -> serializer.apply(y).getOrThrow()
 		)));
+	}
+
+	@Override
+	public <A> DataResult<App<Holder.Mu<B>, A>> annotate(App<Holder.Mu<B>, A> input, Annotations annotations) {
+		// No annotations handled here
+		return DataResult.success(input);
 	}
 
 	private static <B extends ByteBuf, A, F> void encodeSingleField(B buf, Field<A, B, F> field, A data) {

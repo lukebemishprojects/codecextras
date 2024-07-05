@@ -4,6 +4,8 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
+import dev.lukebemish.codecextras.comments.CommentMapCodec;
+
 import java.util.List;
 import java.util.function.Function;
 
@@ -39,6 +41,15 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
 	public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
 		var mapCodec = unbox(input);
 		return DataResult.success(new Holder<>(mapCodec.flatXmap(deserializer, serializer)));
+	}
+
+	@Override
+	public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
+		var mapCodec = new Object() {
+			MapCodec<A> m = unbox(input);
+		};
+		mapCodec.m = annotations.get(Annotations.COMMENT).map(comment -> CommentMapCodec.of(mapCodec.m, comment)).orElse(mapCodec.m);
+		return DataResult.success(new Holder<>(mapCodec.m));
 	}
 
 	public static <T> MapCodec<T> unbox(App<Holder.Mu, T> box) {

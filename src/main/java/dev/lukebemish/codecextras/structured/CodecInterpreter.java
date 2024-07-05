@@ -46,6 +46,12 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
 		return DataResult.success(new Holder<>(codec.flatXmap(deserializer, serializer)));
 	}
 
+	@Override
+	public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
+		// No annotations handled here
+		return DataResult.success(input);
+	}
+
 	public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {
 		return Holder.unbox(box).codec();
 	}

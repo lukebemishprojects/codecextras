@@ -5,10 +5,11 @@ import com.google.gson.JsonObject;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu> {
 	private static final JsonObject OBJECT = new JsonObject();
@@ -76,10 +77,6 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 		}
 		var fieldObject = copy(unbox(partialResolt.result().orElseThrow()));
 
-		field.structure().annotations().get(Annotations.COMMENT).ifPresent(comment ->
-			fieldObject.addProperty("description", comment)
-		);
-
 		field.missingBehavior().ifPresentOrElse(missingBehavior -> {}, () -> required.add(field.name()));
 
 		properties.add(field.name(), fieldObject);
@@ -89,6 +86,15 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 	@Override
 	public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
 		return DataResult.success(new Holder<>(unbox(input)));
+	}
+
+	@Override
+	public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
+		var schema = copy(unbox(input));
+		annotations.get(Annotations.COMMENT).ifPresent(comment -> {
+			schema.addProperty("description", comment);
+		});
+		return DataResult.success(new Holder<>(schema));
 	}
 
 	public static JsonObject unbox(App<Holder.Mu, ?> box) {

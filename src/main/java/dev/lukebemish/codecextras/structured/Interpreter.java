@@ -16,6 +16,8 @@ public interface Interpreter<Mu extends K1> {
 
 	<A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
+	<A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Annotations annotations);
+
 	Key<Unit> UNIT = Key.create("UNIT");
 	Key<Boolean> BOOL = Key.create("BOOL");
 	Key<Byte> BYTE = Key.create("BYTE");

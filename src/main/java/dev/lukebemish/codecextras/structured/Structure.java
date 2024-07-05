@@ -4,6 +4,8 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -28,17 +30,30 @@ public interface Structure<A> {
 	}
 
 	private static <A> Structure<A> annotatedDelegatingStructure(Structure<A> outer, Annotations annotations) {
-		return new Structure<A>() {
+		final class AnnotatedDelegatingStructure implements Structure<A> {
+			final @Nullable AnnotatedDelegatingStructure delegate;
+
+			AnnotatedDelegatingStructure(@Nullable AnnotatedDelegatingStructure delegate) {
+				this.delegate = delegate;
+			}
+
 			@Override
 			public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-				return outer.interpret(interpreter);
+				var result = interpretNoAnnotations(interpreter);
+				return result.flatMap(r -> interpreter.annotate(r, annotations));
+			}
+
+			private <Mu extends K1> DataResult<App<Mu, A>> interpretNoAnnotations(Interpreter<Mu> interpreter) {
+				return delegate != null ? delegate.interpretNoAnnotations(interpreter) : outer.interpret(interpreter);
 			}
 
 			@Override
 			public Annotations annotations() {
 				return annotations;
 			}
-		};
+		}
+
+		return new AnnotatedDelegatingStructure(outer instanceof AnnotatedDelegatingStructure annotatedDelegatingStructure ? annotatedDelegatingStructure : null);
 	}
 
 	default Structure<List<A>> listOf() {
