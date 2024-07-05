@@ -11,9 +11,6 @@ import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu> {
-	public static final Key<String> TITLE = Key.create("title");
-	public static final Key<String> DESCRIPTION = Key.create("description");
-
 	public JsonSchemaInterpreter(Keys<Holder.Mu> keys) {
 		super(keys.join(Keys.<Holder.Mu>builder()
 			.add(Interpreter.UNIT, new Holder<>(OBJECT))
@@ -77,10 +74,10 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 	@Override
 	public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
 		var schema = copy(unbox(input));
-		annotations.get(DESCRIPTION).or(() -> annotations.get(Annotations.COMMENT)).ifPresent(comment -> {
+		annotations.get(Annotations.DESCRIPTION).or(() -> annotations.get(Annotations.COMMENT)).ifPresent(comment -> {
 			schema.addProperty("description", comment);
 		});
-		annotations.get(TITLE).ifPresent(comment -> {
+		annotations.get(Annotations.TITLE).ifPresent(comment -> {
 			schema.addProperty("title", comment);
 		});
 		return DataResult.success(new Holder<>(schema));

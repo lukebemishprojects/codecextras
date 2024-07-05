@@ -6,7 +6,18 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class Annotations {
+	/**
+	 * A comment that a field in a structure should be serialized with.
+	 */
 	public static final Key<String> COMMENT = Key.create("comment");
+	/**
+	 * A human-readable title for a part of a structure.
+	 */
+	public static final Key<String> TITLE = Key.create("title");
+	/**
+	 * A human-readable description for a part of a structure; if missing, falls back to {@link #COMMENT}.
+	 */
+	public static final Key<String> DESCRIPTION = Key.create("description");
 
 	@SuppressWarnings("unchecked")
 	public <A> Optional<A> get(Key<A> key) {
