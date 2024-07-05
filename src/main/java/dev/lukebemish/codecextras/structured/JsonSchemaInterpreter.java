@@ -5,28 +5,14 @@ import com.google.gson.JsonObject;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu> {
-	private static final JsonObject OBJECT = new JsonObject();
-	private static final JsonObject NUMBER = new JsonObject();
-	private static final JsonObject STRING = new JsonObject();
-	private static final JsonObject BOOLEAN = new JsonObject();
-	private static final JsonObject INTEGER = new JsonObject();
-	private static final JsonObject ARRAY = new JsonObject();
-
-	static {
-		OBJECT.addProperty("type", "object");
-		NUMBER.addProperty("type", "number");
-		STRING.addProperty("type", "string");
-		BOOLEAN.addProperty("type", "boolean");
-		INTEGER.addProperty("type", "integer");
-		ARRAY.addProperty("type", "array");
-	}
+	public static final Key<String> TITLE = Key.create("title");
+	public static final Key<String> DESCRIPTION = Key.create("description");
 
 	public JsonSchemaInterpreter(Keys<Holder.Mu> keys) {
 		super(keys.join(Keys.<Holder.Mu>builder()
@@ -91,8 +77,11 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 	@Override
 	public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
 		var schema = copy(unbox(input));
-		annotations.get(Annotations.COMMENT).ifPresent(comment -> {
+		annotations.get(DESCRIPTION).or(() -> annotations.get(Annotations.COMMENT)).ifPresent(comment -> {
 			schema.addProperty("description", comment);
+		});
+		annotations.get(TITLE).ifPresent(comment -> {
+			schema.addProperty("title", comment);
 		});
 		return DataResult.success(new Holder<>(schema));
 	}
@@ -119,5 +108,21 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 			copy.add(key, object.get(key));
 		}
 		return copy;
+	}
+
+	private static final JsonObject OBJECT = new JsonObject();
+	private static final JsonObject NUMBER = new JsonObject();
+	private static final JsonObject STRING = new JsonObject();
+	private static final JsonObject BOOLEAN = new JsonObject();
+	private static final JsonObject INTEGER = new JsonObject();
+	private static final JsonObject ARRAY = new JsonObject();
+
+	static {
+		OBJECT.addProperty("type", "object");
+		NUMBER.addProperty("type", "number");
+		STRING.addProperty("type", "string");
+		BOOLEAN.addProperty("type", "boolean");
+		INTEGER.addProperty("type", "integer");
+		ARRAY.addProperty("type", "array");
 	}
 }

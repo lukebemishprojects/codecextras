@@ -5,7 +5,6 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
-
 import java.util.List;
 import java.util.function.Function;
 

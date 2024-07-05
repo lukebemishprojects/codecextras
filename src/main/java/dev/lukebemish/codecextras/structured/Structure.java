@@ -4,12 +4,11 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 public interface Structure<A> {
 	<Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);
