@@ -10,21 +10,21 @@ import java.util.function.Supplier;
  * {@link com.mojang.datafixers.DataFixerBuilder}.
  */
 public abstract class RootSchema extends Schema {
-	public RootSchema(int versionKey, Schema parent) {
-		super(versionKey, parent);
-	}
+    public RootSchema(int versionKey, Schema parent) {
+        super(versionKey, parent);
+    }
 
-	@Override
-	public void registerTypes(Schema schema, Map<String, Supplier<TypeTemplate>> entityTypes, Map<String, Supplier<TypeTemplate>> blockEntityTypes) {
-	}
+    @Override
+    public void registerTypes(Schema schema, Map<String, Supplier<TypeTemplate>> entityTypes, Map<String, Supplier<TypeTemplate>> blockEntityTypes) {
+    }
 
-	@Override
-	public Map<String, Supplier<TypeTemplate>> registerBlockEntities(Schema schema) {
-		return Map.of();
-	}
+    @Override
+    public Map<String, Supplier<TypeTemplate>> registerBlockEntities(Schema schema) {
+        return Map.of();
+    }
 
-	@Override
-	public Map<String, Supplier<TypeTemplate>> registerEntities(Schema schema) {
-		return Map.of();
-	}
+    @Override
+    public Map<String, Supplier<TypeTemplate>> registerEntities(Schema schema) {
+        return Map.of();
+    }
 }

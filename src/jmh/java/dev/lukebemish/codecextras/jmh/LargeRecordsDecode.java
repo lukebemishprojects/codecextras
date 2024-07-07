@@ -16,80 +16,80 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
 public class LargeRecordsDecode {
-	@Measurement(time = 2, iterations = 5)
-	@Warmup(time = 2, iterations = 2)
-	@OutputTimeUnit(TimeUnit.MICROSECONDS)
-	@BenchmarkMode(Mode.AverageTime)
-	@State(value = Scope.Thread)
-	public static class Average {
-		private int counter;
+    @Measurement(time = 2, iterations = 5)
+    @Warmup(time = 2, iterations = 2)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @BenchmarkMode(Mode.AverageTime)
+    @State(value = Scope.Thread)
+    public static class Average {
+        private int counter;
 
-		@Benchmark
-		public void recordCodecBuilder(Blackhole blackhole) {
-			JsonElement json = TestRecord.makeData(counter++);
-			var result = TestRecord.RCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void recordCodecBuilder(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.RCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void keyedRecordCodecBuilder(Blackhole blackhole) {
-			JsonElement json = TestRecord.makeData(counter++);
-			var result = TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void keyedRecordCodecBuilder(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void extendedRecordCodecBuilder(Blackhole blackhole) {
-			JsonElement json = TestRecord.makeData(counter++);
-			var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void extendedRecordCodecBuilder(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
-			JsonElement json = TestRecord.makeData(counter++);
-			var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
-	}
+        @Benchmark
+        public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+    }
 
-	@OutputTimeUnit(TimeUnit.MICROSECONDS)
-	@BenchmarkMode(Mode.SingleShotTime)
-	@State(value = Scope.Thread)
-	@Fork(value = 20)
-	public static class SingleShot {
-		private JsonElement json;
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @BenchmarkMode(Mode.SingleShotTime)
+    @State(value = Scope.Thread)
+    @Fork(value = 20)
+    public static class SingleShot {
+        private JsonElement json;
 
-		@Setup
-		public void setup() {
-			json = TestRecord.makeData(0);
-			TestRecord.RCB.decode(JsonOps.INSTANCE, json);
-			TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
-			TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
-		}
+        @Setup
+        public void setup() {
+            json = TestRecord.makeData(0);
+            TestRecord.RCB.decode(JsonOps.INSTANCE, json);
+            TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
+            TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
+        }
 
-		@Benchmark
-		public void recordCodecBuilder(Blackhole blackhole) {
-			var result = TestRecord.RCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void recordCodecBuilder(Blackhole blackhole) {
+            var result = TestRecord.RCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void keyedRecordCodecBuilder(Blackhole blackhole) {
-			var result = TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void keyedRecordCodecBuilder(Blackhole blackhole) {
+            var result = TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void extendedRecordCodecBuilder(Blackhole blackhole) {
-			var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
+        @Benchmark
+        public void extendedRecordCodecBuilder(Blackhole blackhole) {
+            var result = TestRecord.ERCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
 
-		@Benchmark
-		public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
-			var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
-			blackhole.consume(result.result().orElseThrow());
-		}
-	}
+        @Benchmark
+        public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
+            var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+    }
 }
