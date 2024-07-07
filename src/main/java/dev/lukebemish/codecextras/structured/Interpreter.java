@@ -8,23 +8,23 @@ import java.util.List;
 import java.util.function.Function;
 
 public interface Interpreter<Mu extends K1> {
-	<A> DataResult<App<Mu, List<A>>> list(App<Mu, A> single);
+    <A> DataResult<App<Mu, List<A>>> list(App<Mu, A> single);
 
-	<A> DataResult<App<Mu, A>> keyed(Key<A> key);
+    <A> DataResult<App<Mu, A>> keyed(Key<A> key);
 
-	<A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
+    <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
 
-	<A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
+    <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
-	<A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Annotations annotations);
+    <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Annotations annotations);
 
-	Key<Unit> UNIT = Key.create("UNIT");
-	Key<Boolean> BOOL = Key.create("BOOL");
-	Key<Byte> BYTE = Key.create("BYTE");
-	Key<Short> SHORT = Key.create("SHORT");
-	Key<Integer> INT = Key.create("INT");
-	Key<Long> LONG = Key.create("LONG");
-	Key<Float> FLOAT = Key.create("FLOAT");
-	Key<Double> DOUBLE = Key.create("DOUBLE");
-	Key<String> STRING = Key.create("STRING");
+    Key<Unit> UNIT = Key.create("UNIT");
+    Key<Boolean> BOOL = Key.create("BOOL");
+    Key<Byte> BYTE = Key.create("BYTE");
+    Key<Short> SHORT = Key.create("SHORT");
+    Key<Integer> INT = Key.create("INT");
+    Key<Long> LONG = Key.create("LONG");
+    Key<Float> FLOAT = Key.create("FLOAT");
+    Key<Double> DOUBLE = Key.create("DOUBLE");
+    Key<String> STRING = Key.create("STRING");
 }
