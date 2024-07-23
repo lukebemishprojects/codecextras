@@ -20,24 +20,24 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
         Keys2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1> parametricCodecKeys
     ) {
         super(keys, parametricKeys);
-        this.codecInterpreter = new CodecInterpreter(codecKeys.join(keys.map(new Keys.Converter<>() {
+        this.codecInterpreter = new CodecInterpreter(keys.<CodecInterpreter.Holder.Mu>map(new Keys.Converter<>() {
             @Override
             public <B> App<CodecInterpreter.Holder.Mu, B> convert(App<Holder.Mu, B> app) {
                 return new CodecInterpreter.Holder<>(unbox(app).codec());
             }
-        })), parametricCodecKeys.join(parametricKeys.map(new Keys2.Converter<ParametricKeyedValue.Mu<Holder.Mu>, ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>() {
+        }).join(codecKeys), parametricKeys.map(new Keys2.Converter<ParametricKeyedValue.Mu<Holder.Mu>, ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>() {
             @Override
             public <A extends K1, B extends K1> App2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, A, B> convert(App2<ParametricKeyedValue.Mu<Holder.Mu>, A, B> input) {
                 var unboxed = ParametricKeyedValue.unbox(input);
-                return new ParametricKeyedValue<>(new ParametricKeyedValue.Converter<CodecInterpreter.Holder.Mu, A, B>() {
-                    @Override
-                    public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
-                        var mapCodec = unbox(unboxed.converter().convert(parameter));
-                        return new CodecInterpreter.Holder<>(mapCodec.codec());
-                    }
-                });
+                return new ParametricKeyedValue<>(new ParametricKeyedValue.Converter<>() {
+					@Override
+					public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
+						var mapCodec = unbox(unboxed.converter().convert(parameter));
+						return new CodecInterpreter.Holder<>(mapCodec.codec());
+					}
+				});
             }
-        })));
+        }).join(parametricCodecKeys));
     }
 
     public MapCodecInterpreter() {
