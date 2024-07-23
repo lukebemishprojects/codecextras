@@ -4,8 +4,8 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
-import dev.lukebemish.codecextras.types.Raised;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -102,11 +102,11 @@ public interface Structure<A> {
         };
     }
 
-    static <A> Structure<A> keyed(Key<A> key, Keys<Raised.Mu<A>, K1> keys) {
+    static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.key().flatMap(k -> keys.get(k).<Raised<Mu, A>>map(Raised::unbox).map(Raised::value))
+                return interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
                     .map(DataResult::success)
                     .orElseGet(() -> interpreter.keyed(key));
             }
@@ -124,11 +124,11 @@ public interface Structure<A> {
         };
     }
 
-    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Raised.Mu<A>, K1> keys) {
+    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.key().flatMap(k -> keys.get(k).<Raised<Mu, A>>map(Raised::unbox).map(Raised::value))
+                return interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
                     .map(DataResult::success)
                     .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
                         interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)

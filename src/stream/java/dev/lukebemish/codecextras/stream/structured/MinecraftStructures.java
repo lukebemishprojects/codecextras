@@ -12,7 +12,7 @@ import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
-import dev.lukebemish.codecextras.types.Raised;
+import dev.lukebemish.codecextras.types.Flip;
 import net.minecraft.core.Registry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
@@ -108,8 +108,8 @@ public final class MinecraftStructures {
         private Structures() {}
 
         public static final Structure<ResourceLocation> RESOURCE_LOCATION = Structure.keyed(
-            Types.RESOURCE_LOCATION, Keys.<Raised.Mu<ResourceLocation>, K1>builder()
-                .add(CodecInterpreter.KEY, new Raised<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
+            Types.RESOURCE_LOCATION, Keys.<Flip.Mu<ResourceLocation>, K1>builder()
+                .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
                 .build()
         );
 
@@ -118,10 +118,10 @@ public final class MinecraftStructures {
                 Types.RESOURCE_KEY,
                     new Types.RegistryKeyHolder<>(registry),
                     Types.ResourceKeyHolder::unbox,
-                Keys.<Raised.Mu<Types.ResourceKeyHolder<T>>, K1>builder()
+                Keys.<Flip.Mu<Types.ResourceKeyHolder<T>>, K1>builder()
                     .add(
                         CodecInterpreter.KEY,
-                        new Raised<>(new CodecInterpreter.Holder<>(
+                        new Flip<>(new CodecInterpreter.Holder<>(
                             ResourceKey.codec(registry).xmap(Types.ResourceKeyHolder::new, Types.ResourceKeyHolder::value)
                         ))
                     )
