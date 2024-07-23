@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.stream.mutable.dev.lukebemish.codecextras.stream;
+package dev.lukebemish.codecextras.stream;
 
 import java.util.Optional;
 import net.minecraft.network.FriendlyByteBuf;

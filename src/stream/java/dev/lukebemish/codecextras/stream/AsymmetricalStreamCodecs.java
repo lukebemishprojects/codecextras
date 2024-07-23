@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.stream.mutable.dev.lukebemish.codecextras.stream;
+package dev.lukebemish.codecextras.stream;
 
 import dev.lukebemish.codecextras.Asymmetry;
 import io.netty.handler.codec.DecoderException;
