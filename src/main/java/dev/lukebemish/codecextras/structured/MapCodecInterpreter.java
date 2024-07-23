@@ -84,7 +84,7 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
     }
 
     public record Holder<T>(MapCodec<T> mapCodec) implements App<Holder.Mu, T> {
-        public static final class Mu implements K1 {}
+        public static final class Mu implements K1 { private Mu() {} }
 
         static <T> Holder<T> unbox(App<Holder.Mu, T> box) {
             return (Holder<T>) box;

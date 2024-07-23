@@ -96,7 +96,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     public record Holder<T>(JsonObject jsonObject) implements App<Holder.Mu, T> {
-        public static final class Mu implements K1 {}
+        public static final class Mu implements K1 { private Mu() {} }
 
         static <T> Holder<T> unbox(App<Holder.Mu, T> box) {
             return (Holder<T>) box;

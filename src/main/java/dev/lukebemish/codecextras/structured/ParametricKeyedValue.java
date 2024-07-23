@@ -6,7 +6,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.kinds.K2;
 
 public interface ParametricKeyedValue<N extends K1, MuP extends K1, MuO extends K1> extends App2<ParametricKeyedValue.Mu<N>, MuP, MuO> {
-    class Mu<N extends K1> implements K2 {}
+    final class Mu<N extends K1> implements K2 { private Mu() {} }
 
     <T> App<N, App<MuO, T>> convert(App<MuP, T> parameter);
 

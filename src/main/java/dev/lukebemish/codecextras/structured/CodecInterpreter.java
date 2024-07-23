@@ -65,7 +65,7 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
     }
 
     public record Holder<T>(Codec<T> codec) implements App<Holder.Mu, T> {
-        public static final class Mu implements K1 {}
+        public static final class Mu implements K1 { private Mu() {} }
 
         static <T> Holder<T> unbox(App<Mu, T> box) {
             return (Holder<T>) box;
