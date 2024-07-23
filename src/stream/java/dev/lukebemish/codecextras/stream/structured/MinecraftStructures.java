@@ -12,7 +12,7 @@ import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
-import dev.lukebemish.codecextras.types.AppMu;
+import dev.lukebemish.codecextras.types.Raised;
 import net.minecraft.core.Registry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
@@ -108,8 +108,8 @@ public final class MinecraftStructures {
         private Structures() {}
 
         public static final Structure<ResourceLocation> RESOURCE_LOCATION = Structure.keyed(
-            Types.RESOURCE_LOCATION, Keys.<AppMu.Mu, K1>builder()
-                .add(CodecInterpreter.KEY, new AppMu<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
+            Types.RESOURCE_LOCATION, Keys.<Raised.Mu<ResourceLocation>, K1>builder()
+                .add(CodecInterpreter.KEY, new Raised<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
                 .build()
         );
 
