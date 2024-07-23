@@ -7,6 +7,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -86,6 +87,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             schema.addProperty("title", comment);
         });
         return DataResult.success(new Holder<>(schema));
+    }
+
+    @Override
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures) {
+        // TODO: implement
+        return DataResult.error(() -> "Not yet implemented!");
     }
 
     public static JsonObject unbox(App<Holder.Mu, ?> box) {

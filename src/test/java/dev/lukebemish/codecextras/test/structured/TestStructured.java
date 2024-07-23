@@ -21,7 +21,7 @@ class TestStructured {
             return container -> new TestRecord(a.apply(container), b.apply(container), c.apply(container), d.apply(container));
         });
 
-        private static final Codec<TestRecord> CODEC = new CodecInterpreter().interpret(STRUCTURE).getOrThrow();
+        private static final Codec<TestRecord> CODEC = CodecInterpreter.create().interpret(STRUCTURE).getOrThrow();
     }
 
     private final String json = """

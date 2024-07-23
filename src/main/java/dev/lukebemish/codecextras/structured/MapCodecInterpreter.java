@@ -1,54 +1,39 @@
 package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
-import com.mojang.datafixers.kinds.App2;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu> {
-    private final CodecInterpreter codecInterpreter;
-
+public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu> {
     public MapCodecInterpreter(
         Keys<Holder.Mu, Object> keys,
-        Keys<CodecInterpreter.Holder.Mu, Object> codecKeys,
-        Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys,
-        Keys2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1> parametricCodecKeys
+        Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys
     ) {
         super(keys, parametricKeys);
-        this.codecInterpreter = new CodecInterpreter(keys.<CodecInterpreter.Holder.Mu>map(new Keys.Converter<>() {
-            @Override
-            public <B> App<CodecInterpreter.Holder.Mu, B> convert(App<Holder.Mu, B> app) {
-                return new CodecInterpreter.Holder<>(unbox(app).codec());
-            }
-        }).join(codecKeys), parametricKeys.map(new Keys2.Converter<ParametricKeyedValue.Mu<Holder.Mu>, ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>() {
-            @Override
-            public <A extends K1, B extends K1> App2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, A, B> convert(App2<ParametricKeyedValue.Mu<Holder.Mu>, A, B> input) {
-                var unboxed = ParametricKeyedValue.unbox(input);
-                return new ParametricKeyedValue<>() {
-                    @Override
-                    public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
-                        var mapCodec = unbox(unboxed.convert(parameter));
-                        return new CodecInterpreter.Holder<>(mapCodec.codec());
-                    }
-                };
-            }
-        }).join(parametricCodecKeys));
     }
 
-    public MapCodecInterpreter() {
-        this(
-            Keys.<Holder.Mu, Object>builder().build(),
-            Keys.<CodecInterpreter.Holder.Mu, Object>builder().build(),
-            Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder().build(),
-            Keys2.<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>builder().build()
-        );
+    public static MapCodecInterpreter create(
+        Keys<CodecInterpreter.Holder.Mu, Object> codecKeys,
+        Keys<MapCodecInterpreter.Holder.Mu, Object> mapCodecKeys,
+        Keys2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1> parametricCodecKeys,
+        Keys2<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1> parametricMapCodecKeys
+    ) {
+        return new CodecAndMapInterpreters(codecKeys, mapCodecKeys, parametricCodecKeys, parametricMapCodecKeys).mapCodecInterpreter();
     }
+
+    public static MapCodecInterpreter create() {
+        return new CodecAndMapInterpreters().mapCodecInterpreter();
+    }
+
+    protected abstract CodecInterpreter codecInterpreter();
 
     @Override
     public <A> DataResult<App<Holder.Mu, List<A>>> list(App<Holder.Mu, A> single) {
@@ -57,7 +42,7 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
 
     @Override
     public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
-        return StructuredMapCodec.of(fields, creator, codecInterpreter, CodecInterpreter::unbox)
+        return StructuredMapCodec.of(fields, creator, codecInterpreter(), CodecInterpreter::unbox)
             .map(Holder::new);
     }
 
@@ -82,6 +67,23 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
 
     public <T> DataResult<MapCodec<T>> interpret(Structure<T> structure) {
         return structure.interpret(this).map(MapCodecInterpreter::unbox);
+    }
+
+    @Override
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures) {
+        return keyStructure.interpret(codecInterpreter()).flatMap(keyCodecApp -> {
+            var keyCodec = CodecInterpreter.unbox(keyCodecApp);
+            // Object here as it's the furthest super A and we have only ? super A
+            Map<Object, MapCodec<? extends E>> codecMap = new HashMap<>();
+            for (var entry : structures.entrySet()) {
+                var result = entry.getValue().interpret(this);
+                if (result.error().isPresent()) {
+                    return DataResult.error(result.error().get().messageSupplier());
+                }
+                codecMap.put(entry.getKey(), MapCodecInterpreter.unbox(result.result().orElseThrow()));
+            }
+            return DataResult.success(new MapCodecInterpreter.Holder<>(keyCodec.dispatchMap(key, function, codecMap::get)));
+        });
     }
 
     public record Holder<T>(MapCodec<T> mapCodec) implements App<Holder.Mu, T> {

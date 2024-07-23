@@ -6,6 +6,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -19,6 +20,8 @@ public interface Interpreter<Mu extends K1> {
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
     <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Keys<Identity.Mu, Object> annotations);
+
+    <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures);
 
     default Optional<Key<Mu>> key() {
         return Optional.empty();

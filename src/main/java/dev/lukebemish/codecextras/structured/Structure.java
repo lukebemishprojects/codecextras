@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
@@ -7,6 +8,7 @@ import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -139,6 +141,17 @@ public interface Structure<A> {
 
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
         return RecordStructure.create(builder);
+    }
+
+    default <E> Structure<E> dispatch(String key, Function<? super E, ? extends A> function, Supplier<Map<? super A, ? extends Structure<? extends E>>> structures) {
+        var structureSupplier = Suppliers.memoize(structures::get);
+        var outer = this;
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.dispatch(key, outer, function, structureSupplier.get());
+            }
+        };
     }
 
     Structure<Unit> UNIT = keyed(Interpreter.UNIT);

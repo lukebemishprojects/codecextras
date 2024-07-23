@@ -9,6 +9,7 @@ import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Key2;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
+import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.test.CodecAssertions;
@@ -49,8 +50,9 @@ public class TestParametricKeys {
         WithType::unbox
     );
 
-    private static final Codec<WithType<Integer>> CODEC = new CodecInterpreter(
+    private static final Codec<WithType<Integer>> CODEC = CodecInterpreter.create(
         Keys.<CodecInterpreter.Holder.Mu, Object>builder().build(),
+        Keys.<MapCodecInterpreter.Holder.Mu, Object>builder().build(),
         Keys2.<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>builder()
             .add(WITH_TYPE, new ParametricKeyedValue<>() {
                 @Override
@@ -58,7 +60,8 @@ public class TestParametricKeys {
                     return new CodecInterpreter.Holder<>(withTypeCodec(Prefix.unbox(parameter)).xmap(Function.identity(), WithType::unbox));
                 }
             })
-            .build()
+            .build(),
+        Keys2.<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1>builder().build()
     ).interpret(STRUCTURE).getOrThrow();
 
     private final String json = "\"prefix:123\"";
