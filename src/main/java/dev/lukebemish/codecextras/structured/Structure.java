@@ -95,6 +95,26 @@ public interface Structure<A> {
         return flatXmap(a -> DataResult.success(deserializer.apply(a)), b -> DataResult.success(serializer.apply(b)));
     }
 
+    default <E> Structure<E> dispatch(String key, Function<? super E, ? extends A> function, Supplier<Map<? super A, ? extends Structure<? extends E>>> structures) {
+        var structureSupplier = Suppliers.memoize(structures::get);
+        var outer = this;
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.dispatch(key, outer, function, structureSupplier.get());
+            }
+        };
+    }
+
+    static <A> Structure<A> lazy(Supplier<Structure<A>> supplier) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return supplier.get().interpret(interpreter);
+            }
+        };
+    }
+
     static <A> Structure<A> keyed(Key<A> key) {
         return new Structure<>() {
             @Override
@@ -141,17 +161,6 @@ public interface Structure<A> {
 
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
         return RecordStructure.create(builder);
-    }
-
-    default <E> Structure<E> dispatch(String key, Function<? super E, ? extends A> function, Supplier<Map<? super A, ? extends Structure<? extends E>>> structures) {
-        var structureSupplier = Suppliers.memoize(structures::get);
-        var outer = this;
-        return new Structure<>() {
-            @Override
-            public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.dispatch(key, outer, function, structureSupplier.get());
-            }
-        };
     }
 
     Structure<Unit> UNIT = keyed(Interpreter.UNIT);
