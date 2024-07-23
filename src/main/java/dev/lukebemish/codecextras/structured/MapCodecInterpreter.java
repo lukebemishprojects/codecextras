@@ -29,13 +29,13 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
             @Override
             public <A extends K1, B extends K1> App2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, A, B> convert(App2<ParametricKeyedValue.Mu<Holder.Mu>, A, B> input) {
                 var unboxed = ParametricKeyedValue.unbox(input);
-                return new ParametricKeyedValue<>(new ParametricKeyedValue.Converter<>() {
-					@Override
-					public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
-						var mapCodec = unbox(unboxed.converter().convert(parameter));
-						return new CodecInterpreter.Holder<>(mapCodec.codec());
-					}
-				});
+                return new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
+                        var mapCodec = unbox(unboxed.convert(parameter));
+                        return new CodecInterpreter.Holder<>(mapCodec.codec());
+                    }
+                };
             }
         }).join(parametricCodecKeys));
     }

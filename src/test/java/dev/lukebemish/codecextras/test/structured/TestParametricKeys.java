@@ -52,12 +52,12 @@ public class TestParametricKeys {
     private static final Codec<WithType<Integer>> CODEC = new CodecInterpreter(
         Keys.<CodecInterpreter.Holder.Mu, Object>builder().build(),
         Keys2.<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>builder()
-            .add(WITH_TYPE, new ParametricKeyedValue<>(new ParametricKeyedValue.Converter<>() {
+            .add(WITH_TYPE, new ParametricKeyedValue<>() {
                 @Override
                 public <T> App<CodecInterpreter.Holder.Mu, App<WithType.Mu, T>> convert(App<Prefix.Mu, T> parameter) {
                     return new CodecInterpreter.Holder<>(withTypeCodec(Prefix.unbox(parameter)).xmap(Function.identity(), WithType::unbox));
                 }
-            }))
+            })
             .build()
     ).interpret(STRUCTURE).getOrThrow();
 

@@ -22,7 +22,7 @@ public abstract class KeyStoringInterpreter<Mu extends K1> implements Interprete
     public <MuO extends K1, MuP extends K1, T> DataResult<App<Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter) {
         return parametricKeys.get(key)
             .map(ParametricKeyedValue::unbox)
-            .map(val -> val.converter().convert(parameter))
+            .map(val -> val.convert(parameter))
             .map(DataResult::success)
             .orElse(DataResult.error(() -> "Unknown key "+key.name()));
     }
