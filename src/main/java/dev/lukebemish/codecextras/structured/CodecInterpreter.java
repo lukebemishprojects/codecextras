@@ -6,12 +6,13 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.function.Function;
 
 public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu> {
-    public CodecInterpreter(Keys<Holder.Mu> keys) {
-        super(keys.join(Keys.<Holder.Mu>builder()
+    public CodecInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
+        super(keys.join(Keys.<Holder.Mu, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(Codec.unit(Unit.INSTANCE)))
             .add(Interpreter.BOOL, new Holder<>(Codec.BOOL))
             .add(Interpreter.BYTE, new Holder<>(Codec.BYTE))
@@ -22,11 +23,14 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
             .add(Interpreter.DOUBLE, new Holder<>(Codec.DOUBLE))
             .add(Interpreter.STRING, new Holder<>(Codec.STRING))
             .build()
-        ));
+        ), parametricKeys);
     }
 
     public CodecInterpreter() {
-        this(Keys.<Holder.Mu>builder().build());
+        this(
+            Keys.<Holder.Mu, Object>builder().build(),
+            Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder().build()
+        );
     }
 
     @Override
@@ -47,7 +51,7 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
+    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
         // No annotations handled here
         return DataResult.success(input);
     }

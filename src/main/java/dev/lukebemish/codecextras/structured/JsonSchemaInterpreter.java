@@ -5,14 +5,15 @@ import com.google.gson.JsonObject;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu> {
-    public JsonSchemaInterpreter(Keys<Holder.Mu> keys) {
-        super(keys.join(Keys.<Holder.Mu>builder()
+    public JsonSchemaInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
+        super(keys.join(Keys.<Holder.Mu, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(OBJECT))
             .add(Interpreter.BOOL, new Holder<>(BOOLEAN))
             .add(Interpreter.BYTE, new Holder<>(INTEGER))
@@ -23,11 +24,14 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             .add(Interpreter.DOUBLE, new Holder<>(NUMBER))
             .add(Interpreter.STRING, new Holder<>(STRING))
             .build()
-        ));
+        ), parametricKeys);
     }
 
     public JsonSchemaInterpreter() {
-        this(Keys.<Holder.Mu>builder().build());
+        this(
+            Keys.<Holder.Mu, Object>builder().build(),
+            Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder().build()
+        );
     }
 
     @Override
@@ -72,12 +76,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Annotations annotations) {
+    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
         var schema = copy(unbox(input));
-        annotations.get(Annotations.DESCRIPTION).or(() -> annotations.get(Annotations.COMMENT)).ifPresent(comment -> {
+        Annotation.get(annotations, Annotation.DESCRIPTION).or(() -> Annotation.get(annotations, Annotation.COMMENT)).ifPresent(comment -> {
             schema.addProperty("description", comment);
         });
-        annotations.get(Annotations.TITLE).ifPresent(comment -> {
+        Annotation.get(annotations, Annotation.TITLE).ifPresent(comment -> {
             schema.addProperty("title", comment);
         });
         return DataResult.success(new Holder<>(schema));

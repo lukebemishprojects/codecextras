@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.function.Function;
 
@@ -16,7 +17,7 @@ public interface Interpreter<Mu extends K1> {
 
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
-    <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Annotations annotations);
+    <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Keys<Identity.Mu, Object> annotations);
 
     Key<Unit> UNIT = Key.create("UNIT");
     Key<Boolean> BOOL = Key.create("BOOL");
@@ -27,4 +28,6 @@ public interface Interpreter<Mu extends K1> {
     Key<Float> FLOAT = Key.create("FLOAT");
     Key<Double> DOUBLE = Key.create("DOUBLE");
     Key<String> STRING = Key.create("STRING");
+
+    <MuO extends K1, MuP extends K1, T> DataResult<App<Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP,MuO> key, App<MuP, T> parameter);
 }

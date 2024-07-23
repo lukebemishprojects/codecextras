@@ -46,7 +46,7 @@ class StructuredMapCodec<A> extends MapCodec<A> {
             return DataResult.error(result.error().orElseThrow().messageSupplier());
         }
         Codec<F> fieldCodec = unboxer.unbox(result.result().orElseThrow());
-        MapCodec<F> fieldMapCodec = field.structure().annotations().get(Annotations.COMMENT)
+        MapCodec<F> fieldMapCodec = Annotation.get(field.structure().annotations(), Annotation.COMMENT)
             .map(comment -> CommentMapCodec.of(makeFieldCodec(fieldCodec, field), comment))
             .orElseGet(() -> makeFieldCodec(fieldCodec, field));
         mapCodecFields.add(new StructuredMapCodec.Field<>(fieldMapCodec, field.key(), field.getter()));

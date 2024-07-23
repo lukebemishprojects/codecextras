@@ -4,12 +4,14 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
-import dev.lukebemish.codecextras.structured.Annotations;
 import dev.lukebemish.codecextras.structured.Interpreter;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
+import dev.lukebemish.codecextras.structured.Keys2;
+import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.types.Identity;
 import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +22,8 @@ import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>> {
-    public StreamCodecInterpreter(Keys<Holder.Mu<B>> keys) {
-        super(keys.join(Keys.<Holder.Mu<B>>builder()
+    public StreamCodecInterpreter(Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
+        super(keys.join(Keys.<Holder.Mu<B>, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(StreamCodec.of((buf, data) -> {}, buf -> Unit.INSTANCE)))
             .add(Interpreter.BOOL, new Holder<>(ByteBufCodecs.BOOL.cast()))
             .add(Interpreter.BYTE, new Holder<>(ByteBufCodecs.BYTE.cast()))
@@ -32,11 +34,14 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
             .add(Interpreter.DOUBLE, new Holder<>(ByteBufCodecs.DOUBLE.cast()))
             .add(Interpreter.STRING, new Holder<>(ByteBufCodecs.STRING_UTF8.cast()))
             .build()
-        ));
+        ), parametricKeys);
     }
 
     public StreamCodecInterpreter() {
-        this(Keys.<Holder.Mu<B>>builder().build());
+        this(
+            Keys.<Holder.Mu<B>, Object>builder().build(),
+            Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder().build()
+        );
     }
 
     @Override
@@ -81,7 +86,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu<B>, A>> annotate(App<Holder.Mu<B>, A> input, Annotations annotations) {
+    public <A> DataResult<App<Holder.Mu<B>, A>> annotate(App<Holder.Mu<B>, A> input, Keys<Identity.Mu, Object> annotations) {
         // No annotations handled here
         return DataResult.success(input);
     }

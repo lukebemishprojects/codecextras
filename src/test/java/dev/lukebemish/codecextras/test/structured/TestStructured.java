@@ -2,7 +2,7 @@ package dev.lukebemish.codecextras.test.structured;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
-import dev.lukebemish.codecextras.structured.Annotations;
+import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class TestStructured {
     private record TestRecord(int a, String b, List<Boolean> c, Optional<String> d) {
         private static final Structure<TestRecord> STRUCTURE = Structure.record(i -> {
-            var a = i.add("a", Structure.INT.annotate(Annotations.COMMENT, "Field A"), TestRecord::a);
+            var a = i.add("a", Structure.INT.annotate(Annotation.COMMENT, "Field A"), TestRecord::a);
             var b = i.add(Structure.STRING.fieldOf("b"), TestRecord::b);
             var c = i.add("c", Structure.BOOL.listOf(), TestRecord::c);
             var d = i.add(Structure.STRING.optionalFieldOf("d"), TestRecord::d);

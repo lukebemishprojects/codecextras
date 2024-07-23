@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -12,23 +13,23 @@ import org.jspecify.annotations.Nullable;
 
 public interface Structure<A> {
     <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);
-    default Annotations annotations() {
-        return Annotations.empty();
+    default Keys<Identity.Mu, Object> annotations() {
+        return Annotation.empty();
     }
 
     default <T> Structure<A> annotate(Key<T> key, T value) {
         var outer = this;
-        var annotations = annotations().with(key, value);
+        var annotations = annotations().with(key, new Identity<>(value));
         return annotatedDelegatingStructure(outer, annotations);
     }
 
-    default Structure<A> annotate(Annotations annotations) {
+    default Structure<A> annotate(Keys<Identity.Mu, Object> annotations) {
         var outer = this;
         var combined = annotations().join(annotations);
         return annotatedDelegatingStructure(outer, combined);
     }
 
-    private static <A> Structure<A> annotatedDelegatingStructure(Structure<A> outer, Annotations annotations) {
+    private static <A> Structure<A> annotatedDelegatingStructure(Structure<A> outer, Keys<Identity.Mu, Object> annotations) {
         final class AnnotatedDelegatingStructure implements Structure<A> {
             final @Nullable AnnotatedDelegatingStructure delegate;
 
@@ -47,7 +48,7 @@ public interface Structure<A> {
             }
 
             @Override
-            public Annotations annotations() {
+            public Keys<Identity.Mu, Object> annotations() {
                 return annotations;
             }
         }
@@ -96,6 +97,17 @@ public interface Structure<A> {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
                 return interpreter.keyed(key);
+            }
+        };
+    }
+
+    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
+                    interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
+                );
             }
         };
     }
