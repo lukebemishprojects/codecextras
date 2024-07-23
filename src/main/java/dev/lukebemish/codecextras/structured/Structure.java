@@ -1,6 +1,5 @@
 package dev.lukebemish.codecextras.structured;
 
-import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
@@ -96,12 +95,11 @@ public interface Structure<A> {
     }
 
     default <E> Structure<E> dispatch(String key, Function<? super E, ? extends A> function, Supplier<Map<? super A, ? extends Structure<? extends E>>> structures) {
-        var structureSupplier = Suppliers.memoize(structures::get);
         var outer = this;
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.dispatch(key, outer, function, structureSupplier.get());
+                return interpreter.dispatch(key, outer, function, structures.get());
             }
         };
     }
