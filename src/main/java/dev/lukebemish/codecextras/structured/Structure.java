@@ -124,6 +124,19 @@ public interface Structure<A> {
         };
     }
 
+    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Raised.Mu<A>, K1> keys) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.key().flatMap(k -> keys.get(k).<Raised<Mu, A>>map(Raised::unbox).map(Raised::value))
+                    .map(DataResult::success)
+                    .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
+                        interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
+                    ));
+            }
+        };
+    }
+
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
         return RecordStructure.create(builder);
     }

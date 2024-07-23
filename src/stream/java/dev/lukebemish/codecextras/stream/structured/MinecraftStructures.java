@@ -114,8 +114,19 @@ public final class MinecraftStructures {
         );
 
         public static <T> Structure<ResourceKey<T>> resourceKey(ResourceKey<? extends Registry<T>> registry) {
-            return Structure.parametricallyKeyed(Types.RESOURCE_KEY, new Types.RegistryKeyHolder<>(registry), Types.ResourceKeyHolder::unbox)
-                .xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
+            return Structure.parametricallyKeyed(
+                Types.RESOURCE_KEY,
+                    new Types.RegistryKeyHolder<>(registry),
+                    Types.ResourceKeyHolder::unbox,
+                Keys.<Raised.Mu<Types.ResourceKeyHolder<T>>, K1>builder()
+                    .add(
+                        CodecInterpreter.KEY,
+                        new Raised<>(new CodecInterpreter.Holder<>(
+                            ResourceKey.codec(registry).xmap(Types.ResourceKeyHolder::new, Types.ResourceKeyHolder::value)
+                        ))
+                    )
+                    .build()
+                ).xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
         }
     }
 }
