@@ -7,6 +7,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -93,6 +94,13 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 
     public <T> DataResult<JsonObject> interpret(Structure<T> structure) {
         return structure.interpret(this).map(JsonSchemaInterpreter::unbox);
+    }
+
+    public static final Key<Holder.Mu> KEY = Key.create("JsonSchemaInterpreter");
+
+    @Override
+    public Optional<Key<Holder.Mu>> key() {
+        return Optional.of(KEY);
     }
 
     public record Holder<T>(JsonObject jsonObject) implements App<Holder.Mu, T> {

@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.types.AppMu;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Optional;
@@ -97,6 +98,17 @@ public interface Structure<A> {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
                 return interpreter.keyed(key);
+            }
+        };
+    }
+
+    static <A> Structure<A> keyed(Key<A> key, Keys<AppMu.Mu, K1> keys) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.key().flatMap(k -> keys.get(k).<AppMu<Mu, A>>map(AppMu::unbox).map(AppMu::value))
+                    .map(DataResult::success)
+                    .orElseGet(() -> interpreter.keyed(key));
             }
         };
     }

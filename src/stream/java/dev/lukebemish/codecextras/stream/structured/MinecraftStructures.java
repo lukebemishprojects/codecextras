@@ -1,0 +1,121 @@
+package dev.lukebemish.codecextras.stream.structured;
+
+import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.App2;
+import com.mojang.datafixers.kinds.K1;
+import dev.lukebemish.codecextras.structured.CodecInterpreter;
+import dev.lukebemish.codecextras.structured.JsonSchemaInterpreter;
+import dev.lukebemish.codecextras.structured.Key;
+import dev.lukebemish.codecextras.structured.Key2;
+import dev.lukebemish.codecextras.structured.Keys;
+import dev.lukebemish.codecextras.structured.Keys2;
+import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
+import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
+import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.types.AppMu;
+import net.minecraft.core.Registry;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+
+public final class MinecraftStructures {
+    private MinecraftStructures() {}
+
+    public static final Keys<MapCodecInterpreter.Holder.Mu, Object> MAP_CODEC_KEYS = Keys.<MapCodecInterpreter.Holder.Mu, Object>builder()
+        .build();
+
+    public static final Keys2<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1> MAP_CODEC_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1>builder()
+        .build();
+
+    public static final Keys<CodecInterpreter.Holder.Mu, Object> CODEC_KEYS = MAP_CODEC_KEYS.<CodecInterpreter.Holder.Mu>map(new Keys.Converter<>() {
+        @Override
+        public <B> App<CodecInterpreter.Holder.Mu, B> convert(App<MapCodecInterpreter.Holder.Mu, B> app) {
+            return new CodecInterpreter.Holder<>(MapCodecInterpreter.unbox(app).codec());
+        }
+    }).join(Keys.<CodecInterpreter.Holder.Mu, Object>builder()
+        .add(Types.RESOURCE_LOCATION, new CodecInterpreter.Holder<>(ResourceLocation.CODEC))
+        .build()
+    );
+
+    public static final Keys2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1> CODEC_PARAMETRIC_KEYS = MAP_CODEC_PARAMETRIC_KEYS.map(new Keys2.Converter<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>() {
+        @Override
+        public <A extends K1, B extends K1> App2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, A, B> convert(App2<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, A, B> input) {
+            var unboxed = ParametricKeyedValue.unbox(input);
+            return new ParametricKeyedValue<>() {
+                @Override
+                public <T> App<CodecInterpreter.Holder.Mu, App<B, T>> convert(App<A, T> parameter) {
+                    var mapCodec = MapCodecInterpreter.unbox(unboxed.convert(parameter));
+                    return new CodecInterpreter.Holder<>(mapCodec.codec());
+                }
+            };
+        }
+    }).join(Keys2.<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>builder()
+        .add(Types.RESOURCE_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<CodecInterpreter.Holder.Mu, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new CodecInterpreter.Holder<>(ResourceKey.codec(Types.RegistryKeyHolder.unbox(parameter).value()).xmap(Types.ResourceKeyHolder::new, a -> Types.ResourceKeyHolder.unbox(a).value()));
+            }
+        })
+        .build()
+    );
+
+    public static final Keys<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object> REGISTRY_STREAM_KEYS = Keys.<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object>builder()
+        .add(Types.RESOURCE_LOCATION, new StreamCodecInterpreter.Holder<>(ResourceLocation.STREAM_CODEC.cast()))
+        .build();
+
+    public static final Keys2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1> REGISTRY_STREAM_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1>builder()
+        .add(Types.RESOURCE_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new StreamCodecInterpreter.Holder<>(
+                    ResourceKey.streamCodec(Types.RegistryKeyHolder.unbox(parameter).value()).<App<Types.ResourceKeyHolder.Mu, T>>map(Types.ResourceKeyHolder::new, a -> Types.ResourceKeyHolder.unbox(a).value()).cast()
+                );
+            }
+        })
+        .build();
+
+    public static final Keys<JsonSchemaInterpreter.Holder.Mu, Object> JSON_SCHEMA_KEYS = Keys.<JsonSchemaInterpreter.Holder.Mu, Object>builder()
+        .build();
+
+    public static final Keys2<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1> JSON_SCHEMA_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1>builder()
+        .build();
+
+    public static final class Types {
+        private Types() {}
+
+        public static final Key<ResourceLocation> RESOURCE_LOCATION = Key.create("resource_location");
+
+        public record ResourceKeyHolder<T>(ResourceKey<T> value) implements App<ResourceKeyHolder.Mu, T> {
+            public static final class Mu implements K1 { private Mu() {} }
+
+            public static <T> ResourceKeyHolder<T> unbox(App<Mu, T> box) {
+                return (ResourceKeyHolder<T>) box;
+            }
+        }
+
+        public record RegistryKeyHolder<T>(ResourceKey<? extends Registry<T>> value) implements App<RegistryKeyHolder.Mu, T> {
+            public static final class Mu implements K1 { private Mu() {} }
+
+            public static <T> RegistryKeyHolder<T> unbox(App<Mu, T> box) {
+                return (RegistryKeyHolder<T>) box;
+            }
+        }
+
+        public static final Key2<RegistryKeyHolder.Mu, ResourceKeyHolder.Mu> RESOURCE_KEY = Key2.create("resource_key");
+    }
+
+    public static final class Structures {
+        private Structures() {}
+
+        public static final Structure<ResourceLocation> RESOURCE_LOCATION = Structure.keyed(
+            Types.RESOURCE_LOCATION, Keys.<AppMu.Mu, K1>builder()
+                .add(CodecInterpreter.KEY, new AppMu<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
+                .build()
+        );
+
+        public static <T> Structure<ResourceKey<T>> resourceKey(ResourceKey<? extends Registry<T>> registry) {
+            return Structure.parametricallyKeyed(Types.RESOURCE_KEY, new Types.RegistryKeyHolder<>(registry), Types.ResourceKeyHolder::unbox)
+                .xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
+        }
+    }
+}

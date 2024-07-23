@@ -8,6 +8,7 @@ import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu> {
@@ -54,6 +55,13 @@ public class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Hol
     public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
         // No annotations handled here
         return DataResult.success(input);
+    }
+
+    public static final Key<Holder.Mu> KEY = Key.create("CodecInterpreter");
+
+    @Override
+    public Optional<Key<Holder.Mu>> key() {
+        return Optional.of(KEY);
     }
 
     public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {

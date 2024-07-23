@@ -8,6 +8,7 @@ import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu> {
@@ -89,5 +90,12 @@ public class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpret
         static <T> Holder<T> unbox(App<Holder.Mu, T> box) {
             return (Holder<T>) box;
         }
+    }
+
+    public static final Key<Holder.Mu> KEY = Key.create("MapCodecInterpreter");
+
+    @Override
+    public Optional<Key<Holder.Mu>> key() {
+        return Optional.of(KEY);
     }
 }

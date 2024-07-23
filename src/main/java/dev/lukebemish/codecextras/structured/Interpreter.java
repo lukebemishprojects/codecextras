@@ -6,6 +6,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 public interface Interpreter<Mu extends K1> {
@@ -18,6 +19,10 @@ public interface Interpreter<Mu extends K1> {
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
     <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Keys<Identity.Mu, Object> annotations);
+
+    default Optional<Key<Mu>> key() {
+        return Optional.empty();
+    }
 
     Key<Unit> UNIT = Key.create("UNIT");
     Key<Boolean> BOOL = Key.create("BOOL");

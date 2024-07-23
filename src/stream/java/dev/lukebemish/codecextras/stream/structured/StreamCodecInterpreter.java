@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.stream.mutable.dev.lukebemish.codecextras.stream.structured;
+package dev.lukebemish.codecextras.stream.structured;
 
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
