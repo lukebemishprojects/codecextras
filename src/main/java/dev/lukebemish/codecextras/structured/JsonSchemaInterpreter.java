@@ -13,7 +13,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
-public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu> {
+public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu, JsonSchemaInterpreter> {
     public JsonSchemaInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
         super(keys.join(Keys.<Holder.Mu, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(OBJECT))
@@ -27,6 +27,14 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             .add(Interpreter.STRING, new Holder<>(STRING))
             .build()
         ), parametricKeys);
+    }
+
+    @Override
+    public JsonSchemaInterpreter with(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
+        return new JsonSchemaInterpreter(
+            keys().join(keys),
+            parametricKeys().join(parametricKeys)
+        );
     }
 
     public JsonSchemaInterpreter() {

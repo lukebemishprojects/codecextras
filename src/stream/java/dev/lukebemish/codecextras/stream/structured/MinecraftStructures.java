@@ -14,6 +14,7 @@ import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Flip;
 import net.minecraft.core.Registry;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -59,14 +60,28 @@ public final class MinecraftStructures {
         .build()
     );
 
-    public static final Keys<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object> REGISTRY_STREAM_KEYS = Keys.<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object>builder()
+    public static final CodecInterpreter CODEC_INTERPRETER = CodecInterpreter.create().with(
+        CODEC_KEYS,
+        MAP_CODEC_KEYS,
+        CODEC_PARAMETRIC_KEYS,
+        MAP_CODEC_PARAMETRIC_KEYS
+    );
+
+    public static final MapCodecInterpreter MAP_CODEC_INTERPRETER = MapCodecInterpreter.create().with(
+        CODEC_KEYS,
+        MAP_CODEC_KEYS,
+        CODEC_PARAMETRIC_KEYS,
+        MAP_CODEC_PARAMETRIC_KEYS
+    );
+
+    public static final Keys<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>, Object> FRIENDLY_STREAM_KEYS = Keys.<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>, Object>builder()
         .add(Types.RESOURCE_LOCATION, new StreamCodecInterpreter.Holder<>(ResourceLocation.STREAM_CODEC.cast()))
         .build();
 
-    public static final Keys2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1> REGISTRY_STREAM_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1>builder()
+    public static final Keys2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>>, K1, K1> FRIENDLY_STREAM_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>>, K1, K1>builder()
         .add(Types.RESOURCE_KEY, new ParametricKeyedValue<>() {
             @Override
-            public <T> App<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+            public <T> App<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
                 return new StreamCodecInterpreter.Holder<>(
                     ResourceKey.streamCodec(Types.RegistryKeyHolder.unbox(parameter).value()).<App<Types.ResourceKeyHolder.Mu, T>>map(Types.ResourceKeyHolder::new, a -> Types.ResourceKeyHolder.unbox(a).value()).cast()
                 );
@@ -74,11 +89,49 @@ public final class MinecraftStructures {
         })
         .build();
 
+    public static final StreamCodecInterpreter<FriendlyByteBuf> FRIENDLY_STREAM_CODEC_INTERPRETER = new StreamCodecInterpreter<>(
+        FRIENDLY_STREAM_KEYS,
+        FRIENDLY_STREAM_PARAMETRIC_KEYS
+    );
+
+    public static final Keys<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object> REGISTRY_STREAM_KEYS = FRIENDLY_STREAM_KEYS.map(new Keys.Converter<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>, StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object>() {
+        @Override
+        public <A> App<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, A> convert(App<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>, A> input) {
+            return new StreamCodecInterpreter.Holder<>(StreamCodecInterpreter.unbox(input).cast());
+        }
+    }).join(Keys.<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object>builder()
+        .build()
+    );
+
+    public static final Keys2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1> REGISTRY_STREAM_PARAMETRIC_KEYS = FRIENDLY_STREAM_PARAMETRIC_KEYS.map(new Keys2.Converter<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>>, ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1>() {
+        @Override
+        public <A extends K1, B extends K1> App2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, A, B> convert(App2<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<FriendlyByteBuf>>, A, B> input) {
+            return new ParametricKeyedValue<>() {
+                @Override
+                public <T> App<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, App<B, T>> convert(App<A, T> parameter) {
+                    return new StreamCodecInterpreter.Holder<>(StreamCodecInterpreter.unbox(ParametricKeyedValue.unbox(input).convert(parameter)).cast());
+                }
+            };
+        }
+    }).join(Keys2.<ParametricKeyedValue.Mu<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>>, K1, K1>builder()
+        .build()
+    );
+
+    public static final StreamCodecInterpreter<RegistryFriendlyByteBuf> REGISTRY_STREAM_CODEC_INTERPRETER = new StreamCodecInterpreter<>(
+        REGISTRY_STREAM_KEYS,
+        REGISTRY_STREAM_PARAMETRIC_KEYS
+    );
+
     public static final Keys<JsonSchemaInterpreter.Holder.Mu, Object> JSON_SCHEMA_KEYS = Keys.<JsonSchemaInterpreter.Holder.Mu, Object>builder()
         .build();
 
     public static final Keys2<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1> JSON_SCHEMA_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1>builder()
         .build();
+
+    public static final JsonSchemaInterpreter JSON_SCHEMA_INTERPRETER = new JsonSchemaInterpreter(
+        JSON_SCHEMA_KEYS,
+        JSON_SCHEMA_PARAMETRIC_KEYS
+    );
 
     public static final class Types {
         private Types() {}

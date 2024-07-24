@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu> {
+public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu, MapCodecInterpreter> {
     public MapCodecInterpreter(
         Keys<Holder.Mu, Object> keys,
         Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys
@@ -84,6 +84,25 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
             }
             return DataResult.success(new MapCodecInterpreter.Holder<>(keyCodec.dispatchMap(key, function, codecMap::get)));
         });
+    }
+
+    @Override
+    public MapCodecInterpreter with(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
+        return new CodecAndMapInterpreters(codecInterpreter().keys(), keys().join(keys), codecInterpreter().parametricKeys(), parametricKeys().join(parametricKeys)).mapCodecInterpreter();
+    }
+
+    public MapCodecInterpreter with(
+        Keys<CodecInterpreter.Holder.Mu, Object> codecKeys,
+        Keys<MapCodecInterpreter.Holder.Mu, Object> mapCodecKeys,
+        Keys2<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1> parametricCodecKeys,
+        Keys2<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1> parametricMapCodecKeys
+    ) {
+        return new CodecAndMapInterpreters(
+            codecInterpreter().keys().join(codecKeys),
+            keys().join(mapCodecKeys),
+            codecInterpreter().parametricKeys().join(parametricCodecKeys),
+            parametricKeys().join(parametricMapCodecKeys)
+        ).mapCodecInterpreter();
     }
 
     public record Holder<T>(MapCodec<T> mapCodec) implements App<Holder.Mu, T> {

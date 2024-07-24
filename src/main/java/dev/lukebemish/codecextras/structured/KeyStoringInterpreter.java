@@ -4,7 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 
-public abstract class KeyStoringInterpreter<Mu extends K1> implements Interpreter<Mu> {
+public abstract class KeyStoringInterpreter<Mu extends K1, SELF extends KeyStoringInterpreter<Mu, SELF>> implements Interpreter<Mu> {
     private final Keys<Mu, Object> keys;
     private final Keys2<ParametricKeyedValue.Mu<Mu>, K1, K1> parametricKeys;
 
@@ -26,4 +26,14 @@ public abstract class KeyStoringInterpreter<Mu extends K1> implements Interprete
             .map(DataResult::success)
             .orElse(DataResult.error(() -> "Unknown key "+key.name()));
     }
+
+    protected Keys<Mu, Object> keys() {
+        return keys;
+    }
+
+    protected Keys2<ParametricKeyedValue.Mu<Mu>, K1, K1> parametricKeys() {
+        return parametricKeys;
+    }
+
+    public abstract SELF with(Keys<Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Mu>, K1, K1> parametricKeys);
 }
