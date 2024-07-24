@@ -103,6 +103,11 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         return DataResult.error(() -> "Not yet implemented!");
     }
 
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> lazy(Structure<A> structure) {
+        return structure.interpret(this);
+    }
+
     public static JsonObject unbox(App<Holder.Mu, ?> box) {
         return Holder.unbox(box).jsonObject;
     }

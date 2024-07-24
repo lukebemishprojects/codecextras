@@ -104,6 +104,25 @@ public interface Structure<A> {
         };
     }
 
+    default Structure<A> lazy() {
+        var outer = this;
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.lazy(outer);
+            }
+        };
+    }
+
+    static <A> Structure<A> lazyInitialized(Supplier<Structure<A>> supplier) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return supplier.get().interpret(interpreter);
+            }
+        };
+    }
+
     static <A> Structure<A> lazy(Supplier<Structure<A>> supplier) {
         return new Structure<>() {
             @Override

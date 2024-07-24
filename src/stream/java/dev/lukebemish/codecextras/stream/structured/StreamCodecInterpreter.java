@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.stream.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
@@ -114,6 +115,15 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                 keyStreamCodec.dispatch(function, codecMap::get)
             ));
         });
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu<B>, A>> lazy(Structure<A> structure) {
+        var supplier = Suppliers.memoize(() -> structure.interpret(this));
+        return DataResult.success(new Holder<>(StreamCodec.of(
+            (buf, data) -> unbox(supplier.get().getOrThrow()).encode(buf, data),
+            buf -> unbox(supplier.get().getOrThrow()).decode(buf)
+        )));
     }
 
     private static <B extends ByteBuf, A, F> void encodeSingleField(B buf, Field<A, B, F> field, A data) {

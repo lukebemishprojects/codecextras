@@ -1,9 +1,13 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.MapLike;
+import com.mojang.serialization.RecordBuilder;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.HashMap;
@@ -11,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu, MapCodecInterpreter> {
     public MapCodecInterpreter(
@@ -67,6 +72,28 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
 
     public <T> DataResult<MapCodec<T>> interpret(Structure<T> structure) {
         return structure.interpret(this).map(MapCodecInterpreter::unbox);
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> lazy(Structure<A> structure) {
+        var supplier = Suppliers.memoize(() -> structure.interpret(this));
+        return DataResult.success(new Holder<>(new MapCodec<A>() {
+            @Override
+            public <T> Stream<T> keys(DynamicOps<T> ops) {
+                return supplier.get().map(MapCodecInterpreter::unbox).result().map(c -> c.keys(ops)).orElse(Stream.of());
+            }
+
+            @Override
+            public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
+                return supplier.get().map(MapCodecInterpreter::unbox).flatMap(c -> c.decode(ops, input));
+            }
+
+            @Override
+            public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+                var codec = supplier.get().map(MapCodecInterpreter::unbox);
+                return codec.result().map(c -> c.encode(input, ops, prefix)).orElse(prefix.withErrorsFrom(codec));
+            }
+        }));
     }
 
     @Override

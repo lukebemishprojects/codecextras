@@ -23,6 +23,8 @@ public interface Interpreter<Mu extends K1> {
 
     <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures);
 
+    <A> DataResult<App<Mu, A>> lazy(Structure<A> structure);
+
     default Optional<Key<Mu>> key() {
         return Optional.empty();
     }

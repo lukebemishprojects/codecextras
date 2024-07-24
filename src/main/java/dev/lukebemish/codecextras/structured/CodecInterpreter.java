@@ -1,10 +1,13 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import dev.lukebemish.codecextras.types.Identity;
@@ -66,6 +69,22 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
         // No annotations handled here
         return DataResult.success(input);
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> lazy(Structure<A> structure) {
+        var supplier = Suppliers.memoize(() -> structure.interpret(this));
+        return DataResult.success(new Holder<>(new Codec<A>() {
+            @Override
+            public <T> DataResult<Pair<A, T>> decode(DynamicOps<T> ops, T input) {
+                return supplier.get().map(CodecInterpreter::unbox).flatMap(c -> c.decode(ops, input));
+            }
+
+            @Override
+            public <T> DataResult<T> encode(A input, DynamicOps<T> ops, T prefix) {
+                return supplier.get().map(CodecInterpreter::unbox).flatMap(c -> c.encode(input, ops, prefix));
+            }
+        }));
     }
 
     @Override
