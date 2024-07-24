@@ -19,7 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
@@ -100,30 +102,24 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <E, A> DataResult<App<Holder.Mu<B>, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu<B>, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyStreamCodec = unbox(keyCodecApp);
-            Map<Object, StreamCodec<B, ? extends E>> codecMap = new HashMap<>();
-            for (var entry : structures.entrySet()) {
-                var result = entry.getValue().interpret(this);
-                if (result.error().isPresent()) {
-                    return DataResult.error(result.error().get().messageSupplier());
+            Supplier<Map<Object, DataResult<StreamCodec<B, ? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
+                Map<Object, DataResult<StreamCodec<B, ? extends E>>> codecMap = new HashMap<>();
+                for (var entryKey : keys) {
+                    var result = structures.apply(entryKey).interpret(this);
+                    if (result.error().isPresent()) {
+                        codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
+                    }
+                    codecMap.put(entryKey, DataResult.success(StreamCodecInterpreter.unbox(result.result().orElseThrow())));
                 }
-                codecMap.put(entry.getKey(), StreamCodecInterpreter.unbox(result.result().orElseThrow()));
-            }
+                return codecMap;
+            });
             return DataResult.success(new Holder<>(
-                keyStreamCodec.dispatch(function, codecMap::get)
+                keyStreamCodec.dispatch(function.andThen(DataResult::getOrThrow), k -> codecMapSupplier.get().get(k).getOrThrow())
             ));
         });
-    }
-
-    @Override
-    public <A> DataResult<App<Holder.Mu<B>, A>> lazy(Structure<A> structure) {
-        var supplier = Suppliers.memoize(() -> structure.interpret(this));
-        return DataResult.success(new Holder<>(StreamCodec.of(
-            (buf, data) -> unbox(supplier.get().getOrThrow()).encode(buf, data),
-            buf -> unbox(supplier.get().getOrThrow()).decode(buf)
-        )));
     }
 
     private static <B extends ByteBuf, A, F> void encodeSingleField(B buf, Field<A, B, F> field, A data) {

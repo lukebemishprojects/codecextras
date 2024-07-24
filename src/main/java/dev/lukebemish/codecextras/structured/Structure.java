@@ -7,8 +7,8 @@ import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -94,22 +94,12 @@ public interface Structure<A> {
         return flatXmap(a -> DataResult.success(deserializer.apply(a)), b -> DataResult.success(serializer.apply(b)));
     }
 
-    default <E> Structure<E> dispatch(String key, Function<? super E, ? extends A> function, Supplier<Map<? super A, ? extends Structure<? extends E>>> structures) {
+    default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, Structure<? extends E>> structures) {
         var outer = this;
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.dispatch(key, outer, function, structures.get());
-            }
-        };
-    }
-
-    default Structure<A> lazy() {
-        var outer = this;
-        return new Structure<>() {
-            @Override
-            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.lazy(outer);
+                return interpreter.dispatch(key, outer, function, keys.get(), structures);
             }
         };
     }

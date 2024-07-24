@@ -3,11 +3,9 @@ package dev.lukebemish.codecextras.structured;
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
-import com.mojang.datafixers.util.Pair;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import dev.lukebemish.codecextras.types.Identity;
@@ -15,7 +13,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu, CodecInterpreter> {
     public CodecInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
@@ -72,35 +72,23 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> lazy(Structure<A> structure) {
-        var supplier = Suppliers.memoize(() -> structure.interpret(this));
-        return DataResult.success(new Holder<>(new Codec<A>() {
-            @Override
-            public <T> DataResult<Pair<A, T>> decode(DynamicOps<T> ops, T input) {
-                return supplier.get().map(CodecInterpreter::unbox).flatMap(c -> c.decode(ops, input));
-            }
-
-            @Override
-            public <T> DataResult<T> encode(A input, DynamicOps<T> ops, T prefix) {
-                return supplier.get().map(CodecInterpreter::unbox).flatMap(c -> c.encode(input, ops, prefix));
-            }
-        }));
-    }
-
-    @Override
-    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyCodec = unbox(keyCodecApp);
             // Object here as it's the furthest super A and we have only ? super A
-            Map<Object, MapCodec<? extends E>> codecMap = new HashMap<>();
-            for (var entry : structures.entrySet()) {
-                var result = entry.getValue().interpret(mapCodecInterpreter());
-                if (result.error().isPresent()) {
-                    return DataResult.error(result.error().get().messageSupplier());
+            Supplier<Map<Object, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
+                Map<Object, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
+                for (var entryKey : keys) {
+                    var result = structures.apply(entryKey).interpret(mapCodecInterpreter());
+                    if (result.error().isPresent()) {
+                        codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
+                    } else {
+                        codecMap.put(entryKey, DataResult.success(MapCodecInterpreter.unbox(result.result().orElseThrow())));
+                    }
                 }
-                codecMap.put(entry.getKey(), MapCodecInterpreter.unbox(result.result().orElseThrow()));
-            }
-            return DataResult.success(new Holder<>(keyCodec.dispatch(key, function, codecMap::get)));
+                return codecMap;
+            });
+            return DataResult.success(new Holder<>(keyCodec.partialDispatch(key, function, k -> codecMapSupplier.get().get(k))));
         });
     }
 

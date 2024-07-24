@@ -4,18 +4,17 @@ import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.MapLike;
-import com.mojang.serialization.RecordBuilder;
+import com.mojang.serialization.codecs.KeyDispatchCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
+import java.util.function.Supplier;
 
 public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu, MapCodecInterpreter> {
     public MapCodecInterpreter(
@@ -75,41 +74,23 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> lazy(Structure<A> structure) {
-        var supplier = Suppliers.memoize(() -> structure.interpret(this));
-        return DataResult.success(new Holder<>(new MapCodec<A>() {
-            @Override
-            public <T> Stream<T> keys(DynamicOps<T> ops) {
-                return supplier.get().map(MapCodecInterpreter::unbox).result().map(c -> c.keys(ops)).orElse(Stream.of());
-            }
-
-            @Override
-            public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
-                return supplier.get().map(MapCodecInterpreter::unbox).flatMap(c -> c.decode(ops, input));
-            }
-
-            @Override
-            public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-                var codec = supplier.get().map(MapCodecInterpreter::unbox);
-                return codec.result().map(c -> c.encode(input, ops, prefix)).orElse(prefix.withErrorsFrom(codec));
-            }
-        }));
-    }
-
-    @Override
-    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends A> function, Map<? super A, ? extends Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
         return keyStructure.interpret(codecInterpreter()).flatMap(keyCodecApp -> {
             var keyCodec = CodecInterpreter.unbox(keyCodecApp);
             // Object here as it's the furthest super A and we have only ? super A
-            Map<Object, MapCodec<? extends E>> codecMap = new HashMap<>();
-            for (var entry : structures.entrySet()) {
-                var result = entry.getValue().interpret(this);
-                if (result.error().isPresent()) {
-                    return DataResult.error(result.error().get().messageSupplier());
+            Supplier<Map<Object, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
+                Map<Object, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
+                for (var entryKey : keys) {
+                    var result = structures.apply(entryKey).interpret(this);
+                    if (result.error().isPresent()) {
+                        codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
+                    } else {
+                        codecMap.put(entryKey, DataResult.success(MapCodecInterpreter.unbox(result.result().orElseThrow())));
+                    }
                 }
-                codecMap.put(entry.getKey(), MapCodecInterpreter.unbox(result.result().orElseThrow()));
-            }
-            return DataResult.success(new MapCodecInterpreter.Holder<>(keyCodec.dispatchMap(key, function, codecMap::get)));
+                return codecMap;
+            });
+            return DataResult.success(new MapCodecInterpreter.Holder<>(new KeyDispatchCodec<>(key, keyCodec, function, k -> codecMapSupplier.get().get(k))));
         });
     }
 

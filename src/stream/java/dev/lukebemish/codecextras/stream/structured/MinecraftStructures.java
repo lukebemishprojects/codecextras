@@ -5,7 +5,6 @@ import com.mojang.datafixers.kinds.App2;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
-import dev.lukebemish.codecextras.structured.Interpreter;
 import dev.lukebemish.codecextras.structured.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Key2;
@@ -15,9 +14,6 @@ import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Flip;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import net.minecraft.core.Registry;
 import net.minecraft.network.FriendlyByteBuf;
@@ -188,16 +184,9 @@ public final class MinecraftStructures {
                 ).xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
         }
 
-        public static <T> Structure<T> registryDispatch(String keyField, Function<T, ResourceKey<Structure<? extends T>>> structureFunction, Registry<Structure<? extends T>> registry) {
+        public static <T> Structure<T> registryDispatch(String keyField, Function<T, DataResult<ResourceKey<Structure<? extends T>>>> structureFunction, Registry<Structure<? extends T>> registry) {
             var keyStructure = resourceKey(registry.key());
-            return new Structure<T>() {
-                @Override
-                public <Mu extends K1> DataResult<App<Mu, T>> interpret(Interpreter<Mu> interpreter) {
-                    Map<ResourceKey<Structure<? extends T>>, Structure<? extends T>> map = new IdentityHashMap<>();
-                    registry.registryKeySet().forEach(key -> map.put(key, Objects.requireNonNull(registry.get(key))));
-                    return interpreter.dispatch(keyField, keyStructure, structureFunction, map);
-                }
-            }.lazy();
+            return keyStructure.dispatch(keyField, structureFunction, registry::registryKeySet, registry::get);
         }
     }
 }
