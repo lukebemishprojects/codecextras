@@ -19,6 +19,11 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
     }
 
     public static <A> MapCodec<A> of(MapCodec<A> codec, Map<String, String> comments) {
+        if (codec instanceof CommentMapCodec<A> commentMapCodec) {
+            Map<String, String> allComments = commentMapCodec.comments;
+            allComments.putAll(comments);
+            return new CommentMapCodec<>(commentMapCodec.delegate, allComments);
+        }
         return new CommentMapCodec<>(codec, comments);
     }
 
@@ -26,7 +31,7 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
         Map<String, String> map = codec.keys(JsonOps.INSTANCE)
             .filter(json -> json.isJsonPrimitive() && json.getAsJsonPrimitive().isString())
             .map(json -> json.getAsJsonPrimitive().getAsString())
-            .collect(Collectors.toMap(Function.identity(), s -> comment));
+            .collect(Collectors.toMap(Function.identity(), s -> comment, (a, b) -> a));
         return of(codec, map);
     }
 
