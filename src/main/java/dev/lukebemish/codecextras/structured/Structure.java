@@ -6,13 +6,12 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
-import org.jspecify.annotations.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 public interface Structure<A> {
     <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);

@@ -7,10 +7,9 @@ import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.test.CodecAssertions;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 class TestStructured {
     private record TestRecord(int a, String b, List<Boolean> c, Optional<String> d, String e) {

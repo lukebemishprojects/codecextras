@@ -19,8 +19,6 @@ import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
-import org.jspecify.annotations.Nullable;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu, JsonSchemaInterpreter> {
     private final CodecInterpreter codecInterpreter;

@@ -4,15 +4,14 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
-import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import dev.lukebemish.codecextras.test.CodecAssertions;
-import org.junit.jupiter.api.Test;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 public class TestDispatch {
     private interface Dispatches {
