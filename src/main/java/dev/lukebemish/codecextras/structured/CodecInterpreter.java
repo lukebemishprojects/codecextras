@@ -66,9 +66,9 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
+    public <A> DataResult<App<Holder.Mu, A>> annotate(Structure<A> original, Keys<Identity.Mu, Object> annotations) {
         // No annotations handled here
-        return DataResult.success(input);
+        return original.interpret(this);
     }
 
     @Override
@@ -76,8 +76,8 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyCodec = unbox(keyCodecApp);
             // Object here as it's the furthest super A and we have only ? super A
-            Supplier<Map<Object, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
-                Map<Object, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
+            Supplier<Map<A, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
+                Map<A, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
                 for (var entryKey : keys) {
                     var result = structures.apply(entryKey).interpret(mapCodecInterpreter());
                     if (result.error().isPresent()) {

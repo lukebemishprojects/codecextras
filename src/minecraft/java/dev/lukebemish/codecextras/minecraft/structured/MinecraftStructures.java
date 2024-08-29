@@ -1,11 +1,12 @@
-package dev.lukebemish.codecextras.stream.structured;
+package dev.lukebemish.codecextras.minecraft.structured;
 
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.App2;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.stream.structured.StreamCodecInterpreter;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
-import dev.lukebemish.codecextras.structured.JsonSchemaInterpreter;
+import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Key2;
 import dev.lukebemish.codecextras.structured.Keys;
@@ -13,13 +14,15 @@ import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import dev.lukebemish.codecextras.types.Flip;
-import java.util.function.Function;
 import net.minecraft.core.Registry;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+
+import java.util.function.Function;
 
 public final class MinecraftStructures {
     private MinecraftStructures() {}
@@ -125,15 +128,17 @@ public final class MinecraftStructures {
     );
 
     public static final Keys<JsonSchemaInterpreter.Holder.Mu, Object> JSON_SCHEMA_KEYS = Keys.<JsonSchemaInterpreter.Holder.Mu, Object>builder()
+        .add(Types.RESOURCE_LOCATION, new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get()))
         .build();
 
     public static final Keys2<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1> JSON_SCHEMA_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1>builder()
+        .add(Types.RESOURCE_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<JsonSchemaInterpreter.Holder.Mu, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get());
+            }
+        })
         .build();
-
-    public static final JsonSchemaInterpreter JSON_SCHEMA_INTERPRETER = new JsonSchemaInterpreter(
-        JSON_SCHEMA_KEYS,
-        JSON_SCHEMA_PARAMETRIC_KEYS
-    );
 
     public static final class Types {
         private Types() {}
@@ -186,7 +191,13 @@ public final class MinecraftStructures {
 
         public static <T> Structure<T> registryDispatch(String keyField, Function<T, DataResult<ResourceKey<Structure<? extends T>>>> structureFunction, Registry<Structure<? extends T>> registry) {
             var keyStructure = resourceKey(registry.key());
-            return keyStructure.dispatch(keyField, structureFunction, registry::registryKeySet, registry::get);
+            return keyStructure.dispatch(keyField, structureFunction, registry::registryKeySet, k ->
+                registry.getValueOrThrow(k).annotate(SchemaAnnotations.REUSE_KEY, toDefsKey(k.registry())+"::"+toDefsKey(k.location()))
+            );
+        }
+
+        private static String toDefsKey(ResourceLocation location) {
+            return location.getNamespace().replace('/', '.') + ":" + location.getPath().replace('/', '.');
         }
     }
 }

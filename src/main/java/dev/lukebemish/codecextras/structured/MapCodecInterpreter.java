@@ -57,12 +57,14 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> annotate(App<Holder.Mu, A> input, Keys<Identity.Mu, Object> annotations) {
-        var mapCodec = new Object() {
-            MapCodec<A> m = unbox(input);
-        };
-        mapCodec.m = Annotation.get(annotations, Annotation.COMMENT).map(comment -> CommentMapCodec.of(mapCodec.m, comment)).orElse(mapCodec.m);
-        return DataResult.success(new Holder<>(mapCodec.m));
+    public <A> DataResult<App<Holder.Mu, A>> annotate(Structure<A> original, Keys<Identity.Mu, Object> annotations) {
+        return original.interpret(this).map(input -> {
+            var mapCodec = new Object() {
+                MapCodec<A> m = unbox(input);
+            };
+            mapCodec.m = Annotation.get(annotations, Annotation.COMMENT).map(comment -> CommentMapCodec.of(mapCodec.m, comment)).orElse(mapCodec.m);
+            return new Holder<>(mapCodec.m);
+        });
     }
 
     public static <T> MapCodec<T> unbox(App<Holder.Mu, T> box) {

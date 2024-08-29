@@ -6,12 +6,13 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 public interface Structure<A> {
     <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter);
@@ -41,12 +42,11 @@ public interface Structure<A> {
 
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                var result = interpretNoAnnotations(interpreter);
-                return result.flatMap(r -> interpreter.annotate(r, annotations));
+                return interpreter.annotate(original(), annotations);
             }
 
-            private <Mu extends K1> DataResult<App<Mu, A>> interpretNoAnnotations(Interpreter<Mu> interpreter) {
-                return delegate != null ? delegate.interpretNoAnnotations(interpreter) : outer.interpret(interpreter);
+            private Structure<A> original() {
+                return delegate != null ? delegate.original() : outer;
             }
 
             @Override

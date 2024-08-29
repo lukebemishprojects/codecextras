@@ -19,7 +19,7 @@ public interface Interpreter<Mu extends K1> {
 
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
 
-    <A> DataResult<App<Mu, A>> annotate(App<Mu, A> input, Keys<Identity.Mu, Object> annotations);
+    <A> DataResult<App<Mu, A>> annotate(Structure<A> original, Keys<Identity.Mu, Object> annotations);
 
     <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures);
 

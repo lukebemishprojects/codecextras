@@ -4,7 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
-import dev.lukebemish.codecextras.structured.JsonSchemaInterpreter;
+import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.test.CodecAssertions;
 import java.util.List;
@@ -69,6 +69,6 @@ class TestStructured {
 
     @Test
     void testJsonSchema() {
-        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().interpret(TestRecord.STRUCTURE).getOrThrow().toString());
+        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().rootSchema(TestRecord.STRUCTURE).getOrThrow().toString());
     }
 }

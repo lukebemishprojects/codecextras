@@ -1,0 +1,7 @@
+[versions]
+
+minecraft = "24w35a"
+
+[libraries]
+
+minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }

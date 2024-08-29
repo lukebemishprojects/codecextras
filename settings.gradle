@@ -28,11 +28,11 @@ plugins {
 
 multisource.of(':') {
 	configureEach {
-		minecraft.add 'com.mojang:minecraft:1.20.6'
+		minecraft.add project.libs.minecraft
 		mappings.add loom.officialMojangMappings()
 	}
-	common('stream', []) {}
-	fabric('streamIntermediary', ['stream']) {}
+	common('minecraft', []) {}
+	fabric('minecraftIntermediary', ['minecraft']) {}
 	repositories {
 		it.removeIf { it.name == 'Forge' }
 	}
