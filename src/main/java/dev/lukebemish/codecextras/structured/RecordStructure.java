@@ -117,7 +117,7 @@ public class RecordStructure<A> {
     public <T> Key<T> addOptional(String name, Structure<T> structure, Function<A, T> getter, Supplier<T> defaultValue) {
         var key = new Key<T>(count);
         count++;
-        fields.add(new FieldImpl<>(name, structure, getter, Optional.of(new MissingBehaviorImpl<>(defaultValue, t -> !t.equals(defaultValue))), key));
+        fields.add(new FieldImpl<>(name, structure, getter, Optional.of(new MissingBehaviorImpl<>(defaultValue, t -> !t.equals(defaultValue.get()))), key));
         fieldNames.add(name);
         return key;
     }

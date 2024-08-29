@@ -105,7 +105,28 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         var fieldObject = copy(schemaValue(partialResolt.result().orElseThrow()));
         definitions.putAll(definitions(partialResolt.result().orElseThrow()));
 
-        field.missingBehavior().ifPresentOrElse(missingBehavior -> {}, () -> required.add(field.name()));
+        var error = new Object() {
+            @Nullable Supplier<String> value = null;
+        };
+
+        field.missingBehavior().ifPresentOrElse(missingBehavior -> {
+            var codec = codecInterpreter.interpret(field.structure());
+            if (codec.error().isPresent()) {
+                error.value = codec.error().get().messageSupplier();
+                return;
+            }
+            var defaultValue = missingBehavior.missing().get();
+            var defaultValueResult = codec.result().orElseThrow().encodeStart(ops, defaultValue);
+            if (defaultValueResult.error().isPresent()) {
+                // If it cannot serialize the default value, we just don't report it -- it could be something like an Optional where the default value does not exist.
+                return;
+            }
+            fieldObject.add("default", defaultValueResult.result().orElseThrow());
+        }, () -> required.add(field.name()));
+
+        if (error.value != null) {
+            return error.value;
+        }
 
         properties.add(field.name(), fieldObject);
         return null;
