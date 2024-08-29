@@ -17,11 +17,14 @@ import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import dev.lukebemish.codecextras.types.Flip;
 import java.util.function.Function;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryCodecs;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 
 public final class MinecraftStructures {
     private MinecraftStructures() {}
@@ -59,6 +62,24 @@ public final class MinecraftStructures {
             @Override
             public <T> App<CodecInterpreter.Holder.Mu, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
                 return new CodecInterpreter.Holder<>(ResourceKey.codec(Types.RegistryKeyHolder.unbox(parameter).value()).xmap(Types.ResourceKeyHolder::new, a -> Types.ResourceKeyHolder.unbox(a).value()));
+            }
+        })
+        .add(Types.TAG_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<CodecInterpreter.Holder.Mu, App<Types.TagKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new CodecInterpreter.Holder<>(TagKey.codec(Types.RegistryKeyHolder.unbox(parameter).value()).xmap(Types.TagKeyHolder::new, a -> Types.TagKeyHolder.unbox(a).value()));
+            }
+        })
+        .add(Types.HASHED_TAG_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<CodecInterpreter.Holder.Mu, App<Types.TagKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new CodecInterpreter.Holder<>(TagKey.hashedCodec(Types.RegistryKeyHolder.unbox(parameter).value()).xmap(Types.TagKeyHolder::new, a -> Types.TagKeyHolder.unbox(a).value()));
+            }
+        })
+        .add(Types.HOMOGENOUS_LIST_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<CodecInterpreter.Holder.Mu, App<Types.HolderSetHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new CodecInterpreter.Holder<>(RegistryCodecs.homogeneousList(Types.RegistryKeyHolder.unbox(parameter).value()).xmap(Types.HolderSetHolder::new, a -> Types.HolderSetHolder.unbox(a).value()));
             }
         })
         .build()
@@ -130,10 +151,23 @@ public final class MinecraftStructures {
         .add(Types.RESOURCE_LOCATION, new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get()))
         .build();
 
+    // TODO: Add regex fo schemas
     public static final Keys2<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1> JSON_SCHEMA_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1>builder()
         .add(Types.RESOURCE_KEY, new ParametricKeyedValue<>() {
             @Override
             public <T> App<JsonSchemaInterpreter.Holder.Mu, App<Types.ResourceKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get());
+            }
+        })
+        .add(Types.TAG_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<JsonSchemaInterpreter.Holder.Mu, App<Types.TagKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
+                return new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get());
+            }
+        })
+        .add(Types.HASHED_TAG_KEY, new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<JsonSchemaInterpreter.Holder.Mu, App<Types.TagKeyHolder.Mu, T>> convert(App<Types.RegistryKeyHolder.Mu, T> parameter) {
                 return new JsonSchemaInterpreter.Holder<>(JsonSchemaInterpreter.STRING.get());
             }
         })
@@ -152,6 +186,22 @@ public final class MinecraftStructures {
             }
         }
 
+        public record TagKeyHolder<T>(TagKey<T> value) implements App<TagKeyHolder.Mu, T> {
+            public static final class Mu implements K1 { private Mu() {} }
+
+            public static <T> TagKeyHolder<T> unbox(App<Mu, T> box) {
+                return (TagKeyHolder<T>) box;
+            }
+        }
+
+        public record HolderSetHolder<T>(HolderSet<T> value) implements App<HolderSetHolder.Mu, T> {
+            public static final class Mu implements K1 { private Mu() {} }
+
+            public static <T> HolderSetHolder<T> unbox(App<Mu, T> box) {
+                return (HolderSetHolder<T>) box;
+            }
+        }
+
         public record RegistryKeyHolder<T>(ResourceKey<? extends Registry<T>> value) implements App<RegistryKeyHolder.Mu, T> {
             public static final class Mu implements K1 { private Mu() {} }
 
@@ -161,6 +211,12 @@ public final class MinecraftStructures {
         }
 
         public static final Key2<RegistryKeyHolder.Mu, ResourceKeyHolder.Mu> RESOURCE_KEY = Key2.create("resource_key");
+
+        public static final Key2<RegistryKeyHolder.Mu, TagKeyHolder.Mu> TAG_KEY = Key2.create("tag_key");
+
+        public static final Key2<RegistryKeyHolder.Mu, TagKeyHolder.Mu> HASHED_TAG_KEY = Key2.create("#tag_key");
+
+        public static final Key2<RegistryKeyHolder.Mu, HolderSetHolder.Mu> HOMOGENOUS_LIST_KEY = Key2.create("homogenous_list");
     }
 
     public static final class Structures {
@@ -175,8 +231,8 @@ public final class MinecraftStructures {
         public static <T> Structure<ResourceKey<T>> resourceKey(ResourceKey<? extends Registry<T>> registry) {
             return Structure.parametricallyKeyed(
                 Types.RESOURCE_KEY,
-                    new Types.RegistryKeyHolder<>(registry),
-                    Types.ResourceKeyHolder::unbox,
+                new Types.RegistryKeyHolder<>(registry),
+                Types.ResourceKeyHolder::unbox,
                 Keys.<Flip.Mu<Types.ResourceKeyHolder<T>>, K1>builder()
                     .add(
                         CodecInterpreter.KEY,
@@ -185,7 +241,39 @@ public final class MinecraftStructures {
                         ))
                     )
                     .build()
-                ).xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
+            ).xmap(Types.ResourceKeyHolder::value, Types.ResourceKeyHolder::new);
+        }
+
+        public static <T> Structure<HolderSet<T>> homogenousList(ResourceKey<? extends Registry<T>> registry) {
+            return Structure.parametricallyKeyed(
+                Types.HOMOGENOUS_LIST_KEY,
+                new Types.RegistryKeyHolder<>(registry),
+                Types.HolderSetHolder::unbox,
+                Keys.<Flip.Mu<Types.HolderSetHolder<T>>, K1>builder()
+                    .add(
+                        CodecInterpreter.KEY,
+                        new Flip<>(new CodecInterpreter.Holder<>(
+                            RegistryCodecs.homogeneousList(registry).xmap(Types.HolderSetHolder::new, Types.HolderSetHolder::value)
+                        ))
+                    )
+                    .build()
+            ).xmap(Types.HolderSetHolder::value, Types.HolderSetHolder::new);
+        }
+
+        public static <T> Structure<TagKey<T>> tagKey(ResourceKey<? extends Registry<T>> registry, boolean hashPrefix) {
+            return Structure.parametricallyKeyed(
+                hashPrefix ? Types.HASHED_TAG_KEY : Types.TAG_KEY,
+                new Types.RegistryKeyHolder<>(registry),
+                Types.TagKeyHolder::unbox,
+                Keys.<Flip.Mu<Types.TagKeyHolder<T>>, K1>builder()
+                    .add(
+                        CodecInterpreter.KEY,
+                        new Flip<>(new CodecInterpreter.Holder<>(
+                            (hashPrefix ? TagKey.hashedCodec(registry) : TagKey.codec(registry)).xmap(Types.TagKeyHolder::new, Types.TagKeyHolder::value)
+                        ))
+                    )
+                    .build()
+            ).xmap(Types.TagKeyHolder::value, Types.TagKeyHolder::new);
         }
 
         public static <T> Structure<T> registryDispatch(String keyField, Function<T, DataResult<ResourceKey<Structure<? extends T>>>> structureFunction, Registry<Structure<? extends T>> registry) {
