@@ -26,10 +26,8 @@ public class CodecExtrasTest {
             MinecraftStructures.CODEC_INTERPRETER,
             JsonOps.INSTANCE
         ).interpret(TestRecord.STRUCTURE).getOrThrow();
-        modContainer.registerExtensionPoint(IConfigScreenFactory.class, (modContainer1, arg) -> {
-            return entry.screen().open(arg, JsonOps.INSTANCE, new JsonObject(), jsonElement -> {}, jsonElement -> {
-                System.out.println("New JSON: "+jsonElement);
-            }, entry.componentInfo());
-        });
+        modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) -> entry.rootScreen(parent, jsonElement -> {
+            System.out.println("New JSON: "+jsonElement);
+        }, JsonOps.INSTANCE, new JsonObject()));
     }
 }

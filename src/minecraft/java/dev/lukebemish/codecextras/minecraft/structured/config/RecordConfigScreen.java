@@ -21,10 +21,9 @@ class RecordConfigScreen extends OptionsSubScreen {
     private final List<RecordEntry<?>> entries;
     private final JsonObject jsonValue;
     private final Consumer<JsonElement> update;
-    private final Consumer<JsonElement> onClose;
     private final DynamicOps<JsonElement> ops;
 
-    public RecordConfigScreen(Screen screen, Component component, List<RecordEntry<?>> entries, DynamicOps<JsonElement> ops, JsonElement jsonValue, Consumer<JsonElement> update, Consumer<JsonElement> onClose) {
+    public RecordConfigScreen(Screen screen, Component component, List<RecordEntry<?>> entries, DynamicOps<JsonElement> ops, JsonElement jsonValue, Consumer<JsonElement> update) {
         super(screen, Minecraft.getInstance().options, component);
         this.entries = entries;
         if (jsonValue.isJsonObject()) {
@@ -36,14 +35,12 @@ class RecordConfigScreen extends OptionsSubScreen {
             this.jsonValue = new JsonObject();
         }
         this.update = update;
-        this.onClose = onClose;
         this.ops = ops;
     }
 
     @Override
     public void onClose() {
         this.update.accept(jsonValue);
-        this.onClose.accept(jsonValue);
         super.onClose();
     }
 

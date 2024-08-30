@@ -6,5 +6,5 @@ import java.util.function.Consumer;
 import net.minecraft.client.gui.screens.Screen;
 
 public interface ScreenFactory {
-    Screen open(Screen parent, DynamicOps<JsonElement> ops, JsonElement original, Consumer<JsonElement> update, Consumer<JsonElement> onClose, ComponentInfo componentInfo);
+    Screen open(Screen parent, DynamicOps<JsonElement> ops, JsonElement original, Consumer<JsonElement> onClose, ComponentInfo componentInfo);
 }

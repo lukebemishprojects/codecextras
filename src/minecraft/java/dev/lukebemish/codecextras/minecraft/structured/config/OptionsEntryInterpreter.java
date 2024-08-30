@@ -119,14 +119,14 @@ public class OptionsEntryInterpreter extends KeyStoringInterpreter<OptionsEntry.
         if (!errors.isEmpty()) {
             return DataResult.error(() -> "Errors crating record screen: "+errors.stream().map(Supplier::get).collect(Collectors.joining(", ")));
         }
-        ScreenFactory factory = (parent, ops, original, update, onClose, componentInfo) ->
-            new RecordConfigScreen(parent, componentInfo.title(), entries, ops, original, update, onClose);
+        ScreenFactory factory = (parent, ops, original, onClose, componentInfo) ->
+            new RecordConfigScreen(parent, componentInfo.title(), entries, ops, original, onClose);
         return DataResult.success(new OptionsEntry<>(
             (parent, width, original, update, componentInfo) -> Button.builder(
                     Component.translatable("codecextras.config.configurerecord"),
                     b -> {
                         Minecraft.getInstance().setScreen(factory.open(
-                            parent, dynamicOps, original, update, jsonElement -> {}, componentInfo
+                            parent, dynamicOps, original, update, componentInfo
                         ));
                     }
                 ).width(Button.DEFAULT_WIDTH).build(),
