@@ -1,7 +1,9 @@
 [versions]
 
-minecraft = "24w35a"
+minecraft = "1.21.1"
+neoforge = "21.1.31"
 
 [libraries]
 
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
+neoforge = { group = "net.neoforged", name = "neoforge", version.ref = "neoforge" }

@@ -1,0 +1,33 @@
+configurations {
+    normalRuntimeModClasses
+    runsImplementation.extendsFrom normalRuntimeModClasses
+    normalModClassesSource
+}
+
+loom {
+    runs {
+        configureEach {
+            runDir "runs/${it.name}"
+        }
+    }
+
+    mods.register("codecextras") {
+        configuration configurations.normalRuntimeModClasses
+    }
+}
+
+tasks.register('copyNormalClasses', Copy) {
+    from configurations.normalModClassesSource
+    dependsOn configurations.normalModClassesSource
+    into layout.buildDirectory.dir('minecraftCodecExtras')
+}
+
+dependencies {
+    forgeRuntimeLibrary project(path: ':', configuration: 'runtimeElements')
+    normalModClassesSource(project(path: ':', configuration: 'minecraftRuntimeModClasses')) {
+        transitive = false
+    }
+    normalRuntimeModClasses(files(layout.buildDirectory.dir('minecraftCodecExtras')).tap {
+        builtBy tasks.copyNormalClasses
+    })
+}

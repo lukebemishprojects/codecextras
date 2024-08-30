@@ -33,6 +33,10 @@ multisource.of(':') {
 	}
 	common('minecraft', []) {}
 	fabric('minecraftIntermediary', ['minecraft']) {}
+    neoforge('testNeoforge', []) {
+        neoForge.add project.libs.neoforge
+    }
+    fabric('testFabric', []) {}
 	repositories {
 		it.removeIf { it.name == 'Forge' }
 	}

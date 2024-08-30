@@ -1,0 +1,9 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="LGPL-3.0-or-later"
+
+[[mods]]
+modId="codecextras_testmod"
+version="1.0.0"
+displayName="CodecExtras Test Mod"
+description="A test mod for CodecExtras"

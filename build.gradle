@@ -101,6 +101,16 @@ sourceSets {
 	jmh {}
 }
 
+configurations {
+    testNeoforgeRuntimeClasspath.extendsFrom minecraftRuntimeClasspath
+    testFabricRuntimeClasspath.extendsFrom minecraftIntermediaryRuntimeClasspath
+    testFabricToRemapRuntimeClasspath.extendsFrom minecraftIntermediaryToRemapRuntimeClasspath
+
+    testNeoforgeCompileClasspath.extendsFrom minecraftCompileClasspath
+    testFabricCompileClasspath.extendsFrom minecraftIntermediaryCompileClasspath
+    testFabricToRemapCompileClasspath.extendsFrom minecraftIntermediaryToRemapCompileClasspath
+}
+
 java {
 	toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 	withSourcesJar()
@@ -166,6 +176,9 @@ dependencies {
     minecraftAnnotationProcessor cLibs.bundles.annotationprocessor
     minecraftIntermediaryApi project(':')
 	testImplementation sourceSets.minecraft.output
+
+    testNeoforgeCompileOnly sourceSets.minecraft.output
+    testFabricCompileOnly sourceSets.minecraftIntermediary.output
 }
 
 ['minecraftJar', 'minecraftIntermediaryJar', 'jar'].each {

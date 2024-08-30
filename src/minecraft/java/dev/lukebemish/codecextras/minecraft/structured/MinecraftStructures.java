@@ -279,7 +279,7 @@ public final class MinecraftStructures {
         public static <T> Structure<T> registryDispatch(String keyField, Function<T, DataResult<ResourceKey<Structure<? extends T>>>> structureFunction, Registry<Structure<? extends T>> registry) {
             var keyStructure = resourceKey(registry.key());
             return keyStructure.dispatch(keyField, structureFunction, registry::registryKeySet, k ->
-                registry.getValueOrThrow(k).annotate(SchemaAnnotations.REUSE_KEY, toDefsKey(k.registry())+"::"+toDefsKey(k.location()))
+                registry.getOrThrow(k).annotate(SchemaAnnotations.REUSE_KEY, toDefsKey(k.registry())+"::"+toDefsKey(k.location()))
             );
         }
 
