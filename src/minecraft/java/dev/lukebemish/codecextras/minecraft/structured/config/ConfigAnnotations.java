@@ -6,5 +6,6 @@ import net.minecraft.network.chat.Component;
 public final class ConfigAnnotations {
     private ConfigAnnotations() {}
 
-    public Key<Component> TITLE = Key.create("title");
+    public static Key<Component> TITLE = Key.create("title");
+    public static Key<Component> DESCRIPTOIN = Key.create("description");
 }

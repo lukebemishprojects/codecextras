@@ -140,10 +140,10 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public <A> DataResult<App<Holder.Mu, A>> annotate(Structure<A> input, Keys<Identity.Mu, Object> annotations) {
         JsonObject schema;
         Map<String, Structure<?>> definitions;
-        var refName = annotations.get(SchemaAnnotations.REUSE_KEY);
+        var refName = Annotation.get(annotations, SchemaAnnotations.REUSE_KEY);
         if (refName.isPresent()) {
             schema = new JsonObject();
-            var ref = Identity.unbox(refName.get()).value();
+            var ref = refName.get();
             schema.addProperty("$ref", "#/$defs/"+ref);
             definitions = new HashMap<>();
             definitions.put(ref, input);

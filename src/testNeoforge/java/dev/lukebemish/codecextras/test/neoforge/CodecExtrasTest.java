@@ -3,8 +3,8 @@ package dev.lukebemish.codecextras.test.neoforge;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
-import dev.lukebemish.codecextras.minecraft.structured.config.OptionsEntry;
-import dev.lukebemish.codecextras.minecraft.structured.config.OptionsEntryInterpreter;
+import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
+import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -22,10 +22,10 @@ public class CodecExtrasTest {
     }
 
     public CodecExtrasTest(ModContainer modContainer) {
-        OptionsEntry<TestRecord> entry = new OptionsEntryInterpreter(
-            MinecraftStructures.CODEC_INTERPRETER,
-            JsonOps.INSTANCE
+        ConfigScreenEntry<TestRecord> entry = new ConfigScreenInterpreter(
+            MinecraftStructures.CODEC_INTERPRETER
         ).interpret(TestRecord.STRUCTURE).getOrThrow();
+
         modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) -> entry.rootScreen(parent, jsonElement -> {
             System.out.println("New JSON: "+jsonElement);
         }, JsonOps.INSTANCE, new JsonObject()));

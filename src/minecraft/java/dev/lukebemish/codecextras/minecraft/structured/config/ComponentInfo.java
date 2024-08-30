@@ -33,4 +33,12 @@ public record ComponentInfo(Optional<Component> maybeTitle, Optional<Component> 
             return new ComponentInfo(maybeTitle, Optional.of(fallback));
         }
     }
+
+    public ComponentInfo withTitle(Component title) {
+        return new ComponentInfo(Optional.of(title), maybeDescription);
+    }
+
+    public ComponentInfo withDescription(Component description) {
+        return new ComponentInfo(maybeTitle, Optional.of(description));
+    }
 }
