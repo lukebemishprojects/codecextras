@@ -7,26 +7,23 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DynamicOps;
 import java.util.List;
 import java.util.function.Consumer;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import org.slf4j.Logger;
 
-class RecordConfigScreen<T> extends OptionsSubScreen {
+class RecordConfigScreen<T> extends EntryListScreen {
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private final List<RecordEntry<?>> entries;
     private final JsonObject jsonValue;
     private final Consumer<JsonElement> update;
     private final DynamicOps<JsonElement> ops;
-    private final EntryCreationInfo<T> creationInfo;
 
     public RecordConfigScreen(Screen screen, EntryCreationInfo<T> creationInfo, List<RecordEntry<?>> entries, DynamicOps<JsonElement> ops, JsonElement jsonValue, Consumer<JsonElement> update) {
-        super(screen, Minecraft.getInstance().options, creationInfo.componentInfo().title());
-        this.creationInfo = creationInfo;
+        super(screen, creationInfo.componentInfo().title());
         this.entries = entries;
         if (jsonValue.isJsonObject()) {
             this.jsonValue = jsonValue.getAsJsonObject();
@@ -41,41 +38,57 @@ class RecordConfigScreen<T> extends OptionsSubScreen {
     }
 
     @Override
-    public void onClose() {
+    protected void onExit() {
         this.update.accept(jsonValue);
-        super.onClose();
     }
 
     @Override
-    protected void addOptions() {
+    protected void addEntries() {
         for (var entry: this.entries) {
             JsonElement specificValue = this.jsonValue.has(entry.key()) ? this.jsonValue.get(entry.key()) : JsonNull.INSTANCE;
-            this.list.addSmall(
-                new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, entry.entry().entryCreationInfo().componentInfo().title(), font).alignLeft(),
-                createEntryWidget(entry, specificValue)
-            );
+            var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, entry.entry().entryCreationInfo().componentInfo().title(), font).alignLeft();
+            var contents = createEntryWidget(entry, specificValue);
+            entry.entry().entryCreationInfo().componentInfo().maybeDescription().ifPresent(description -> {
+                var tooltip = Tooltip.create(description);
+                label.setTooltip(tooltip);
+            });
+            this.list.addPair(label, contents);
         }
     }
 
-    private <A> AbstractWidget createEntryWidget(RecordEntry<A> entry, JsonElement specificValue) {
-        return entry.entry().widget().create(this, Button.DEFAULT_WIDTH, ops, specificValue, newValue -> {
-            if (shouldUpdate(newValue, specificValue, entry)) {
+    private <A> LayoutElement createEntryWidget(RecordEntry<A> entry, JsonElement specificValue) {
+        // If this is missing, missing values are just not allowed
+        var defaultValue = entry.missingBehavior().map(behavior -> {
+            var value = behavior.missing().get();
+            var encoded = entry.codec().encodeStart(ops, value);
+            if (encoded.error().isPresent()) {
+                // The default value is unencodeable, so we have to handle missing values in the widget
+                return JsonNull.INSTANCE;
+            }
+            return encoded.result().orElseThrow();
+        });
+        JsonElement specificValueWithDefault = specificValue.isJsonNull() && defaultValue.isPresent() ? defaultValue.get() : specificValue;
+        return entry.entry().widget().create(this, Button.DEFAULT_WIDTH, ops, specificValueWithDefault, newValue -> {
+            if (shouldUpdate(newValue, entry)) {
                 this.jsonValue.add(entry.key(), newValue);
             } else {
                 this.jsonValue.remove(entry.key());
             }
-        }, entry.entry().entryCreationInfo());
+        }, entry.entry().entryCreationInfo(), defaultValue.isPresent() && defaultValue.get().isJsonNull());
     }
 
-    <T> boolean shouldUpdate(JsonElement newValue, JsonElement oldValue, RecordEntry<T> entry) {
-        if (newValue.isJsonNull() || newValue.equals(oldValue)) {
+    <F> boolean shouldUpdate(JsonElement newValue, RecordEntry<F> entry) {
+        if (newValue.isJsonNull()) {
             return false;
         }
-        var decoded = entry.codec().parse(this.ops, newValue);
-        if (decoded.isError()) {
-            LOGGER.warn("Could not encode new value {}", newValue);
-            return false;
+        if (entry.missingBehavior().isPresent()) {
+            var decoded = entry.codec().parse(this.ops, newValue);
+            if (decoded.isError()) {
+                LOGGER.warn("Could not encode new value {}", newValue);
+                return false;
+            }
+            return entry.missingBehavior().get().predicate().test(decoded.result().orElseThrow());
         }
-        return entry.shouldEncode().test(decoded.result().orElseThrow());
+        return true;
     }
 }

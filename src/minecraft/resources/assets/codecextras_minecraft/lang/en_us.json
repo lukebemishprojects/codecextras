@@ -1,0 +1,14 @@
+{
+  "codecextras.config.configurerecord": "Configure...",
+  "codecextras.config.configurelist": "Configure...",
+  "codecextras.config.missing": "Missing",
+  "codecextras.config.unit": "Not configurable",
+  "codecextras.config.list.icon.add": "+",
+  "codecextras.config.list.icon.up": "\u23f6",
+  "codecextras.config.list.icon.down": "\u23f7",
+  "codecextras.config.list.icon.remove": "\u274c",
+  "codecextras.config.list.add": "Add entry",
+  "codecextras.config.list.up": "Move up",
+  "codecextras.config.list.down": "Move down",
+  "codecextras.config.list.remove": "Remove entry"
+}

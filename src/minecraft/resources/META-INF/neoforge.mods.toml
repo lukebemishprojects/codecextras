@@ -1,0 +1,8 @@
+modLoader="lowcodefml"
+loaderVersion="[1,)"
+license="LGPL-3.0-only"
+[[mods]]
+modId="codecextras_minecraft"
+version="${version}"
+displayName="CodecExtras - Minecraft Adapters"
+description=""

@@ -109,6 +109,22 @@ configurations {
     testNeoforgeCompileClasspath.extendsFrom minecraftCompileClasspath
     testFabricCompileClasspath.extendsFrom minecraftIntermediaryCompileClasspath
     testFabricToRemapCompileClasspath.extendsFrom minecraftIntermediaryToRemapCompileClasspath
+
+    runtimeModClasses {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    sourceSets.main.output.classesDirs.each { file ->
+        add(configurations.runtimeModClasses.name, file) {
+            builtBy tasks.classes
+        }
+    }
+    add(configurations.runtimeModClasses.name, sourceSets.main.output.resourcesDir) {
+        builtBy tasks.processResources
+    }
 }
 
 java {
@@ -142,7 +158,7 @@ repositories {
 }
 
 dependencies {
-	api 'com.mojang:datafixerupper:7.0.14'
+	api 'com.mojang:datafixerupper:8.0.16'
 	api 'org.slf4j:slf4j-api:2.0.1'
 
 	jmhCompileOnly cLibs.bundles.compileonly
@@ -197,7 +213,8 @@ dependencies {
 tasks.named('jar', Jar) {
     manifest {
         attributes(
-            'Automatic-Module-Name': project.group + '.' + project.name
+            'Automatic-Module-Name': project.group + '.' + project.name,
+            'FMLModType'           : 'LIBRARY'
         )
     }
 }
@@ -234,20 +251,8 @@ tasks.register('jmhResults', FormatJmhOutput) {
 	formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
-minecraftJar {
-	manifest.attributes('FMLModType': 'GAMELIBRARY')
-}
-
-minecraftIntermediaryJar {
-	manifest.attributes('FMLModType': 'GAMELIBRARY')
-}
-
 tasks.named('remapMinecraftIntermediaryJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
 	task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-intermediary.jar")
-}
-
-jar {
-	manifest.attributes('FMLModType': 'LIBRARY')
 }
 
 tasks.compileJava {
@@ -260,20 +265,14 @@ tasks.compileJava {
 	}
 }
 
-processMinecraftIntermediaryResources {
-	inputs.property "version", project.version.toString()
+['processResources', 'processMinecraftResources', 'processMinecraftIntermediaryResources'].each {
+    tasks.named(it, ProcessResources) {
+        inputs.property "version", project.version.toString()
 
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version.toString()
-	}
-}
-
-processResources {
-	inputs.property "version", project.version.toString()
-
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version.toString()
-	}
+        filesMatching(["fabric.mod.json", "META-INF/neoforge.mods.toml"]) {
+            expand "version": project.version.toString()
+        }
+    }
 }
 
 test {

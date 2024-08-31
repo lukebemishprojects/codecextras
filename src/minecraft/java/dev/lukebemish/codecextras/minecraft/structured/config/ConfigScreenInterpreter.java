@@ -1,8 +1,11 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
-import com.mojang.logging.LogUtils;
+import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.structured.Annotation;
@@ -24,11 +27,8 @@ import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
-import org.slf4j.Logger;
 
 public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenEntry.Mu, ConfigScreenInterpreter> {
-    private static final Logger LOGGER = LogUtils.getLogger();
-
     private final CodecInterpreter codecInterpreter;
 
     public ConfigScreenInterpreter(
@@ -38,16 +38,78 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     ) {
         super(
             keys.join(Keys.<ConfigScreenEntry.Mu, Object>builder()
-                    .add(Interpreter.INT, ConfigScreenEntry.single(
-                        VerifyingEditBox.of(string -> {
-                            try {
-                                return DataResult.success(Integer.parseInt(string));
-                            } catch (NumberFormatException e) {
-                                return DataResult.error(() -> "Not an integer: "+string);
-                            }
-                        }, integer -> DataResult.success(integer+""), string -> string.matches("-?[0-9]*"), true),
-                        new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
-                    ))
+                .add(Interpreter.INT, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Integer.parseInt(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not an integer: "+string);
+                        }
+                    }, integer -> DataResult.success(integer+""), string -> string.matches("-?[0-9]*"), true),
+                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                ))
+                .add(Interpreter.BYTE, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Byte.parseByte(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not a byte: "+string);
+                        }
+                    }, byteValue -> DataResult.success(byteValue+""), string -> string.matches("-?[0-9]*"), true),
+                    new EntryCreationInfo<>(Codec.BYTE, ComponentInfo.empty())
+                ))
+                .add(Interpreter.SHORT, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Short.parseShort(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not a short: "+string);
+                        }
+                    }, shortValue -> DataResult.success(shortValue+""), string -> string.matches("-?[0-9]*"), true),
+                    new EntryCreationInfo<>(Codec.SHORT, ComponentInfo.empty())
+                ))
+                .add(Interpreter.LONG, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Long.parseLong(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not a long: "+string);
+                        }
+                    }, longValue -> DataResult.success(longValue+""), string -> string.matches("-?[0-9]*"), true),
+                    new EntryCreationInfo<>(Codec.LONG, ComponentInfo.empty())
+                ))
+                .add(Interpreter.DOUBLE, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Double.parseDouble(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not a double: "+string);
+                        }
+                    }, doubleValue -> DataResult.success(doubleValue+""), string -> string.matches("-?[0-9]*(\\.[0-9]*)?"), true),
+                    new EntryCreationInfo<>(Codec.DOUBLE, ComponentInfo.empty())
+                ))
+                .add(Interpreter.FLOAT, ConfigScreenEntry.single(
+                    Widgets.text(string -> {
+                        try {
+                            return DataResult.success(Float.parseFloat(string));
+                        } catch (NumberFormatException e) {
+                            return DataResult.error(() -> "Not a float: "+string);
+                        }
+                    }, floatValue -> DataResult.success(floatValue+""), string -> string.matches("-?[0-9]*(\\.[0-9]*)?"), true),
+                    new EntryCreationInfo<>(Codec.FLOAT, ComponentInfo.empty())
+                ))
+                .add(Interpreter.BOOL, ConfigScreenEntry.single(
+                    Widgets.bool(false),
+                    new EntryCreationInfo<>(Codec.BOOL, ComponentInfo.empty())
+                ))
+                .add(Interpreter.UNIT, ConfigScreenEntry.single(
+                    Widgets.bool(true),
+                    new EntryCreationInfo<>(Codec.unit(Unit.INSTANCE), ComponentInfo.empty())
+                ))
+                .add(Interpreter.STRING, ConfigScreenEntry.single(
+                    Widgets.canHandleOptional(Widgets.text(DataResult::success, DataResult::success, false)),
+                    new EntryCreationInfo<>(Codec.STRING, ComponentInfo.empty())
+                ))
                 .build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
                 .build())
@@ -72,7 +134,30 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
 
     @Override
     public <A> DataResult<App<ConfigScreenEntry.Mu, List<A>>> list(App<ConfigScreenEntry.Mu, A> single) {
-        return DataResult.error(() -> "Not yet implemented");
+        var unwrapped = ConfigScreenEntry.unbox(single);
+        var codecResult = codecInterpreter.list(new CodecInterpreter.Holder<>(unwrapped.entryCreationInfo().codec())).map(CodecInterpreter::unbox);
+        if (codecResult.isError()) {
+            return DataResult.error(codecResult.error().orElseThrow().messageSupplier());
+        }
+        ScreenFactory<List<A>> factory = (parent, ops, original, onClose, creationInfo) ->
+            new ListConfigScreen<>(parent, creationInfo, unwrapped, ops, original, onClose);
+        return DataResult.success(new ConfigScreenEntry<>(
+            Widgets.canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+                if (!handleOptional && original.isJsonNull()) {
+                    original = new JsonArray();
+                    update.accept(original);
+                }
+                JsonElement finalOriginal = original;
+                return Button.builder(
+                    Component.translatable("codecextras.config.configurelist"),
+                    b -> Minecraft.getInstance().setScreen(factory.open(
+                        parent, ops, finalOriginal, update, creationInfo
+                    ))
+                ).width(width).build();
+            }),
+            factory,
+            unwrapped.entryCreationInfo().withCodec(codecResult.getOrThrow())
+        ));
     }
 
     @Override
@@ -92,21 +177,25 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             return DataResult.error(() -> "Error creating record codec: "+codecResult.error().orElseThrow().messageSupplier());
         }
         return DataResult.success(new ConfigScreenEntry<>(
-            (parent, width, ops, original, update, creationInfo) -> Button.builder(
+            Widgets.canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+                if (!handleOptional && original.isJsonNull()) {
+                    original = new JsonObject();
+                    update.accept(original);
+                }
+                JsonElement finalOriginal = original;
+                return Button.builder(
                     Component.translatable("codecextras.config.configurerecord"),
-                    b -> {
-                        Minecraft.getInstance().setScreen(factory.open(
-                            parent, ops, original, update, creationInfo
-                        ));
-                    }
-                ).width(Button.DEFAULT_WIDTH).build(),
+                    b -> Minecraft.getInstance().setScreen(factory.open(
+                        parent, ops, finalOriginal, update, creationInfo
+                    ))
+                ).width(width).build();
+            }),
             factory,
             new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), ComponentInfo.empty())
         ));
     }
 
     private <A, T> void handleEntry(RecordStructure.Field<A,T> field, List<RecordEntry<?>> entries, List<Supplier<String>> errors) {
-        var shouldEncode = field.missingBehavior().map(RecordStructure.Field.MissingBehavior::predicate).orElse(t -> true);
         var codecResult = codecInterpreter.interpret(field.structure());
         if (codecResult.isError()) {
             errors.add(codecResult.error().orElseThrow().messageSupplier());
@@ -120,7 +209,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
         entries.add(new RecordEntry<>(
             field.name(),
             optionEntryResult.getOrThrow().withComponentInfo(info -> info.fallbackTitle(Component.literal(field.name()))),
-            shouldEncode,
+            field.missingBehavior(),
             codecResult.getOrThrow()
         ));
     }
@@ -128,9 +217,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     @Override
     public <A, B> DataResult<App<ConfigScreenEntry.Mu, B>> flatXmap(App<ConfigScreenEntry.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
         var original = ConfigScreenEntry.unbox(input);
+        var codecOriginal = original.entryCreationInfo().codec();
+        var codecMapped = codecInterpreter.flatXmap(new CodecInterpreter.Holder<>(codecOriginal), deserializer, serializer).map(CodecInterpreter::unbox);
+        if (codecMapped.error().isPresent()) {
+            return DataResult.error(codecMapped.error().get().messageSupplier());
+        }
         return DataResult.success(original.withEntryCreationInfo(
-            info -> info.withCodec(codec -> codec.flatXmap(deserializer, serializer)),
-            info -> info.withCodec(codec -> codec.flatXmap(serializer, deserializer))
+            info -> info.withCodec(codecMapped.getOrThrow()),
+            info -> info.withCodec(codecOriginal)
         ));
     }
 

@@ -1,7 +1,8 @@
 configurations {
     normalRuntimeModClasses
     runsImplementation.extendsFrom normalRuntimeModClasses
-    normalModClassesSource
+    minecraftRuntimeModClasses
+    runsImplementation.extendsFrom minecraftRuntimeModClasses
 }
 
 loom {
@@ -11,23 +12,20 @@ loom {
         }
     }
 
+    mods.register("codecextras_minecraft") {
+        configuration configurations.minecraftRuntimeModClasses
+    }
+
     mods.register("codecextras") {
         configuration configurations.normalRuntimeModClasses
     }
 }
 
-tasks.register('copyNormalClasses', Copy) {
-    from configurations.normalModClassesSource
-    dependsOn configurations.normalModClassesSource
-    into layout.buildDirectory.dir('minecraftCodecExtras')
-}
-
 dependencies {
-    forgeRuntimeLibrary project(path: ':', configuration: 'runtimeElements')
-    normalModClassesSource(project(path: ':', configuration: 'minecraftRuntimeModClasses')) {
+    normalRuntimeModClasses(project(path: ':', configuration: 'runtimeModClasses')) {
         transitive = false
     }
-    normalRuntimeModClasses(files(layout.buildDirectory.dir('minecraftCodecExtras')).tap {
-        builtBy tasks.copyNormalClasses
-    })
+    minecraftRuntimeModClasses(project(path: ':', configuration: 'minecraftRuntimeModClasses')) {
+        transitive = false
+    }
 }

@@ -1,6 +1,0 @@
-{
-	"schemaVersion": 1,
-	"id": "dev_lukebemish_codecextras-minecraft",
-	"version": "${version}",
-	"name": "CodecExtras - Minecraft-specific adapters"
-}

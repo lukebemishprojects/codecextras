@@ -1,6 +1,7 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.mojang.serialization.Codec;
-import java.util.function.Predicate;
+import dev.lukebemish.codecextras.structured.RecordStructure;
+import java.util.Optional;
 
-record RecordEntry<T>(String key, ConfigScreenEntry<T> entry, Predicate<T> shouldEncode, Codec<T> codec) {}
+record RecordEntry<T>(String key, ConfigScreenEntry<T> entry, Optional<RecordStructure.Field.MissingBehavior<T>> missingBehavior, Codec<T> codec) {}

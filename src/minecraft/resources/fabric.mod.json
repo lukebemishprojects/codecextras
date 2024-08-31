@@ -1,0 +1,6 @@
+{
+	"schemaVersion": 1,
+	"id": "codecextras_minecraft",
+	"version": "${version}",
+	"name": "CodecExtras - Minecraft Adapters"
+}
