@@ -14,7 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public record TestConfig(int a, float b, boolean c, String d, Optional<Boolean> e, Optional<String> f, Unit g, List<String> strings, Dispatches dispatches) {
+public record TestConfig(
+    int a, float b, boolean c,
+    String d, Optional<Boolean> e, Optional<String> f,
+    Unit g, List<String> strings, Dispatches dispatches,
+    int intInRange, float floatInRange
+) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
     public interface Dispatches {
@@ -70,10 +75,13 @@ public record TestConfig(int a, float b, boolean c, String d, Optional<Boolean> 
         var g = builder.addOptional("g", Structure.UNIT, TestConfig::g, () -> Unit.INSTANCE);
         var strings = builder.addOptional("strings", Structure.STRING.listOf(), TestConfig::strings, () -> List.of("test1", "test2"));
         var dispatches = builder.addOptional("dispatches", Dispatches.STRUCTURE, TestConfig::dispatches, () -> IdentityInterpreter.INSTANCE.interpret(Abc.STRUCTURE).getOrThrow());
+        var intInRange = builder.addOptional("intInRange", Structure.intInRange(10, 60), TestConfig::intInRange, () -> 50);
+        var floatInRange = builder.addOptional("floatInRange", Structure.floatInRange(1.0f, 5.0f), TestConfig::floatInRange, () -> 3.0f);
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
-            g.apply(container), strings.apply(container), dispatches.apply(container)
+            g.apply(container), strings.apply(container), dispatches.apply(container),
+            intInRange.apply(container), floatInRange.apply(container)
         );
     });
 

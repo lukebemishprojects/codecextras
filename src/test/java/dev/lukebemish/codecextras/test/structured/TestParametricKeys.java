@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 public class TestParametricKeys {
     private record WithType<T>(String string) implements App<WithType.Mu, T> {
-        public static class Mu implements K1 { private Mu() {} }
+        public static final class Mu implements K1 { private Mu() {} }
 
         private static <T> WithType<T> unbox(App<Mu, T> box) {
             return (WithType<T>) box;
@@ -26,7 +26,7 @@ public class TestParametricKeys {
     }
 
     private record Prefix<T>(String string) implements App<Prefix.Mu, T> {
-        public static class Mu implements K1 { private Mu() {} }
+        public static final class Mu implements K1 { private Mu() {} }
 
         private static  <T> Prefix<T> unbox(App<Mu, T> box) {
             return (Prefix<T>) box;

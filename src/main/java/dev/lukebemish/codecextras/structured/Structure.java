@@ -209,32 +209,32 @@ public interface Structure<A> {
     Structure<String> STRING = keyed(Interpreter.STRING);
 
     static Structure<Integer> intInRange(int min, int max) {
-        return Structure.parametricallyKeyed(Interpreter.INT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.INT_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Integer, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 
     static Structure<Byte> byteInRange(byte min, byte max) {
-        return Structure.parametricallyKeyed(Interpreter.BYTE_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.BYTE_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Byte, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 
     static Structure<Short> shortInRange(short min, short max) {
-        return Structure.parametricallyKeyed(Interpreter.SHORT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.SHORT_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Short, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 
     static Structure<Long> longInRange(long min, long max) {
-        return Structure.parametricallyKeyed(Interpreter.LONG_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.LONG_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Long, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 
     static Structure<Float> floatInRange(float min, float max) {
-        return Structure.parametricallyKeyed(Interpreter.FLOAT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.FLOAT_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Float, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 
     static Structure<Double> doubleInRange(double min, double max) {
-        return Structure.parametricallyKeyed(Interpreter.DOUBLE_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+        return Structure.parametricallyKeyed(Interpreter.DOUBLE_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Double, Object>) app)
                 .xmap(Const::unbox, Const::create);
     }
 }

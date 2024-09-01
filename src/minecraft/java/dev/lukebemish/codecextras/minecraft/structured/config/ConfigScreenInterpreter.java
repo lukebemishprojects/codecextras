@@ -4,7 +4,9 @@ import com.google.common.base.Suppliers;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
@@ -18,6 +20,7 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
+import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
@@ -123,6 +126,138 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 ))
                 .build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
+                .add(Interpreter.INT_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Integer>, T>> convert(App<Const.Mu<Range<Integer>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.INT.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsInt());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not an integer: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not an integer: " + json);
+                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
+                .add(Interpreter.BYTE_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Byte>, T>> convert(App<Const.Mu<Range<Byte>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.BYTE.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsByte());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not a byte: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not a byte: " + json);
+                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
+                .add(Interpreter.SHORT_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Short>, T>> convert(App<Const.Mu<Range<Short>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.SHORT.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsShort());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not a short: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not a short: " + json);
+                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
+                .add(Interpreter.LONG_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Long>, T>> convert(App<Const.Mu<Range<Long>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.LONG.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsLong());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not a long: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not a long: " + json);
+                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
+                .add(Interpreter.FLOAT_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Float>, T>> convert(App<Const.Mu<Range<Float>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.FLOAT.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsFloat());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not a float: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not a float: " + json);
+                            }, true), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
+                .add(Interpreter.DOUBLE_IN_RANGE, new ParametricKeyedValue<>() {
+                    @Override
+                    public <T> App<ConfigScreenEntry.Mu, App<Const.Mu<Double>, T>> convert(App<Const.Mu<Range<Double>>, T> parameter) {
+                        var range = Const.unbox(parameter);
+                        var codec = Codec.DOUBLE.validate(Codec.checkRange(range.min(), range.max()));
+                        return ConfigScreenEntry.single(
+                            Widgets.slider(range, i -> DataResult.success(new JsonPrimitive(i)), json -> {
+                                if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {
+                                    try {
+                                        return DataResult.success(json.getAsJsonPrimitive().getAsDouble());
+                                    } catch (NumberFormatException e) {
+                                        return DataResult.error(() -> "Not a double: " + json);
+                                    }
+                                }
+                                return DataResult.error(() -> "Not a double: " + json);
+                            }, true), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                        ).withEntryCreationInfo(
+                            info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
+                            info -> info.withCodec(codec)
+                        );
+                    }
+                })
                 .build())
         );
         this.codecInterpreter = codecInterpreter;

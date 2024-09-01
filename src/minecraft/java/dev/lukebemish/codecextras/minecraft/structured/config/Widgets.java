@@ -1,12 +1,15 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.structured.Range;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
@@ -140,6 +143,73 @@ public final class Widgets {
             layout.addChild(right, LayoutSettings.defaults().alignVerticallyMiddle());
             return layout;
         };
+    }
+
+    public static <T, N extends Number & Comparable<N>> LayoutFactory<T> slider(Range<N> range, Function<N, DataResult<JsonElement>> toJson, Function<JsonElement, DataResult<N>> fromJson, boolean isDoubleLike) {
+        return canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+            if (!handleOptional && original.isJsonNull()) {
+                original = new JsonPrimitive(range.min());
+                update.accept(original);
+            }
+
+            var valueResult = fromJson.apply(original);
+            N value;
+            if (valueResult.error().isPresent()) {
+                LOGGER.warn("Failed to decode `{}`: {}", original, valueResult.error().get().message());
+                value = range.min();
+            } else {
+                value = valueResult.getOrThrow();
+            }
+
+            AbstractSliderButton widget = new AbstractSliderButton(0, 0, width, Button.DEFAULT_HEIGHT, Component.empty(), valueInRange(range, value)) {
+                {
+                    this.updateMessage();
+                }
+
+                @Override
+                protected void updateMessage() {
+                    N value = calculateValue();
+                    this.setMessage(Component.literal(isDoubleLike ? String.format("%.2f", value.doubleValue()) : String.valueOf(value.intValue())));
+                }
+
+                private N calculateValue() {
+                    JsonElement valueElement;
+                    var realValue = this.value * (range.max().doubleValue() - range.min().doubleValue()) + range.min().doubleValue();
+                    if (isDoubleLike) {
+                        valueElement = new JsonPrimitive(realValue);
+                    } else {
+                        valueElement = new JsonPrimitive(Math.round(realValue));
+                    }
+                    var valueResult = fromJson.apply(valueElement);
+                    N value;
+                    if (valueResult.error().isPresent()) {
+                        LOGGER.warn("Failed to decode `{}`: {}", valueElement, valueResult.error().get().message());
+                        value = range.min();
+                    } else {
+                        value = valueResult.getOrThrow();
+                    }
+                    return value;
+                }
+
+                @Override
+                protected void applyValue() {
+                    N value = calculateValue();
+                    var jsonResult = toJson.apply(value);
+                    if (jsonResult.error().isPresent()) {
+                        LOGGER.warn("Failed to encode `{}`: {}", value, jsonResult.error().get().message());
+                    } else {
+                        update.accept(jsonResult.getOrThrow());
+                    }
+                    this.value = valueInRange(range, value);
+                }
+            };
+            widget.setTooltip(Tooltip.create(creationInfo.componentInfo().description()));
+            return widget;
+        });
+    }
+
+    private static <N extends Number & Comparable<N>> double valueInRange(Range<N> range, N value) {
+        return (value.doubleValue() - range.min().doubleValue()) / (range.max().doubleValue() - range.min().doubleValue());
     }
 
     public static <T> LayoutFactory<T> bool(boolean falseIfMissing) {
