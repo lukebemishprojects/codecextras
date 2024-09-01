@@ -109,6 +109,8 @@ java {
 		usingSourceSet sourceSets.stream
 		withSourcesJar()
 		withJavadocJar()
+		capability(project.group as String, "$project.name-stream", project.version as String)
+		capability(project.group as String, "$project.name-stream-mojmap", project.version as String)
 	}
 	registerFeature("streamIntermediary") {
 		usingSourceSet sourceSets.streamIntermediary
