@@ -2,6 +2,7 @@ package dev.lukebemish.codecextras.test.neoforge;
 
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
@@ -10,7 +11,10 @@ import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -19,7 +23,51 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
 @Mod("codecextras_testmod")
 public class CodecExtrasTest {
-    private record TestRecord(int a, float b, boolean c, String d, Optional<Boolean> e, Optional<String> f, Unit g, List<String> strings) {
+    private interface Dispatches {
+        Map<String, Structure<? extends Dispatches>> MAP = new HashMap<>();
+        Structure<Dispatches> STRUCTURE = Structure.STRING.<Dispatches>dispatch(
+            "type",
+            d -> DataResult.success(d.key()),
+            MAP::keySet,
+            MAP::get
+        ).annotate(SchemaAnnotations.REUSE_KEY, "dispatches");
+        String key();
+    }
+
+    private record Abc(int a, String b, float c) implements Dispatches {
+        private static final Structure<Abc> STRUCTURE = Structure.<Abc>record(i -> {
+            var a = i.addOptional("a", Structure.INT, Abc::a, () -> 123);
+            var b = i.addOptional("b", Structure.STRING, Abc::b, () ->"gizmo");
+            var c = i.addOptional("c", Structure.FLOAT, Abc::c, () -> 1.23f);
+            return container -> new Abc(a.apply(container), b.apply(container), c.apply(container));
+        }).annotate(SchemaAnnotations.REUSE_KEY, "abc");
+
+        @Override
+        public String key() {
+            return "abc";
+        }
+    }
+
+    private record Xyz(String x, int y, float z) implements Dispatches {
+        private static final Structure<Xyz> STRUCTURE = Structure.<Xyz>record(i -> {
+            var x = i.addOptional("x", Structure.STRING, Xyz::x, () -> "gadget");
+            var y = i.addOptional("y", Structure.INT, Xyz::y, () -> 345);
+            var z = i.addOptional("z", Structure.FLOAT, Xyz::z, () -> 3.45f);
+            return container -> new Xyz(x.apply(container), y.apply(container), z.apply(container));
+        }).annotate(SchemaAnnotations.REUSE_KEY, "xyz");
+
+        @Override
+        public String key() {
+            return "xyz";
+        }
+    }
+
+    static {
+        Dispatches.MAP.put("abc", Abc.STRUCTURE);
+        Dispatches.MAP.put("xyz", Xyz.STRUCTURE);
+    }
+
+    private record TestRecord(int a, float b, boolean c, String d, Optional<Boolean> e, Optional<String> f, Unit g, List<String> strings, Dispatches dispatches) {
         private static final Structure<TestRecord> STRUCTURE = Structure.record(builder -> {
             var a = builder.add("a", Structure.INT.annotate(Annotation.DESCRIPTION, "Describes the field!").annotate(Annotation.TITLE, "Field A"), TestRecord::a);
             var b = builder.add("b", Structure.FLOAT, TestRecord::b);
@@ -29,10 +77,11 @@ public class CodecExtrasTest {
             var f = builder.addOptional("f", Structure.STRING, TestRecord::f);
             var g = builder.add("g", Structure.UNIT, TestRecord::g);
             var strings = builder.addOptional("strings", Structure.STRING.listOf(), TestRecord::strings, () -> List.of("test1", "test2"));
+            var dispatches = builder.addOptional("dispatches", Dispatches.STRUCTURE, TestRecord::dispatches, () -> new Abc(1, "test", 1.0f));
             return container -> new TestRecord(
                 a.apply(container), b.apply(container), c.apply(container),
                 d.apply(container), e.apply(container), f.apply(container),
-                g.apply(container), strings.apply(container)
+                g.apply(container), strings.apply(container), dispatches.apply(container)
             );
         });
 
@@ -47,7 +96,7 @@ public class CodecExtrasTest {
 
         @Override
         public TestRecord defaultConfig() {
-            return new TestRecord(1, 2.0f, true, "test", Optional.empty(), Optional.empty(), Unit.INSTANCE, List.of("test1", "test2"));
+            return new TestRecord(1, 2.0f, true, "test", Optional.empty(), Optional.empty(), Unit.INSTANCE, List.of("test1", "test2"), new Abc(1, "test", 1.0f));
         }
     }.handle(FMLPaths.CONFIGDIR.get().resolve("codecextras_testmod.json"), GsonOpsIo.INSTANCE);
 

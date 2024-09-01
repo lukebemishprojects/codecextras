@@ -12,34 +12,20 @@ import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenFactory<T> screen, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
+public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T> screenEntryProvider, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
 
     public static final class Mu implements K1 { private Mu() {} }
-
-    private static final int FULL_WIDTH = 310;
 
     public static <T> ConfigScreenEntry<T> unbox(App<ConfigScreenEntry.Mu, T> app) {
         return (ConfigScreenEntry<T>) app;
     }
 
     public static <T> ConfigScreenEntry<T> single(LayoutFactory<T> first, EntryCreationInfo<T> entryCreationInfo) {
-        return new ConfigScreenEntry<>(first, (parent, ops, original, onClose, creationInfo) -> new EntryListScreen(parent, creationInfo.componentInfo().title()) {
-            private JsonElement value = original;
-
-            @Override
-            protected void addEntries() {
-                this.list.addSingle(first.create(this, FULL_WIDTH, ops, value, newValue -> value = newValue, creationInfo, false));
-            }
-
-            @Override
-            public void onExit() {
-                onClose.accept(value);
-            }
-        }, entryCreationInfo);
+        return new ConfigScreenEntry<>(first, (ops, original, onClose, creationInfo) -> new SingleScreenEntryProvider<>(original, first, ops, creationInfo, onClose), entryCreationInfo);
     }
 
     public ConfigScreenEntry<T> withComponentInfo(UnaryOperator<ComponentInfo> function) {
-        return new ConfigScreenEntry<>(this.widget, this.screen, this.entryCreationInfo.withComponentInfo(function));
+        return new ConfigScreenEntry<>(this.widget, this.screenEntryProvider, this.entryCreationInfo.withComponentInfo(function));
     }
 
     public <A> ConfigScreenEntry<A> withEntryCreationInfo(Function<EntryCreationInfo<T>, EntryCreationInfo<A>> function, Function<EntryCreationInfo<A>, EntryCreationInfo<T>> reverse) {
@@ -48,9 +34,9 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenFactory<T> scr
                 var entryCreationInfo = reverse.apply(entry);
                 return this.widget.create(parent, width, ops, original, update, entryCreationInfo, handleOptional);
             },
-            (parent, ops, original, onClose, entry) -> {
+            (ops, original, onClose, entry) -> {
                 var entryCreationInfo = reverse.apply(entry);
-                return this.screen.open(parent, ops, original, onClose, entryCreationInfo);
+                return this.screenEntryProvider.open(ops, original, onClose, entryCreationInfo);
             },
             function.apply(this.entryCreationInfo)
         );
@@ -69,7 +55,7 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenFactory<T> scr
         } else {
             initialJson = initial.getOrThrow();
         }
-        return screen().open(parent, ops, initialJson, json -> {
+        var provider = screenEntryProvider().open(ops, initialJson, json -> {
             var decoded = entryCreationInfo.codec().parse(ops, json);
             if (decoded.error().isPresent()) {
                 logger.warn("Failed to decode `{}`: {}", json, decoded.error().get().message());
@@ -77,5 +63,6 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenFactory<T> scr
                 onClose.accept(decoded.getOrThrow());
             }
         }, this.entryCreationInfo());
+        return ScreenEntryProvider.create(provider, parent, entryCreationInfo);
     }
 }

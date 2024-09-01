@@ -19,14 +19,16 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 
-abstract class EntryListScreen extends Screen {
-    protected final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
-    protected final Screen lastScreen;
-    protected @Nullable EntryList list;
+class EntryListScreen extends Screen {
+    private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
+    private final Screen lastScreen;
+    private @Nullable EntryList list;
+    private final ScreenEntryProvider screenEntries;
 
-    public EntryListScreen(Screen screen, Component title) {
+    public EntryListScreen(Screen screen, Component title, ScreenEntryProvider screenEntries) {
         super(title);
         this.lastScreen = screen;
+        this.screenEntries = screenEntries;
     }
 
     protected void init() {
@@ -62,16 +64,16 @@ abstract class EntryListScreen extends Screen {
         }
     }
 
-    protected abstract void onExit();
-
     public void onClose() {
-        this.onExit();
+        this.screenEntries.onExit();
         this.minecraft.setScreen(this.lastScreen);
     }
 
-    protected abstract void addEntries();
+    protected void addEntries() {
+        this.screenEntries.addEntries(this.list, this::rebuildWidgets, this);
+    }
 
-    protected final class EntryList extends ContainerObjectSelectionList<Entry> {
+    final class EntryList extends ContainerObjectSelectionList<Entry> implements ScreenEntryList {
         public EntryList(int i) {
             super(EntryListScreen.this.minecraft, i, EntryListScreen.this.layout.getContentHeight(), EntryListScreen.this.layout.getHeaderHeight(), 25);
         }
@@ -81,6 +83,7 @@ abstract class EntryListScreen extends Screen {
             return 310;
         }
 
+        @Override
         public void addPair(LayoutElement left, LayoutElement right) {
             var layout = new EqualSpacingLayout(Button.DEFAULT_WIDTH*2+EntryListScreen.Entry.SPACING, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var leftLayout = new FrameLayout(Button.DEFAULT_WIDTH, 0);
@@ -92,6 +95,7 @@ abstract class EntryListScreen extends Screen {
             this.addEntry(new EntryListScreen.Entry(layout, EntryListScreen.this));
         }
 
+        @Override
         public void addSingle(LayoutElement layoutElement) {
             var layout = new FrameLayout(Button.DEFAULT_WIDTH*2+EntryListScreen.Entry.SPACING, 0);
             layout.addChild(layoutElement, LayoutSettings.defaults().alignVerticallyMiddle().alignHorizontallyCenter());
@@ -106,12 +110,12 @@ abstract class EntryListScreen extends Screen {
             }
         }
 
-        public void clear() {
+        void clear() {
             super.clearEntries();
         }
     }
 
-    protected static final class Entry extends ContainerObjectSelectionList.Entry<Entry> {
+    static final class Entry extends ContainerObjectSelectionList.Entry<Entry> {
         private final Layout layout;
         private final List<? extends NarratableEntry> narratables;
         private final List<? extends GuiEventListener> listeners;
