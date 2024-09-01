@@ -2,6 +2,7 @@ package dev.lukebemish.codecextras.stream.structured;
 
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
@@ -10,10 +11,12 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
+import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
 import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +42,47 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
             .add(Interpreter.DOUBLE, new Holder<>(ByteBufCodecs.DOUBLE.cast()))
             .add(Interpreter.STRING, new Holder<>(ByteBufCodecs.STRING_UTF8.cast()))
             .build()
-        ), parametricKeys);
+        ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder()
+            .add(Interpreter.INT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.VAR_INT.cast()))
+            .add(Interpreter.BYTE_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.BYTE.cast()))
+            .add(Interpreter.SHORT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.SHORT.cast()))
+            .add(Interpreter.LONG_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.VAR_LONG.cast()))
+            .add(Interpreter.FLOAT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.FLOAT.cast()))
+            .add(Interpreter.DOUBLE_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.DOUBLE.cast()))
+            .build()
+        ));
+    }
+
+    private static <N extends Number & Comparable<N>, B extends ByteBuf> ParametricKeyedValue<StreamCodecInterpreter.Holder.Mu<B>, Const.Mu<Range<N>>, Const.Mu<N>> numberRangeCodecParameter(StreamCodec<B, N> codec) {
+        return new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<StreamCodecInterpreter.Holder.Mu<B>, App<Const.Mu<N>, T>> convert(App<Const.Mu<Range<N>>, T> parameter) {
+                var range = Const.unbox(parameter);
+                return new StreamCodecInterpreter.Holder<>(new StreamCodec<B, App<Const.Mu<N>, T>>() {
+                    @Override
+                    public App<Const.Mu<N>, T> decode(B buffer) {
+                        var n = codec.decode(buffer);
+                        if (n.compareTo(range.min()) < 0) {
+                            throw new DecoderException("Value " + n + " is larger than max " + range.max());
+                        } else if (n.compareTo(range.max()) > 0) {
+                            throw new DecoderException("Value " + n + " is smaller than min " + range.min());
+                        }
+                        return Const.create(n);
+                    }
+
+                    @Override
+                    public void encode(B buffer, App<Const.Mu<N>, T> object2) {
+                        var value = Const.unbox(object2);
+                        if (value.compareTo(range.min()) < 0) {
+                            throw new DecoderException("Value " + value + " is larger than max " + range.max());
+                        } else if (value.compareTo(range.max()) > 0) {
+                            throw new DecoderException("Value " + value + " is smaller than min " + range.min());
+                        }
+                        codec.encode(buffer, value);
+                    }
+                });
+            }
+        };
     }
 
     public StreamCodecInterpreter() {

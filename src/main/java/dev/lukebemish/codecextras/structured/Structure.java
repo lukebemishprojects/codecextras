@@ -1,6 +1,7 @@
 package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
@@ -130,6 +131,19 @@ public interface Structure<A> {
         };
     }
 
+    static <A> Structure<A> keyed(Key<A> key, Structure<A> fallback) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                var result = interpreter.keyed(key);
+                if (result.error().isPresent()) {
+                    return fallback.interpret(interpreter);
+                }
+                return result;
+            }
+        };
+    }
+
     static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
             @Override
@@ -146,8 +160,23 @@ public interface Structure<A> {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
                 return interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
-                    interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
+                        interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
                 );
+            }
+        };
+    }
+
+    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Structure<A> fallback) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                var result = interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
+                        interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
+                );
+                if (result.error().isPresent()) {
+                    return fallback.interpret(interpreter);
+                }
+                return result;
             }
         };
     }
@@ -178,4 +207,34 @@ public interface Structure<A> {
     Structure<Float> FLOAT = keyed(Interpreter.FLOAT);
     Structure<Double> DOUBLE = keyed(Interpreter.DOUBLE);
     Structure<String> STRING = keyed(Interpreter.STRING);
+
+    static Structure<Integer> intInRange(int min, int max) {
+        return Structure.parametricallyKeyed(Interpreter.INT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
+
+    static Structure<Byte> byteInRange(byte min, byte max) {
+        return Structure.parametricallyKeyed(Interpreter.BYTE_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
+
+    static Structure<Short> shortInRange(short min, short max) {
+        return Structure.parametricallyKeyed(Interpreter.SHORT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
+
+    static Structure<Long> longInRange(long min, long max) {
+        return Structure.parametricallyKeyed(Interpreter.LONG_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
+
+    static Structure<Float> floatInRange(float min, float max) {
+        return Structure.parametricallyKeyed(Interpreter.FLOAT_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
+
+    static Structure<Double> doubleInRange(double min, double max) {
+        return Structure.parametricallyKeyed(Interpreter.DOUBLE_IN_RANGE, Const.create(new Range<>(min, max)), app -> Const.create(Const.unbox(app)))
+                .xmap(Const::unbox, Const::create);
+    }
 }

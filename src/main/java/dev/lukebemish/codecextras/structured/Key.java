@@ -1,6 +1,18 @@
 package dev.lukebemish.codecextras.structured;
 
-public final class Key<A> {
+import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.K1;
+
+public final class Key<A> implements App<Key.Mu, A> {
+    public static final class Mu implements K1 {
+        private Mu() {
+        }
+    }
+
+    public static <A> Key<A> unbox(App<Mu, A> box) {
+        return (Key<A>) box;
+    }
+
     private final String name;
 
     private Key(String name) {

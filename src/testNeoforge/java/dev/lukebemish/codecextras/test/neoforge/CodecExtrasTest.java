@@ -3,7 +3,7 @@ package dev.lukebemish.codecextras.test.neoforge;
 import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
-import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.test.common.TestConfig;
@@ -19,7 +19,7 @@ public class CodecExtrasTest {
 
     public CodecExtrasTest(ModContainer modContainer) {
         ConfigScreenEntry<TestConfig> entry = new ConfigScreenInterpreter(
-            MinecraftStructures.CODEC_INTERPRETER
+            MinecraftInterpreters.CODEC_INTERPRETER
         ).interpret(TestConfig.STRUCTURE).getOrThrow();
 
         modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) ->

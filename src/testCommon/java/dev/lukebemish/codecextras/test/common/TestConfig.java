@@ -4,7 +4,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.config.ConfigType;
-import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.IdentityInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
@@ -77,7 +77,7 @@ public record TestConfig(int a, float b, boolean c, String d, Optional<Boolean> 
         );
     });
 
-    public static final Codec<TestConfig> CODEC = MinecraftStructures.CODEC_INTERPRETER.interpret(STRUCTURE).getOrThrow();
+    public static final Codec<TestConfig> CODEC = MinecraftInterpreters.CODEC_INTERPRETER.interpret(STRUCTURE).getOrThrow();
 
     public static final ConfigType<TestConfig> CONFIG = new ConfigType<>() {
         @Override

@@ -1,6 +1,7 @@
 package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
@@ -38,4 +39,11 @@ public interface Interpreter<Mu extends K1> {
     Key<String> STRING = Key.create("STRING");
 
     <MuO extends K1, MuP extends K1, T> DataResult<App<Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP,MuO> key, App<MuP, T> parameter);
+
+    Key2<Const.Mu<Range<Integer>>, Const.Mu<Integer>> INT_IN_RANGE = Key2.create("int_in_range");
+    Key2<Const.Mu<Range<Byte>>, Const.Mu<Byte>> BYTE_IN_RANGE = Key2.create("byte_in_range");
+    Key2<Const.Mu<Range<Short>>, Const.Mu<Short>> SHORT_IN_RANGE = Key2.create("short_in_range");
+    Key2<Const.Mu<Range<Long>>, Const.Mu<Long>> LONG_IN_RANGE = Key2.create("long_in_range");
+    Key2<Const.Mu<Range<Float>>, Const.Mu<Float>> FLOAT_IN_RANGE = Key2.create("float_in_range");
+    Key2<Const.Mu<Range<Double>>, Const.Mu<Double>> DOUBLE_IN_RANGE = Key2.create("double_in_range");
 }

@@ -2,6 +2,7 @@ package dev.lukebemish.codecextras.structured;
 
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
@@ -30,7 +31,24 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
             .add(Interpreter.DOUBLE, new Holder<>(Codec.DOUBLE))
             .add(Interpreter.STRING, new Holder<>(Codec.STRING))
             .build()
-        ), parametricKeys);
+        ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder()
+            .add(Interpreter.INT_IN_RANGE, numberRangeCodecParameter(Codec.INT))
+            .add(Interpreter.BYTE_IN_RANGE, numberRangeCodecParameter(Codec.BYTE))
+            .add(Interpreter.SHORT_IN_RANGE, numberRangeCodecParameter(Codec.SHORT))
+            .add(Interpreter.LONG_IN_RANGE, numberRangeCodecParameter(Codec.LONG))
+            .add(Interpreter.FLOAT_IN_RANGE, numberRangeCodecParameter(Codec.FLOAT))
+            .add(Interpreter.DOUBLE_IN_RANGE, numberRangeCodecParameter(Codec.DOUBLE))
+            .build()
+        ));
+    }
+
+    private static <N extends Number & Comparable<N>> ParametricKeyedValue<Holder.Mu, Const.Mu<Range<N>>, Const.Mu<N>> numberRangeCodecParameter(Codec<N> codec) {
+        return new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<Holder.Mu, App<Const.Mu<N>, T>> convert(App<Const.Mu<Range<N>>, T> parameter) {
+                return new Holder<>(codec.validate(Codec.checkRange(Const.unbox(parameter).min(), Const.unbox(parameter).max())).xmap(Const::create, Const::unbox));
+            }
+        };
     }
 
     public static CodecInterpreter create(

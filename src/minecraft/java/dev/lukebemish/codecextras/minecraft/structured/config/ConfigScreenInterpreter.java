@@ -9,9 +9,11 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftKeys;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Interpreter;
+import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenEntry.Mu, ConfigScreenInterpreter> {
     private final CodecInterpreter codecInterpreter;
@@ -113,6 +117,10 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Widgets.canHandleOptional(Widgets.text(DataResult::success, DataResult::success, false)),
                     new EntryCreationInfo<>(Codec.STRING, ComponentInfo.empty())
                 ))
+                .add(MinecraftKeys.RESOURCE_LOCATION, ConfigScreenEntry.single(
+                    Widgets.canHandleOptional(Widgets.text(ResourceLocation::read, rl -> DataResult.success(rl.toString()), string -> string.matches("([a-z0-9._-]+:)?[a-z0-9/._-]*"), false)),
+                    new EntryCreationInfo<>(ResourceLocation.CODEC, ComponentInfo.empty())
+                ))
                 .build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
                 .build())
@@ -128,6 +136,13 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder().build(),
             codecInterpreter
         );
+    }
+
+    public static final Key<ConfigScreenEntry.Mu> KEY = Key.create("ConfigScreenInterpreter");
+
+    @Override
+    public Optional<Key<ConfigScreenEntry.Mu>> key() {
+        return Optional.of(KEY);
     }
 
     @Override
