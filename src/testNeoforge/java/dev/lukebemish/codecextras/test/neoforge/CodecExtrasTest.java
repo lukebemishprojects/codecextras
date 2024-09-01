@@ -10,6 +10,7 @@ import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.structured.Annotation;
+import dev.lukebemish.codecextras.structured.IdentityInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import java.util.HashMap;
@@ -69,15 +70,15 @@ public class CodecExtrasTest {
 
     private record TestRecord(int a, float b, boolean c, String d, Optional<Boolean> e, Optional<String> f, Unit g, List<String> strings, Dispatches dispatches) {
         private static final Structure<TestRecord> STRUCTURE = Structure.record(builder -> {
-            var a = builder.add("a", Structure.INT.annotate(Annotation.DESCRIPTION, "Describes the field!").annotate(Annotation.TITLE, "Field A"), TestRecord::a);
-            var b = builder.add("b", Structure.FLOAT, TestRecord::b);
-            var c = builder.add("c", Structure.BOOL, TestRecord::c);
-            var d = builder.add("d", Structure.STRING, TestRecord::d);
+            var a = builder.addOptional("a", Structure.INT.annotate(Annotation.DESCRIPTION, "Describes the field!").annotate(Annotation.TITLE, "Field A"), TestRecord::a, () -> 34);
+            var b = builder.addOptional("b", Structure.FLOAT, TestRecord::b, () -> 1.2f);
+            var c = builder.addOptional("c", Structure.BOOL, TestRecord::c, () -> true);
+            var d = builder.addOptional("d", Structure.STRING, TestRecord::d, () -> "test");
             var e = builder.addOptional("e", Structure.BOOL, TestRecord::e);
             var f = builder.addOptional("f", Structure.STRING, TestRecord::f);
-            var g = builder.add("g", Structure.UNIT, TestRecord::g);
+            var g = builder.addOptional("g", Structure.UNIT, TestRecord::g, () -> Unit.INSTANCE);
             var strings = builder.addOptional("strings", Structure.STRING.listOf(), TestRecord::strings, () -> List.of("test1", "test2"));
-            var dispatches = builder.addOptional("dispatches", Dispatches.STRUCTURE, TestRecord::dispatches, () -> new Abc(1, "test", 1.0f));
+            var dispatches = builder.addOptional("dispatches", Dispatches.STRUCTURE, TestRecord::dispatches, () -> IdentityInterpreter.INSTANCE.interpret(Abc.STRUCTURE).getOrThrow());
             return container -> new TestRecord(
                 a.apply(container), b.apply(container), c.apply(container),
                 d.apply(container), e.apply(container), f.apply(container),
@@ -96,7 +97,7 @@ public class CodecExtrasTest {
 
         @Override
         public TestRecord defaultConfig() {
-            return new TestRecord(1, 2.0f, true, "test", Optional.empty(), Optional.empty(), Unit.INSTANCE, List.of("test1", "test2"), new Abc(1, "test", 1.0f));
+            return IdentityInterpreter.INSTANCE.interpret(TestRecord.STRUCTURE).getOrThrow();
         }
     }.handle(FMLPaths.CONFIGDIR.get().resolve("codecextras_testmod.json"), GsonOpsIo.INSTANCE);
 
