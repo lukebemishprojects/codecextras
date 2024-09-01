@@ -25,12 +25,12 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 public class CodecExtrasTest {
     private interface Dispatches {
         Map<String, Structure<? extends Dispatches>> MAP = new HashMap<>();
-        Structure<Dispatches> STRUCTURE = Structure.STRING.<Dispatches>dispatch(
+        Structure<Dispatches> STRUCTURE = Structure.STRING.dispatch(
             "type",
             d -> DataResult.success(d.key()),
             MAP::keySet,
             MAP::get
-        ).annotate(SchemaAnnotations.REUSE_KEY, "dispatches");
+        );
         String key();
     }
 
