@@ -1,29 +1,26 @@
-package dev.lukebemish.codecextras.test.neoforge;
+package dev.lukebemish.codecextras.test.fabric;
 
 import com.mojang.serialization.JsonOps;
+import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import com.terraformersmc.modmenu.api.ModMenuApi;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.test.common.TestConfig;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLPaths;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.fabricmc.loader.api.FabricLoader;
 
-@Mod("codecextras_testmod")
-public class CodecExtrasTest {
+public class CodecExtrasModMenu implements ModMenuApi {
     private static final ConfigType.ConfigHandle<TestConfig> CONFIG = TestConfig.CONFIG
-            .handle(FMLPaths.CONFIGDIR.get().resolve("codecextras_testmod.json"), GsonOpsIo.INSTANCE);
+        .handle(FabricLoader.getInstance().getConfigDir().resolve("codecextras_testmod.json"), GsonOpsIo.INSTANCE);
 
-    public CodecExtrasTest(ModContainer modContainer) {
+    @Override
+    public ConfigScreenFactory<?> getModConfigScreenFactory() {
         ConfigScreenEntry<TestConfig> entry = new ConfigScreenInterpreter(
             MinecraftStructures.CODEC_INTERPRETER
         ).interpret(TestConfig.STRUCTURE).getOrThrow();
 
-        modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) ->
-            entry.rootScreen(parent, CONFIG::save, JsonOps.INSTANCE, CONFIG.load())
-        );
+        return parent -> entry.rootScreen(parent, CONFIG::save, JsonOps.INSTANCE, CONFIG.load());
     }
 }

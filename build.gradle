@@ -136,8 +136,10 @@ java {
 		withSourcesJar()
 		withJavadocJar()
         capability(project.group as String, "$project.name-minecraft", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-mojmap", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
+        capability(project.group as String, "$project.name-stream-mojmap", project.version as String)
 	}
 	registerFeature("minecraftIntermediary") {
 		usingSourceSet sourceSets.minecraftIntermediary
@@ -195,6 +197,15 @@ dependencies {
 
     testNeoforgeCompileOnly sourceSets.minecraft.output
     testFabricCompileOnly sourceSets.minecraftIntermediary.output
+    testCommonCompileOnly(project(':')) {
+        capabilities {
+            requireCapability 'dev.lukebemish:codecextras-minecraft-mojmap'
+        }
+    }
+
+    modTestFabricImplementation libs.fabric.loader
+    modTestFabricLocalImplementation libs.modmenu
+    modTestFabricLocalImplementation libs.fabric.api
 }
 
 ['minecraftJar', 'minecraftIntermediaryJar', 'jar'].each {

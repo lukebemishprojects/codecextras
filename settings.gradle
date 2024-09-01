@@ -27,16 +27,26 @@ plugins {
 }
 
 multisource.of(':') {
+    repositories {
+        maven {
+            name = "Terraformers"
+            url = "https://maven.terraformersmc.com/"
+            content {
+                includeModule 'com.terraformersmc', 'modmenu'
+            }
+        }
+    }
 	configureEach {
 		minecraft.add project.libs.minecraft
 		mappings.add loom.officialMojangMappings()
 	}
 	common('minecraft', []) {}
 	fabric('minecraftIntermediary', ['minecraft']) {}
-    neoforge('testNeoforge', []) {
+    common('testCommon', []) {}
+    neoforge('testNeoforge', ['testCommon']) {
         neoForge.add project.libs.neoforge
     }
-    fabric('testFabric', []) {}
+    fabric('testFabric', ['testCommon']) {}
 	repositories {
 		it.removeIf { it.name == 'Forge' }
 	}
