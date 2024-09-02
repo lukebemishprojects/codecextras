@@ -7,6 +7,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.structured.Interpreter;
+import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
@@ -25,12 +26,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>, StreamCodecInterpreter<B>> {
-    public StreamCodecInterpreter(Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
+    private final Key<Holder.Mu<B>> key;
+
+    public StreamCodecInterpreter(Key<Holder.Mu<B>> key, Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
         super(keys.join(Keys.<Holder.Mu<B>, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(StreamCodec.of((buf, data) -> {}, buf -> Unit.INSTANCE)))
             .add(Interpreter.BOOL, new Holder<>(ByteBufCodecs.BOOL.cast()))
@@ -51,7 +56,11 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
             .add(Interpreter.DOUBLE_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.DOUBLE.cast()))
             .build()
         ));
+        this.key = key;
     }
+
+    public static final Key<Holder.Mu<FriendlyByteBuf>> FRIENDLY_BYTE_BUF_KEY = Key.create("StreamCodecInterpreter<FriendlyByteBuf>");
+    public static final Key<Holder.Mu<RegistryFriendlyByteBuf>> REGISTRY_FRIENDLY_BYTE_BUF_KEY = Key.create("StreamCodecInterpreter<RegistryFriendlyByteBuf>");
 
     private static <N extends Number & Comparable<N>, B extends ByteBuf> ParametricKeyedValue<StreamCodecInterpreter.Holder.Mu<B>, Const.Mu<Range<N>>, Const.Mu<N>> numberRangeCodecParameter(StreamCodec<B, N> codec) {
         return new ParametricKeyedValue<>() {
@@ -85,8 +94,9 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
         };
     }
 
-    public StreamCodecInterpreter() {
+    public StreamCodecInterpreter(Key<Holder.Mu<B>> key) {
         this(
+            key,
             Keys.<Holder.Mu<B>, Object>builder().build(),
             Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder().build()
         );
@@ -94,7 +104,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
     @Override
     public StreamCodecInterpreter<B> with(Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
-        return new StreamCodecInterpreter<>(keys().join(keys), parametricKeys().join(parametricKeys));
+        return new StreamCodecInterpreter<>(key, keys().join(keys), parametricKeys().join(parametricKeys));
     }
 
     @Override
@@ -210,6 +220,11 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
     public <T> DataResult<StreamCodec<B, T>> interpret(Structure<T> structure) {
         return structure.interpret(this).map(StreamCodecInterpreter::unbox);
+    }
+
+    @Override
+    public Optional<Key<Holder.Mu<B>>> key() {
+        return Optional.of(key);
     }
 
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

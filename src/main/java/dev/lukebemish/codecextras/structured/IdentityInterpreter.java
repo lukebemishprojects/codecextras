@@ -5,15 +5,29 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Attempts to recover a default value from a structure by evaluating missing behaviours as if the value is missing
+ * Attempts to recover a default value from a structure by evaluating missing behaviours as if the value is missing.
  */
 public class IdentityInterpreter implements Interpreter<Identity.Mu> {
+    /**
+     * The singleton instance of this interpreter.
+     */
     public static final IdentityInterpreter INSTANCE = new IdentityInterpreter();
+
+    /**
+     * The key for this interpreter.
+     */
+    public static final Key<Identity.Mu> KEY = Key.create("IdentityInterpreter");
+
+    @Override
+    public Optional<Key<Identity.Mu>> key() {
+        return Optional.of(KEY);
+    }
 
     @Override
     public <A> DataResult<App<Identity.Mu, List<A>>> list(App<Identity.Mu, A> single) {

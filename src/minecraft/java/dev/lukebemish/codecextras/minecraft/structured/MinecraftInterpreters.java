@@ -106,6 +106,7 @@ public final class MinecraftInterpreters {
         .build();
 
     public static final StreamCodecInterpreter<FriendlyByteBuf> FRIENDLY_STREAM_CODEC_INTERPRETER = new StreamCodecInterpreter<>(
+        StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY,
         FRIENDLY_STREAM_KEYS,
         FRIENDLY_STREAM_PARAMETRIC_KEYS
     );
@@ -134,6 +135,7 @@ public final class MinecraftInterpreters {
     );
 
     public static final StreamCodecInterpreter<RegistryFriendlyByteBuf> REGISTRY_STREAM_CODEC_INTERPRETER = new StreamCodecInterpreter<>(
+        StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY,
         REGISTRY_STREAM_KEYS,
         REGISTRY_STREAM_PARAMETRIC_KEYS
     );
