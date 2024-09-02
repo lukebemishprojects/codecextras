@@ -94,7 +94,11 @@ public final class Widgets {
             var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - Button.DEFAULT_SPACING;
             var layout = new EqualSpacingLayout(Button.DEFAULT_WIDTH, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var object = new Object() {
-                private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, ops, original, update, creationInfo, false);
+                private JsonElement value = original;
+                private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, ops, original, json -> {
+                    this.value = json;
+                    update.accept(json);
+                }, creationInfo, false);
                 private final Button disabled = Button.builder(Component.translatable("codecextras.config.missing"), b -> {})
                     .width(remainingWidth)
                     .build();
@@ -113,6 +117,7 @@ public final class Widgets {
                             disabled.setHeight(maxHeight);
                             disabled.visible = true;
                         } else {
+                            update.accept(value);
                             wrapped.visitWidgets(w -> {
                                 w.visible = true;
                                 w.active = true;
@@ -140,6 +145,10 @@ public final class Widgets {
                         lock.setTooltip(tooltip);
                         disabled.setTooltip(tooltip);
                     });
+
+                    if (missing) {
+                        update.accept(JsonNull.INSTANCE);
+                    }
                 }
             };
             layout.addChild(object.lock, LayoutSettings.defaults().alignVerticallyMiddle());
