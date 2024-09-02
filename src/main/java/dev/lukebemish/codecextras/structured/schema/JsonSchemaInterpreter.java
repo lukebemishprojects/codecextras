@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
@@ -230,6 +231,31 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             out.add("allOf", allOf);
             return DataResult.success(new Holder<>(out, definitions));
         });
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> unboundedMap(App<Holder.Mu, K> key, App<Holder.Mu, V> value) {
+        var schema = OBJECT.get();
+        var definitions = new HashMap<String, Structure<?>>();
+        schema.add("additionalProperties", schemaValue(value));
+        definitions.putAll(definitions(value));
+        definitions.putAll(definitions(key));
+        return DataResult.success(new Holder<>(schema, definitions));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> either(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var schema = new JsonObject();
+        var oneOf = new JsonArray();
+        var definitions = new HashMap<String, Structure<?>>();
+        var leftSchema = schemaValue(left);
+        var rightSchema = schemaValue(right);
+        definitions.putAll(definitions(left));
+        definitions.putAll(definitions(right));
+        oneOf.add(leftSchema);
+        oneOf.add(rightSchema);
+        schema.add("oneOf", oneOf);
+        return DataResult.success(new Holder<>(schema, definitions));
     }
 
     private static JsonObject schemaValue(App<Holder.Mu, ?> box) {

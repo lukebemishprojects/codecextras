@@ -2,9 +2,11 @@ package dev.lukebemish.codecextras.structured;
 
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -27,6 +29,11 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     @Override
     public Optional<Key<Identity.Mu>> key() {
         return Optional.of(KEY);
+    }
+
+    @Override
+    public <K, V> DataResult<App<Identity.Mu, Map<K, V>>> unboundedMap(App<Identity.Mu, K> key, App<Identity.Mu, V> value) {
+        return DataResult.error(() -> "No default value available for an unbounded map");
     }
 
     @Override
@@ -82,6 +89,11 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     @Override
     public <MuO extends K1, MuP extends K1, T> DataResult<App<Identity.Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter) {
         return DataResult.error(() -> "No default value available for a parametric key");
+    }
+
+    @Override
+    public <L, R> DataResult<App<Identity.Mu, Either<L, R>>> either(App<Identity.Mu, L> left, App<Identity.Mu, R> right) {
+        return DataResult.error(() -> "No default value available for an either");
     }
 
     public <A> DataResult<A> interpret(Structure<A> structure) {

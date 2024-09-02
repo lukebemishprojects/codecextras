@@ -37,6 +37,11 @@ class ColorPickWidget extends AbstractWidget {
         return 128 + 8*(alpha ? 4 : 2) + 2*(alpha ? 3 : 2);
     }
 
+    private void recalculateInternal() {
+        this.fullySaturated = 0xFF000000 | toRgb(hue, 1.0, 1.0);
+        this.inverted = 0xFF000000 | toRgb((hue + 0.5) % 1, 1.0, 1.0 - value);
+    }
+
     public void setColor(int argbColor) {
         this.color = argbColor;
 
@@ -46,18 +51,10 @@ class ColorPickWidget extends AbstractWidget {
 
         this.alpha = (argbColor >> 24 & 255) / 255.0F;
         this.value = value(r, g, b);
-        var saturation = saturation(r, g, b);
+        this.saturation = saturation(r, g, b);
+        this.hue = hue(r, g, b);
 
-        if (toRgb(this.hue, saturation, this.value) != argbColor) {
-            this.hue = hue(r, g, b);
-        }
-
-        if (toRgb(this.hue, this.saturation, this.value) != argbColor) {
-            this.saturation = saturation;
-        }
-
-        this.fullySaturated = 0xFF000000 | toRgb(hue, 1.0, 1.0);
-        this.inverted = 0xFF000000 | toRgb(1.0 - hue, 1.0, 1.0 - value);
+        recalculateInternal();
     }
 
     private static int toRgb(double hue, double saturation, double value) {
@@ -187,15 +184,37 @@ class ColorPickWidget extends AbstractWidget {
         x = x - getX();
         y = y - getY();
         if (x > 1 && x < 128+1 && y > 1 && y < 129) {
-            saturation = Math.max(0, Math.min(1, (x - 1) / 128));
-            value = Math.max(0, Math.min(1, 1 - (y - 1) / 128));
+            var saturation = Math.max(0, Math.min(1, (x - 1) / 128));
+            var value = Math.max(0, Math.min(1, 1 - (y - 1) / 128));
+            this.saturation = saturation;
+            this.value = value;
+            var hue = this.hue;
             updateColor();
+            this.hue = hue;
+            this.saturation = saturation;
+            this.value = value;
+            recalculateInternal();
         } else if (x > 128+2+8 && x < 128+2+8*2+2 && y > 1 && y < 129) {
-            hue = Math.max(0, Math.min(1, (y - 1) / 128));
+            var hue = Math.max(0, Math.min(1, (y - 1) / 128));
+            this.hue = hue;
+            var saturation = this.saturation;
+            var value = this.value;
             updateColor();
+            this.hue = hue;
+            this.saturation = saturation;
+            this.value = value;
+            recalculateInternal();
         } else if (hasAlpha && x > 128+2*2+8*3 && x < 128+2*2+8*4+2 && y > 1 && y < 129) {
-            alpha = Math.max(0, Math.min(1, (y - 1) / 128));
+            var alpha = Math.max(0, Math.min(1, (y - 1) / 128));
+            this.alpha = alpha;
+            var saturation = this.saturation;
+            var value = this.value;
+            var hue = this.hue;
             updateColor();
+            this.hue = hue;
+            this.saturation = saturation;
+            this.value = value;
+            recalculateInternal();
         }
     }
 

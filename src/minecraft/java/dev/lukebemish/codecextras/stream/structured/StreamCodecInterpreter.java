@@ -4,6 +4,7 @@ import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
@@ -30,6 +31,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.VarInt;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
@@ -66,10 +68,10 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                         for (int i = 0; i < values.length; i++) {
                             toIndexMap.put(values[i], i);
                         }
-                        return new StreamCodec<B, T>() {
+                        return new StreamCodec<>() {
                             @Override
                             public T decode(B buffer) {
-                                var intValue = buffer.readInt();
+                                var intValue = VarInt.read(buffer);
                                 if (intValue < 0 || intValue >= values.length) {
                                     throw new DecoderException("Unknown representation value: " + intValue);
                                 }
@@ -82,7 +84,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                                 if (index == null) {
                                     throw new DecoderException("Unknown representation value: " + object);
                                 }
-                                buffer.writeInt(index);
+                                VarInt.write(buffer, index);
                             }
                         };
                     });
@@ -271,6 +273,39 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     @Override
     public Optional<Key<Holder.Mu<B>>> key() {
         return Optional.of(key);
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu<B>, Map<K, V>>> unboundedMap(App<Holder.Mu<B>, K> k, App<Holder.Mu<B>, V> v) {
+        return DataResult.success(new Holder<>(new StreamCodec<>() {
+            @Override
+            public Map<K, V> decode(B buffer) {
+                var map = new HashMap<K, V>();
+                int size = VarInt.read(buffer);
+                for (int i = 0; i < size; i++) {
+                    K key = unbox(k).decode(buffer);
+                    V value = unbox(v).decode(buffer);
+                    map.put(key, value);
+                }
+                return map;
+            }
+
+            @Override
+            public void encode(B buffer, Map<K, V> object) {
+                VarInt.write(buffer, object.size());
+                object.forEach((key, value) -> {
+                    unbox(k).encode(buffer, key);
+                    unbox(v).encode(buffer, value);
+                });
+            }
+        }));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu<B>, Either<L, R>>> either(App<Holder.Mu<B>, L> left, App<Holder.Mu<B>, R> right) {
+        var leftCodec = unbox(left);
+        var rightCodec = unbox(right);
+        return DataResult.success(new Holder<>(ByteBufCodecs.either(leftCodec, rightCodec)));
     }
 
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

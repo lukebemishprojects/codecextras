@@ -10,5 +10,6 @@
   "codecextras.config.list.add": "Add entry",
   "codecextras.config.list.up": "Move up",
   "codecextras.config.list.down": "Move down",
-  "codecextras.config.list.remove": "Remove entry"
+  "codecextras.config.list.remove": "Remove entry",
+  "codecextras.config.either.switch": "Switch entry type"
 }

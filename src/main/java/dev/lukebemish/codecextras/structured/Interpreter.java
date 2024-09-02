@@ -3,11 +3,13 @@ package dev.lukebemish.codecextras.structured;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -29,6 +31,8 @@ public interface Interpreter<Mu extends K1> {
         return Optional.empty();
     }
 
+    <K, V> DataResult<App<Mu, Map<K,V>>> unboundedMap(App<Mu, K> key, App<Mu, V> value);
+
     Key<Unit> UNIT = Key.create("UNIT");
     Key<Boolean> BOOL = Key.create("BOOL");
     Key<Byte> BYTE = Key.create("BYTE");
@@ -48,4 +52,6 @@ public interface Interpreter<Mu extends K1> {
     Key2<Const.Mu<Range<Float>>, Const.Mu<Float>> FLOAT_IN_RANGE = Key2.create("float_in_range");
     Key2<Const.Mu<Range<Double>>, Const.Mu<Double>> DOUBLE_IN_RANGE = Key2.create("double_in_range");
     Key2<StringRepresentation.Mu, Identity.Mu> STRING_REPRESENTABLE = Key2.create("enum");
+
+    <L, R> DataResult<App<Mu, Either<L,R>>> either(App<Mu, L> left, App<Mu, R> right);
 }

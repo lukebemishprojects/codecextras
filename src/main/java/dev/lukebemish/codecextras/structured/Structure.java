@@ -3,12 +3,14 @@ package dev.lukebemish.codecextras.structured;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -99,6 +101,28 @@ public interface Structure<A> {
             @Override
             public <Mu extends K1> DataResult<App<Mu, List<A>>> interpret(Interpreter<Mu> interpreter) {
                 return outer.interpret(interpreter).flatMap(interpreter::list);
+            }
+        };
+    }
+
+    static <K, V> Structure<Map<K, V>> unboundedMap(Structure<K> key, Structure<V> value) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, Map<K, V>>> interpret(Interpreter<Mu> interpreter) {
+                return key.interpret(interpreter).flatMap(k -> value.interpret(interpreter).flatMap(v -> interpreter.unboundedMap(k, v)));
+            }
+        };
+    }
+
+    static <L, R> Structure<Either<L, R>> either(Structure<L> left, Structure<R> right) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, Either<L, R>>> interpret(Interpreter<Mu> interpreter) {
+                var leftResult = left.interpret(interpreter);
+                var rightResult = right.interpret(interpreter);
+                return leftResult
+                    .mapError(s -> rightResult.error().map(e -> s + "; " + e.message()).orElse(s))
+                    .flatMap(leftApp -> rightResult.flatMap(rightApp -> interpreter.either(leftApp, rightApp)));
             }
         };
     }
@@ -199,7 +223,7 @@ public interface Structure<A> {
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
                 var result = interpreter.keyed(key);
                 if (result.error().isPresent()) {
-                    return fallback.interpret(interpreter);
+                    return fallback.interpret(interpreter).mapError(s -> "Could not interpret keyed structure: "+s+"; "+result.error().orElseThrow().message());
                 }
                 return result;
             }
@@ -228,6 +252,22 @@ public interface Structure<A> {
         };
     }
 
+
+    static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys, Structure<A> fallback) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                var result = interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
+                    .map(DataResult::success)
+                    .orElseGet(() -> interpreter.keyed(key));
+                if (result.error().isPresent()) {
+                    return fallback.interpret(interpreter).mapError(s -> "Could not interpret keyed structure: "+s+"; "+result.error().orElseThrow().message());
+                }
+                return result;
+            }
+        };
+    }
+
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer) {
         return new Structure<>() {
             @Override
@@ -247,7 +287,7 @@ public interface Structure<A> {
                         interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
                 );
                 if (result.error().isPresent()) {
-                    return fallback.interpret(interpreter);
+                    return fallback.interpret(interpreter).mapError(s -> "Could not interpret parametrically keyed structure: "+s+"; "+result.error().orElseThrow().message());
                 }
                 return result;
             }
@@ -263,6 +303,23 @@ public interface Structure<A> {
                     .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
                         interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
                     ));
+            }
+        };
+    }
+
+    static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Flip.Mu<A>, K1> keys, Structure<A> fallback) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                var result = interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
+                    .map(DataResult::success)
+                    .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
+                        interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
+                    ));
+                if (result.error().isPresent()) {
+                    return fallback.interpret(interpreter).mapError(s -> "Could not interpret parametrically keyed structure: "+s+"; "+result.error().orElseThrow().message());
+                }
+                return result;
             }
         };
     }

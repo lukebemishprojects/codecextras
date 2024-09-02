@@ -3,7 +3,9 @@ package dev.lukebemish.codecextras.minecraft.structured.config;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
+import com.mojang.datafixers.util.Either;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Range;
@@ -33,6 +35,7 @@ import org.slf4j.Logger;
 public final class Widgets {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation TRANSPARENT = ResourceLocation.fromNamespaceAndPath("codecextras_minecraft", "widget/transparent");
+    private static final int DEFAULT_SPACING = 5;
 
     private Widgets() {}
 
@@ -46,9 +49,11 @@ public final class Widgets {
 
             widget.setFilter(filter);
 
-            if (!handleOptional && original.isJsonNull()) {
+            if (original.isJsonNull()) {
                 original = new JsonPrimitive("");
-                update.accept(original);
+                if (!handleOptional) {
+                    update.accept(original);
+                }
             }
 
             var decoded = creationInfo.codec().parse(context.ops(), original);
@@ -132,7 +137,7 @@ public final class Widgets {
             if (!handleOptional) {
                 return assumesNonOptional.create(parent, fullWidth, context, original, update, creationInfo, false);
             }
-            var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - Button.DEFAULT_SPACING;
+            var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - DEFAULT_SPACING;
             var layout = new EqualSpacingLayout(Button.DEFAULT_WIDTH, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var object = new Object() {
                 private JsonElement value = original;
@@ -203,8 +208,11 @@ public final class Widgets {
 
     public static LayoutFactory<Integer> color(boolean includeAlpha) {
         return wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
-            if (!handleOptional && original.isJsonNull()) {
+            if (original.isJsonNull()) {
                 original = new JsonPrimitive(0);
+                if (!handleOptional) {
+                    update.accept(original);
+                }
                 update.accept(original);
             }
 
@@ -260,9 +268,11 @@ public final class Widgets {
 
     public static <T, N extends Number & Comparable<N>> LayoutFactory<T> slider(Range<N> range, Function<N, DataResult<JsonElement>> toJson, Function<JsonElement, DataResult<N>> fromJson, boolean isDoubleLike) {
         return wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
-            if (!handleOptional && original.isJsonNull()) {
+            if (original.isJsonNull()) {
                 original = new JsonPrimitive(range.min());
-                update.accept(original);
+                if (!handleOptional) {
+                    update.accept(original);
+                }
             }
 
             var valueResult = fromJson.apply(original);
@@ -325,11 +335,105 @@ public final class Widgets {
         return (value.doubleValue() - range.min().doubleValue()) / (range.max().doubleValue() - range.min().doubleValue());
     }
 
+    public static <L, R> LayoutFactory<Either<L, R>> either(LayoutFactory<L> left, LayoutFactory<R> right) {
+        return (parent, fullWidth, context, original, update, creationInfo, handleOptional) -> {
+            var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - DEFAULT_SPACING;
+            boolean[] isLeft = new boolean[1];
+            boolean[] isMissing = new boolean[1];
+            if (!original.isJsonNull()) {
+                if (handleOptional) {
+                    isMissing[0] = true;
+                } else {
+                    var result = creationInfo.codec().parse(context.ops(), original);
+                    if (result.error().isPresent()) {
+                        LOGGER.warn("Failed to decode `{}`: {}", original, result.error().get().message());
+                    } else {
+                        isLeft[0] = result.getOrThrow().left().isPresent();
+                    }
+                }
+            }
+            Codec<L> leftCodec = creationInfo.codec().comapFlatMap(e -> e.left().map(DataResult::success).orElse(DataResult.error(() -> "Expected left value")), Either::left);
+            Codec<R> rightCodec = creationInfo.codec().comapFlatMap(e -> e.right().map(DataResult::success).orElse(DataResult.error(() -> "Expected right value")), Either::right);
+            var leftElement = left.create(parent, remainingWidth, context, isLeft[0] ? original : JsonNull.INSTANCE, update, creationInfo.withCodec(leftCodec), false);
+            var rightElement = right.create(parent, remainingWidth, context, isLeft[0] ? JsonNull.INSTANCE : original, update, creationInfo.withCodec(rightCodec), false);
+            var missingElement = handleOptional ? Button.builder(Component.translatable("codecextras.config.missing"), b -> {}).width(remainingWidth).build() : null;
+            if (handleOptional) {
+                missingElement.active = false;
+            }
+            update.accept(original);
+            var frame = new FrameLayout(remainingWidth, Button.DEFAULT_HEIGHT);
+            frame.addChild(leftElement);
+            frame.addChild(rightElement);
+            Runnable updateVisibility = () -> {
+                if (isMissing[0]) {
+                    rightElement.visitWidgets(w -> {
+                        w.visible = false;
+                        w.active = false;
+                    });
+                    leftElement.visitWidgets(w -> {
+                        w.visible = false;
+                        w.active = false;
+                    });
+                    if (handleOptional) {
+                        missingElement.visible = true;
+                    }
+                } else if (isLeft[0]) {
+                    rightElement.visitWidgets(w -> {
+                        w.visible = false;
+                        w.active = false;
+                    });
+                    leftElement.visitWidgets(w -> {
+                        w.visible = true;
+                        w.active = true;
+                    });
+                    if (handleOptional) {
+                        missingElement.visible = false;
+                    }
+                } else {
+                    leftElement.visitWidgets(w -> {
+                        w.visible = false;
+                        w.active = false;
+                    });
+                    rightElement.visitWidgets(w -> {
+                        w.visible = true;
+                        w.active = true;
+                    });
+                    if (handleOptional) {
+                        missingElement.visible = false;
+                    }
+                }
+            };
+            updateVisibility.run();
+            var layout = new EqualSpacingLayout(fullWidth, Button.DEFAULT_HEIGHT, EqualSpacingLayout.Orientation.HORIZONTAL);
+            var switchButton = Button.builder(Component.empty(), b -> {
+                if (handleOptional) {
+                    if (isMissing[0]) {
+                        isMissing[0] = false;
+                        isLeft[0] = true;
+                        update.accept(JsonNull.INSTANCE);
+                    } else if (isLeft[0]) {
+                        isLeft[0] = false;
+                    } else {
+                        isMissing[0] = true;
+                    }
+                } else {
+                    isLeft[0] = !isLeft[0];
+                }
+                updateVisibility.run();
+            }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.either.switch"))).build();
+            layout.addChild(switchButton, LayoutSettings.defaults().alignVerticallyMiddle());
+            layout.addChild(frame, LayoutSettings.defaults().alignVerticallyMiddle());
+            return layout;
+        };
+    }
+
     public static <T> LayoutFactory<T> bool(boolean falseIfMissing) {
         LayoutFactory<T> widget = (parent, width, context, original, update, creationInfo, handleOptional) -> {
-            if (!handleOptional && original.isJsonNull()) {
+            if (original.isJsonNull()) {
                 original = new JsonPrimitive(false);
-                update.accept(original);
+                if (!handleOptional) {
+                    update.accept(original);
+                }
             }
             var w = Checkbox.builder(Component.empty(), Minecraft.getInstance().font)
                 .maxWidth(width)

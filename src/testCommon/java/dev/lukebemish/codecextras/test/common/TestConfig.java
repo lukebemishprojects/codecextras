@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.test.common;
 
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -25,7 +26,8 @@ public record TestConfig(
     String d, Optional<Boolean> e, Optional<String> f,
     Unit g, List<String> strings, Dispatches dispatches,
     int intInRange, float floatInRange, int argb,
-    int rgb, ResourceKey<Item> item, Rarity rarity
+    int rgb, ResourceKey<Item> item, Rarity rarity,
+    Map<String, Integer> unbounded, Either<String, Integer> either
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
@@ -88,12 +90,15 @@ public record TestConfig(
         var rgb = builder.addOptional("rgb", MinecraftStructures.RGB_COLOR, TestConfig::rgb, () -> 0xFF0000);
         var item = builder.addOptional("item", MinecraftStructures.resourceKey(Registries.ITEM), TestConfig::item, () -> Items.MELON_SEEDS);
         var rarity = builder.addOptional("rarity", Structure.stringRepresentable(Rarity::values, Rarity::getSerializedName), TestConfig::rarity, () -> Rarity.COMMON);
+        var unbounded = builder.addOptional("unbounded", Structure.unboundedMap(Structure.STRING, MinecraftStructures.RGB_COLOR), TestConfig::unbounded, () -> Map.of("test", 123));
+        var either = builder.addOptional("either", Structure.either(Structure.STRING, MinecraftStructures.RGB_COLOR), TestConfig::either, () -> Either.right(0x00FFAA));
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
             g.apply(container), strings.apply(container), dispatches.apply(container),
             intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
-            rgb.apply(container), item.apply(container), rarity.apply(container)
+            rgb.apply(container), item.apply(container), rarity.apply(container),
+            unbounded.apply(container), either.apply(container)
         );
     });
 

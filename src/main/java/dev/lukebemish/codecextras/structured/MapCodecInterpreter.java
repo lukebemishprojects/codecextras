@@ -3,6 +3,8 @@ package dev.lukebemish.codecextras.structured;
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.KeyDispatchCodec;
@@ -94,6 +96,18 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
             });
             return DataResult.success(new MapCodecInterpreter.Holder<>(new KeyDispatchCodec<>(key, keyCodec, function, k -> codecMapSupplier.get().get(k))));
         });
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> unboundedMap(App<Holder.Mu, K> key, App<Holder.Mu, V> value) {
+        return DataResult.error(() -> "Cannot make a MapCodec for an unbounded map");
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> either(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var leftCodec = unbox(left);
+        var rightCodec = unbox(right);
+        return DataResult.success(new Holder<>(Codec.mapEither(leftCodec, rightCodec)));
     }
 
     @Override

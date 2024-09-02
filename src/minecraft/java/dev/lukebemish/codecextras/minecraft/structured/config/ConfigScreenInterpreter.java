@@ -8,6 +8,7 @@ import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -333,6 +334,23 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     }
 
     @Override
+    public <L, R> DataResult<App<ConfigScreenEntry.Mu, Either<L, R>>> either(App<ConfigScreenEntry.Mu, L> left, App<ConfigScreenEntry.Mu, R> right) {
+        var codecLeft = ConfigScreenEntry.unbox(left).entryCreationInfo().codec();
+        var codecRight = ConfigScreenEntry.unbox(right).entryCreationInfo().codec();
+        var codecResult = codecInterpreter.either(new CodecInterpreter.Holder<>(codecLeft), new CodecInterpreter.Holder<>(codecRight)).map(CodecInterpreter::unbox);
+        if (codecResult.isError()) {
+            return DataResult.error(codecResult.error().orElseThrow().messageSupplier());
+        }
+        return DataResult.success(ConfigScreenEntry.single(
+            Widgets.either(
+                ConfigScreenEntry.unbox(left).widget(),
+                ConfigScreenEntry.unbox(right).widget()
+            ),
+            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+        ));
+    }
+
+    @Override
     public ConfigScreenInterpreter with(Keys<ConfigScreenEntry.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1> parametricKeys) {
         return new ConfigScreenInterpreter(keys().join(keys), parametricKeys().join(parametricKeys), this.codecInterpreter);
     }
@@ -348,9 +366,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             new ListScreenEntryProvider<>(unwrapped, context, original, onClose);
         return DataResult.success(new ConfigScreenEntry<>(
             Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
-                if (!handleOptional && original.isJsonNull()) {
+                if (original.isJsonNull()) {
                     original = new JsonArray();
-                    update.accept(original);
+                    if (!handleOptional) {
+                        update.accept(original);
+                    }
                 }
                 JsonElement finalOriginal = original;
                 return Button.builder(
@@ -361,7 +381,38 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 ).width(width).build();
             }),
             factory,
-            unwrapped.entryCreationInfo().withCodec(codecResult.getOrThrow())
+            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+        ));
+    }
+
+    @Override
+    public <K, V> DataResult<App<ConfigScreenEntry.Mu, Map<K, V>>> unboundedMap(App<ConfigScreenEntry.Mu, K> key, App<ConfigScreenEntry.Mu, V> value) {
+        var unwrappedKey = ConfigScreenEntry.unbox(key);
+        var unwrappedValue = ConfigScreenEntry.unbox(value);
+        var codecResult = codecInterpreter.unboundedMap(new CodecInterpreter.Holder<>(unwrappedKey.entryCreationInfo().codec()), new CodecInterpreter.Holder<>(unwrappedValue.entryCreationInfo().codec())).map(CodecInterpreter::unbox);
+        if (codecResult.isError()) {
+            return DataResult.error(codecResult.error().orElseThrow().messageSupplier());
+        }
+        ScreenEntryFactory<Map<K, V>> factory = (context, original, onClose, creationInfo) ->
+            new UnboundedMapScreenEntryProvider<>(unwrappedKey, unwrappedValue, context, original, onClose);
+        return DataResult.success(new ConfigScreenEntry<>(
+            Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
+                if (original.isJsonNull()) {
+                    original = new JsonObject();
+                    if (!handleOptional) {
+                        update.accept(original);
+                    }
+                }
+                JsonElement finalOriginal = original;
+                return Button.builder(
+                    Component.translatable("codecextras.config.configurelist"),
+                    b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
+                        context, finalOriginal, update, creationInfo
+                    ), parent, creationInfo.componentInfo()))
+                ).width(width).build();
+            }),
+            factory,
+            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
         ));
     }
 
@@ -383,9 +434,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
         }
         return DataResult.success(new ConfigScreenEntry<>(
             Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
-                if (!handleOptional && original.isJsonNull()) {
+                if (original.isJsonNull()) {
                     original = new JsonObject();
-                    update.accept(original);
+                    if (!handleOptional) {
+                        update.accept(original);
+                    }
                 }
                 JsonElement finalOriginal = original;
                 return Button.builder(
@@ -483,9 +536,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             new DispatchScreenEntryProvider<>(keyResult.getOrThrow().entryCreationInfo(), original, key, onClose, context, entries.get());
         return DataResult.success(new ConfigScreenEntry<>(
             Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
-                if (!handleOptional && original.isJsonNull()) {
+                if (original.isJsonNull()) {
                     original = new JsonObject();
-                    update.accept(original);
+                    if (!handleOptional) {
+                        update.accept(original);
+                    }
                 }
                 JsonElement finalOriginal = original;
                 return Button.builder(

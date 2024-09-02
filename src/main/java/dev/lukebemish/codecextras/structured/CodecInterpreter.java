@@ -4,6 +4,7 @@ import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -116,6 +117,20 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
             });
             return DataResult.success(new Holder<>(keyCodec.partialDispatch(key, function, k -> codecMapSupplier.get().get(k))));
         });
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> unboundedMap(App<Holder.Mu, K> key, App<Holder.Mu, V> value) {
+        var keyCodec = unbox(key);
+        var valueCodec = unbox(value);
+        return DataResult.success(new Holder<>(Codec.unboundedMap(keyCodec, valueCodec)));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> either(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var leftCodec = unbox(left);
+        var rightCodec = unbox(right);
+        return DataResult.success(new Holder<>(Codec.either(leftCodec, rightCodec)));
     }
 
     @Override
