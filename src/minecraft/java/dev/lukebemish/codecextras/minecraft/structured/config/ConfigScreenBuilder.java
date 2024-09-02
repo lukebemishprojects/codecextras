@@ -1,7 +1,5 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
-import com.google.gson.JsonElement;
-import com.mojang.serialization.DynamicOps;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -17,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ConfigScreenBuilder {
-    private record SingleScreen<T>(ConfigScreenEntry<T> screenEntry, Consumer<T> onClose, DynamicOps<JsonElement> ops, Supplier<T> initialData) {}
+    private record SingleScreen<T>(ConfigScreenEntry<T> screenEntry, Consumer<T> onClose, Supplier<EntryCreationContext> context, Supplier<T> initialData) {}
 
     private final List<SingleScreen<?>> screens = new ArrayList<>();
     private Logger logger = LoggerFactory.getLogger(ConfigScreenBuilder.class);
@@ -33,8 +31,8 @@ public class ConfigScreenBuilder {
         return this;
     }
 
-    public <T> ConfigScreenBuilder add(ConfigScreenEntry<T> entry, Consumer<T> onClose, DynamicOps<JsonElement> ops, Supplier<T> initialData) {
-        screens.add(new SingleScreen<>(entry, onClose, ops, initialData));
+    public <T> ConfigScreenBuilder add(ConfigScreenEntry<T> entry, Consumer<T> onClose, Supplier<EntryCreationContext> context, Supplier<T> initialData) {
+        screens.add(new SingleScreen<>(entry, onClose, context, initialData));
         return this;
     }
 
@@ -73,6 +71,6 @@ public class ConfigScreenBuilder {
     }
 
     private <T> Screen openSingleScreen(Screen parent, SingleScreen<T> entry) {
-        return entry.screenEntry().rootScreen(parent, entry.onClose(), entry.ops(), entry.initialData().get(), logger);
+        return entry.screenEntry().rootScreen(parent, entry.onClose(), entry.context().get(), entry.initialData().get(), logger);
     }
 }

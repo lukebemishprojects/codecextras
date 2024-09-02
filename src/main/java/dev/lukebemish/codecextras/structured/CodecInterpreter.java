@@ -8,6 +8,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.HashMap;
@@ -38,6 +39,13 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
             .add(Interpreter.LONG_IN_RANGE, numberRangeCodecParameter(Codec.LONG))
             .add(Interpreter.FLOAT_IN_RANGE, numberRangeCodecParameter(Codec.FLOAT))
             .add(Interpreter.DOUBLE_IN_RANGE, numberRangeCodecParameter(Codec.DOUBLE))
+            .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
+                @Override
+                public <T> App<Holder.Mu, App<Identity.Mu, T>> convert(App<StringRepresentation.Mu, T> parameter) {
+                    var representation = StringRepresentation.unbox(parameter);
+                    return new Holder<>(representation.codec().xmap(Identity::new, app -> Identity.unbox(app).value()));
+                }
+            })
             .build()
         ));
     }

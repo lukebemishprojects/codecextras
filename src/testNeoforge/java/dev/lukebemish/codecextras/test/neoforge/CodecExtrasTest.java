@@ -1,12 +1,12 @@
 package dev.lukebemish.codecextras.test.neoforge;
 
-import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenBuilder;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
+import dev.lukebemish.codecextras.minecraft.structured.config.EntryCreationContext;
 import dev.lukebemish.codecextras.test.common.TestConfig;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -25,7 +25,7 @@ public class CodecExtrasTest {
 
         modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) ->
                 ConfigScreenBuilder.create()
-                    .add(entry, CONFIG::save, JsonOps.INSTANCE, CONFIG::load)
+                    .add(entry, CONFIG::save, () -> EntryCreationContext.builder().build(), CONFIG::load)
                     .factory().apply(parent)
         );
     }

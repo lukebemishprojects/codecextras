@@ -8,6 +8,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Interpreter;
@@ -49,7 +50,24 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             .add(Interpreter.DOUBLE, new Holder<>(NUMBER.get()))
             .add(Interpreter.STRING, new Holder<>(STRING.get()))
             .build()
-        ), parametricKeys);
+        ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder()
+            .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
+                @Override
+                public <T> App<Holder.Mu, App<Identity.Mu, T>> convert(App<StringRepresentation.Mu, T> parameter) {
+                    var representation = StringRepresentation.unbox(parameter);
+                    JsonArray oneOf = new JsonArray();
+                    for (var value : representation.values().get()) {
+                        JsonObject object = new JsonObject();
+                        object.addProperty("const", representation.representation().apply(value));
+                        oneOf.add(object);
+                    }
+                    JsonObject schema = new JsonObject();
+                    schema.add("oneOf", oneOf);
+                    return new Holder<>(schema);
+                }
+            })
+            .build()
+        ));
         this.codecInterpreter = codecInterpreter;
         this.ops = ops;
     }
@@ -222,7 +240,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         return Holder.unbox(box).definition;
     }
 
-    public <T> DataResult<JsonObject> partialInterpret(Structure<T> structure) {
+    public <T> DataResult<JsonObject> nestedSchema(Structure<T> structure) {
         return structure.interpret(this).map(JsonSchemaInterpreter::schemaValue);
     }
 

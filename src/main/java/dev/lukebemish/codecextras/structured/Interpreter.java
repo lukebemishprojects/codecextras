@@ -5,6 +5,7 @@ import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Optional;
@@ -46,4 +47,5 @@ public interface Interpreter<Mu extends K1> {
     Key2<Const.Mu<Range<Long>>, Const.Mu<Long>> LONG_IN_RANGE = Key2.create("long_in_range");
     Key2<Const.Mu<Range<Float>>, Const.Mu<Float>> FLOAT_IN_RANGE = Key2.create("float_in_range");
     Key2<Const.Mu<Range<Double>>, Const.Mu<Double>> DOUBLE_IN_RANGE = Key2.create("double_in_range");
+    Key2<StringRepresentation.Mu, Identity.Mu> STRING_REPRESENTABLE = Key2.create("enum");
 }

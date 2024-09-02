@@ -14,13 +14,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.references.Items;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Rarity;
 
 public record TestConfig(
     int a, float b, boolean c,
     String d, Optional<Boolean> e, Optional<String> f,
     Unit g, List<String> strings, Dispatches dispatches,
     int intInRange, float floatInRange, int argb,
-    int rgb
+    int rgb, ResourceKey<Item> item, Rarity rarity
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
@@ -81,12 +86,14 @@ public record TestConfig(
         var floatInRange = builder.addOptional("floatInRange", Structure.floatInRange(1.0f, 5.0f), TestConfig::floatInRange, () -> 3.0f);
         var argb = builder.addOptional("argb", MinecraftStructures.ARGB_COLOR, TestConfig::argb, () -> 0xFF0000FF);
         var rgb = builder.addOptional("rgb", MinecraftStructures.RGB_COLOR, TestConfig::rgb, () -> 0xFF0000);
+        var item = builder.addOptional("item", MinecraftStructures.resourceKey(Registries.ITEM), TestConfig::item, () -> Items.MELON_SEEDS);
+        var rarity = builder.addOptional("rarity", Structure.stringRepresentable(Rarity::values, Rarity::getSerializedName), TestConfig::rarity, () -> Rarity.COMMON);
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
             g.apply(container), strings.apply(container), dispatches.apply(container),
             intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
-            rgb.apply(container)
+            rgb.apply(container), item.apply(container), rarity.apply(container)
         );
     });
 

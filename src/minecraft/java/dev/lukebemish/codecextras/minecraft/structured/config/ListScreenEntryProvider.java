@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.DynamicOps;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -21,9 +20,9 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
     private final ConfigScreenEntry<T> entry;
     private final JsonArray jsonValue;
     private final Consumer<JsonElement> update;
-    private final DynamicOps<JsonElement> ops;
+    private final EntryCreationContext context;
 
-    ListScreenEntryProvider(ConfigScreenEntry<T> entry, DynamicOps<JsonElement> ops, JsonElement jsonValue, Consumer<JsonElement> update) {
+    ListScreenEntryProvider(ConfigScreenEntry<T> entry, EntryCreationContext context, JsonElement jsonValue, Consumer<JsonElement> update) {
         this.entry = entry;
         if (jsonValue.isJsonArray()) {
             this.jsonValue = jsonValue.getAsJsonArray();
@@ -34,7 +33,7 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
             this.jsonValue = new JsonArray();
         }
         this.update = update;
-        this.ops = ops;
+        this.context = context;
     }
 
     @Override
@@ -85,8 +84,7 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
             layout.addChild(entry.widget().create(
                 parent,
                 remainingWidth,
-                ops,
-                jsonValue.get(index),
+                context, jsonValue.get(index),
                 newValue -> this.jsonValue.set(index, newValue), entry.entryCreationInfo(),
                 false
             ), LayoutSettings.defaults().alignVerticallyMiddle());

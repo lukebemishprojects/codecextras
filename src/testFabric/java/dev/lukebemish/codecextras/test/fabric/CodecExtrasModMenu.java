@@ -1,6 +1,5 @@
 package dev.lukebemish.codecextras.test.fabric;
 
-import com.mojang.serialization.JsonOps;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import dev.lukebemish.codecextras.config.ConfigType;
@@ -9,6 +8,7 @@ import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenBuilder;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
+import dev.lukebemish.codecextras.minecraft.structured.config.EntryCreationContext;
 import dev.lukebemish.codecextras.test.common.TestConfig;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -23,7 +23,7 @@ public class CodecExtrasModMenu implements ModMenuApi {
         ).interpret(TestConfig.STRUCTURE).getOrThrow();
 
         return parent -> ConfigScreenBuilder.create()
-            .add(entry, CONFIG::save, JsonOps.INSTANCE, CONFIG::load)
+            .add(entry, CONFIG::save, () -> EntryCreationContext.builder().build(), CONFIG::load)
             .factory().apply(parent);
     }
 }

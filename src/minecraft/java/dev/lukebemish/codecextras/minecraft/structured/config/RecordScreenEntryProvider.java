@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
-import com.mojang.serialization.DynamicOps;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
@@ -21,9 +20,9 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
     private final List<RecordEntry<?>> entries;
     private final JsonObject jsonValue;
     private final Consumer<JsonElement> update;
-    private final DynamicOps<JsonElement> ops;
+    private final EntryCreationContext context;
 
-    RecordScreenEntryProvider(List<RecordEntry<?>> entries, DynamicOps<JsonElement> ops, JsonElement jsonValue, Consumer<JsonElement> update) {
+    RecordScreenEntryProvider(List<RecordEntry<?>> entries, EntryCreationContext context, JsonElement jsonValue, Consumer<JsonElement> update) {
         this.entries = entries;
         if (jsonValue.isJsonObject()) {
             this.jsonValue = jsonValue.getAsJsonObject();
@@ -34,7 +33,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
             this.jsonValue = new JsonObject();
         }
         this.update = update;
-        this.ops = ops;
+        this.context = context;
     }
 
     @Override
@@ -60,7 +59,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
         // If this is missing, missing values are just not allowed
         var defaultValue = entry.missingBehavior().map(behavior -> {
             var value = behavior.missing().get();
-            var encoded = entry.codec().encodeStart(ops, value);
+            var encoded = entry.codec().encodeStart(context.ops(), value);
             if (encoded.error().isPresent()) {
                 // The default value is unencodeable, so we have to handle missing values in the widget
                 return JsonNull.INSTANCE;
@@ -68,7 +67,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
             return encoded.result().orElseThrow();
         });
         JsonElement specificValueWithDefault = specificValue.isJsonNull() && defaultValue.isPresent() ? defaultValue.get() : specificValue;
-        return entry.entry().widget().create(parent, Button.DEFAULT_WIDTH, ops, specificValueWithDefault, newValue -> {
+        return entry.entry().widget().create(parent, Button.DEFAULT_WIDTH, context, specificValueWithDefault, newValue -> {
             if (shouldUpdate(newValue, entry)) {
                 this.jsonValue.add(entry.key(), newValue);
             } else {
@@ -82,7 +81,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
             return false;
         }
         if (entry.missingBehavior().isPresent()) {
-            var decoded = entry.codec().parse(this.ops, newValue);
+            var decoded = entry.codec().parse(this.context.ops(), newValue);
             if (decoded.isError()) {
                 LOGGER.warn("Could not encode new value {}", newValue);
                 return false;

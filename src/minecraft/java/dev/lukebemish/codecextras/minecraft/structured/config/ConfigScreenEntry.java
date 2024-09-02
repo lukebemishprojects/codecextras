@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
-import com.mojang.serialization.DynamicOps;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -20,7 +19,7 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
     }
 
     public static <T> ConfigScreenEntry<T> single(LayoutFactory<T> first, EntryCreationInfo<T> entryCreationInfo) {
-        return new ConfigScreenEntry<>(first, (ops, original, onClose, creationInfo) -> new SingleScreenEntryProvider<>(original, first, ops, creationInfo, onClose), entryCreationInfo);
+        return new ConfigScreenEntry<>(first, (context, original, onClose, creationInfo) -> new SingleScreenEntryProvider<>(original, first, context, creationInfo, onClose), entryCreationInfo);
     }
 
     public ConfigScreenEntry<T> withComponentInfo(UnaryOperator<ComponentInfo> function) {
@@ -29,20 +28,20 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
 
     public <A> ConfigScreenEntry<A> withEntryCreationInfo(Function<EntryCreationInfo<T>, EntryCreationInfo<A>> function, Function<EntryCreationInfo<A>, EntryCreationInfo<T>> reverse) {
         return new ConfigScreenEntry<>(
-            (parent, width, ops, original, update, entry, handleOptional) -> {
+            (parent, width, context, original, update, entry, handleOptional) -> {
                 var entryCreationInfo = reverse.apply(entry);
-                return this.widget.create(parent, width, ops, original, update, entryCreationInfo, handleOptional);
+                return this.widget.create(parent, width, context, original, update, entryCreationInfo, handleOptional);
             },
-            (ops, original, onClose, entry) -> {
+            (context, original, onClose, entry) -> {
                 var entryCreationInfo = reverse.apply(entry);
-                return this.screenEntryProvider.open(ops, original, onClose, entryCreationInfo);
+                return this.screenEntryProvider.open(context, original, onClose, entryCreationInfo);
             },
             function.apply(this.entryCreationInfo)
         );
     }
 
-    Screen rootScreen(Screen parent, Consumer<T> onClose, DynamicOps<JsonElement> ops, T initialData, Logger logger) {
-        var initial = entryCreationInfo.codec().encodeStart(ops, initialData);
+    Screen rootScreen(Screen parent, Consumer<T> onClose, EntryCreationContext context, T initialData, Logger logger) {
+        var initial = entryCreationInfo.codec().encodeStart(context.ops(), initialData);
         JsonElement initialJson;
         if (initial.error().isPresent()) {
             logger.warn("Failed to encode `{}`: {}", initialData, initial.error().get().message());
@@ -50,8 +49,8 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
         } else {
             initialJson = initial.getOrThrow();
         }
-        var provider = screenEntryProvider().open(ops, initialJson, json -> {
-            var decoded = entryCreationInfo.codec().parse(ops, json);
+        var provider = screenEntryProvider().open(context, initialJson, json -> {
+            var decoded = entryCreationInfo.codec().parse(context.ops(), json);
             if (decoded.error().isPresent()) {
                 logger.warn("Failed to decode `{}`: {}", json, decoded.error().get().message());
             } else {

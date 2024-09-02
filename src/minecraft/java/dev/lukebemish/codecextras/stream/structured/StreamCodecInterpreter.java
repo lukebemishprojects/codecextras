@@ -6,6 +6,7 @@ import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Interpreter;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
@@ -20,6 +21,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +56,50 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
             .add(Interpreter.LONG_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.VAR_LONG.cast()))
             .add(Interpreter.FLOAT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.FLOAT.cast()))
             .add(Interpreter.DOUBLE_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.DOUBLE.cast()))
+            .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
+                @Override
+                public <T> App<Holder.Mu<B>, App<Identity.Mu, T>> convert(App<StringRepresentation.Mu, T> parameter) {
+                    var representation = StringRepresentation.unbox(parameter);
+                    Supplier<StreamCodec<B, T>> lazy = Suppliers.memoize(() -> {
+                        var values = representation.values().get();
+                        Map<T, Integer> toIndexMap = new IdentityHashMap<>();
+                        for (int i = 0; i < values.length; i++) {
+                            toIndexMap.put(values[i], i);
+                        }
+                        return new StreamCodec<B, T>() {
+                            @Override
+                            public T decode(B buffer) {
+                                var intValue = buffer.readInt();
+                                if (intValue < 0 || intValue >= values.length) {
+                                    throw new DecoderException("Unknown representation value: " + intValue);
+                                }
+                                return values[intValue];
+                            }
+
+                            @Override
+                            public void encode(B buffer, T object) {
+                                var index = toIndexMap.get(object);
+                                if (index == null) {
+                                    throw new DecoderException("Unknown representation value: " + object);
+                                }
+                                buffer.writeInt(index);
+                            }
+                        };
+                    });
+                    return new Holder<>(new StreamCodec<>() {
+                        @Override
+                        public App<Identity.Mu, T> decode(B buffer) {
+                            return new Identity<>(lazy.get().decode(buffer));
+                        }
+
+                        @Override
+                        public void encode(B buffer, App<Identity.Mu, T> object) {
+                            var value = Identity.unbox(object).value();
+                            lazy.get().encode(buffer, value);
+                        }
+                    });
+                }
+            })
             .build()
         ));
         this.key = key;

@@ -5,6 +5,7 @@ import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
@@ -365,5 +366,16 @@ public interface Structure<A> {
     static Structure<Double> doubleInRange(double min, double max) {
         return Structure.parametricallyKeyed(Interpreter.DOUBLE_IN_RANGE, Const.create(new Range<>(min, max)), app -> (Const<Double, Object>) app)
                 .xmap(Const::unbox, Const::create);
+    }
+
+    /**
+     * {@return a structure representing a type with finite possible values, each of which can be represented as a string}
+     * @param values provides the possible (ordered) values of the type
+     * @param representation converts a value to a string
+     * @param <T> the type to represent
+     */
+    static <T> Structure<T> stringRepresentable(Supplier<T[]> values, Function<T, String> representation) {
+        return Structure.parametricallyKeyed(Interpreter.STRING_REPRESENTABLE, new StringRepresentation<>(values, representation), app -> (Identity<T>) app)
+                .xmap(i -> Identity.unbox(i).value(), Identity::new);
     }
 }

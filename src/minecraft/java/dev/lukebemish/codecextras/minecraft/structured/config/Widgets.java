@@ -5,9 +5,14 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DataResult;
+import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Range;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -28,12 +33,11 @@ import org.slf4j.Logger;
 public final class Widgets {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceLocation TRANSPARENT = ResourceLocation.fromNamespaceAndPath("codecextras_minecraft", "widget/transparent");
-    private static final int BORDER_COLOR = 0xFFA0A0A0;
 
     private Widgets() {}
 
     public static <T> LayoutFactory<T> text(Function<String, DataResult<T>> toData, Function<T, DataResult<String>> fromData, Predicate<String> filter, boolean emptyIsMissing) {
-        return (parent, width, ops, original, update, creationInfo, handleOptional) -> {
+        return (parent, width, context, original, update, creationInfo, handleOptional) -> {
             var widget = new EditBox(Minecraft.getInstance().font, width, Button.DEFAULT_HEIGHT, creationInfo.componentInfo().title());
             creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
                 var tooltip = Tooltip.create(description);
@@ -47,7 +51,7 @@ public final class Widgets {
                 update.accept(original);
             }
 
-            var decoded = creationInfo.codec().parse(ops, original);
+            var decoded = creationInfo.codec().parse(context.ops(), original);
             if (decoded.isError()) {
                 LOGGER.warn("Failed to decode `{}`: {}", original, decoded.error().orElseThrow().message());
             } else {
@@ -69,7 +73,7 @@ public final class Widgets {
                 if (dataResult.error().isPresent()) {
                     LOGGER.warn("Failed to encode `{}` as data: {}", string, dataResult.error().get().message());
                 } else {
-                    var jsonResult = creationInfo.codec().encodeStart(ops, dataResult.getOrThrow());
+                    var jsonResult = creationInfo.codec().encodeStart(context.ops(), dataResult.getOrThrow());
                     if (jsonResult.error().isPresent()) {
                         LOGGER.warn("Failed to encode `{}` as json: {}", dataResult.getOrThrow(), jsonResult.error().get().message());
                     } else {
@@ -86,16 +90,53 @@ public final class Widgets {
         return text(toData, fromData, s -> true, emptyIsMissing);
     }
 
-    public static <T> LayoutFactory<T> canHandleOptional(LayoutFactory<T> assumesNonOptional) {
-        return (parent, fullWidth, ops, original, update, creationInfo, handleOptional) -> {
+    public static <T> LayoutFactory<T> pickWidget(StringRepresentation<T> representation) {
+        return wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
+            String[] stringValue = new String[1];
+            if (original.isJsonPrimitive()) {
+                if (original.getAsJsonPrimitive().isString()) {
+                    stringValue[0] = original.getAsJsonPrimitive().getAsString();
+                } else {
+                    LOGGER.warn("Failed to decode `{}`: not a string", original);
+                }
+            } else if (!original.isJsonNull()) {
+                LOGGER.warn("Failed to decode `{}`: not a primitive or null", original);
+            }
+            List<String> values = new ArrayList<>();
+            for (var value : representation.values().get()) {
+                var valueRepresentation = representation.representation().apply(value);
+                values.add(valueRepresentation);
+            }
+            Supplier<Component> calculateMessage = () -> Component.literal(stringValue[0] == null ? "" : stringValue[0]);
+            var holder = new Object() {
+                private final Button button = Button.builder(calculateMessage.get(), b -> {
+                    Minecraft.getInstance().setScreen(new ChoiceScreen(parent, creationInfo.componentInfo().title(), values, stringValue[0], newKeyValue -> {
+                        if (!Objects.equals(newKeyValue, stringValue[0])) {
+                            stringValue[0] = newKeyValue;
+                            if (newKeyValue == null) {
+                                update.accept(JsonNull.INSTANCE);
+                            } else {
+                                update.accept(new JsonPrimitive(newKeyValue));
+                            }
+                            this.button.setMessage(calculateMessage.get());
+                        }
+                    }));
+                }).tooltip(Tooltip.create(creationInfo.componentInfo().description())).build();
+            };
+            return holder.button;
+        });
+    }
+
+    public static <T> LayoutFactory<T> wrapWithOptionalHandling(LayoutFactory<T> assumesNonOptional) {
+        return (parent, fullWidth, context, original, update, creationInfo, handleOptional) -> {
             if (!handleOptional) {
-                return assumesNonOptional.create(parent, fullWidth, ops, original, update, creationInfo, false);
+                return assumesNonOptional.create(parent, fullWidth, context, original, update, creationInfo, false);
             }
             var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - Button.DEFAULT_SPACING;
             var layout = new EqualSpacingLayout(Button.DEFAULT_WIDTH, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var object = new Object() {
                 private JsonElement value = original;
-                private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, ops, original, json -> {
+                private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, context, original, json -> {
                     this.value = json;
                     update.accept(json);
                 }, creationInfo, false);
@@ -161,7 +202,7 @@ public final class Widgets {
     }
 
     public static LayoutFactory<Integer> color(boolean includeAlpha) {
-        return canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+        return wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
             if (!handleOptional && original.isJsonNull()) {
                 original = new JsonPrimitive(0);
                 update.accept(original);
@@ -218,7 +259,7 @@ public final class Widgets {
     }
 
     public static <T, N extends Number & Comparable<N>> LayoutFactory<T> slider(Range<N> range, Function<N, DataResult<JsonElement>> toJson, Function<JsonElement, DataResult<N>> fromJson, boolean isDoubleLike) {
-        return canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+        return wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
             if (!handleOptional && original.isJsonNull()) {
                 original = new JsonPrimitive(range.min());
                 update.accept(original);
@@ -285,7 +326,7 @@ public final class Widgets {
     }
 
     public static <T> LayoutFactory<T> bool(boolean falseIfMissing) {
-        LayoutFactory<T> widget = (parent, width, ops, original, update, creationInfo, handleOptional) -> {
+        LayoutFactory<T> widget = (parent, width, context, original, update, creationInfo, handleOptional) -> {
             if (!handleOptional && original.isJsonNull()) {
                 original = new JsonPrimitive(false);
                 update.accept(original);
@@ -308,11 +349,11 @@ public final class Widgets {
             return w;
         };
         if (!falseIfMissing) {
-            return canHandleOptional(widget);
+            return wrapWithOptionalHandling(widget);
         }
-        return (parent, width, ops, original, update, entry, handleOptional) -> {
+        return (parent, width, context, original, update, entry, handleOptional) -> {
             if (handleOptional) {
-                return widget.create(parent, width, ops, original, update, entry, true);
+                return widget.create(parent, width, context, original, update, entry, true);
             }
             var button = Button.builder(Component.translatable("codecextras.config.unit"), b -> {})
                 .width(width)
