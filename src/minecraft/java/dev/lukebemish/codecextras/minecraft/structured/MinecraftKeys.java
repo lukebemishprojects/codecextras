@@ -15,7 +15,6 @@ public final class MinecraftKeys {
     }
 
     public static final Key<ResourceLocation> RESOURCE_LOCATION = Key.create("resource_location");
-    // TODO: implement config color picker
     public static final Key<Integer> ARGB_COLOR = Key.create("argb_color");
     public static final Key<Integer> RGB_COLOR = Key.create("rgb_color");
 

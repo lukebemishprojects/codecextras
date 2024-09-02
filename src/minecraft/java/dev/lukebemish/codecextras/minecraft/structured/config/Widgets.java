@@ -9,6 +9,8 @@ import dev.lukebemish.codecextras.structured.Range;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
@@ -18,11 +20,15 @@ import net.minecraft.client.gui.layouts.EqualSpacingLayout;
 import net.minecraft.client.gui.layouts.FrameLayout;
 import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.layouts.LayoutSettings;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
 
 public final class Widgets {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final ResourceLocation TRANSPARENT = ResourceLocation.fromNamespaceAndPath("codecextras_minecraft", "widget/transparent");
+    private static final int BORDER_COLOR = 0xFFA0A0A0;
 
     private Widgets() {}
 
@@ -143,6 +149,63 @@ public final class Widgets {
             layout.addChild(right, LayoutSettings.defaults().alignVerticallyMiddle());
             return layout;
         };
+    }
+
+    public static LayoutFactory<Integer> color(boolean includeAlpha) {
+        return canHandleOptional((parent, width, ops, original, update, creationInfo, handleOptional) -> {
+            if (!handleOptional && original.isJsonNull()) {
+                original = new JsonPrimitive(0);
+                update.accept(original);
+            }
+
+            int[] value = new int[1];
+            if (original.isJsonPrimitive()) {
+                try {
+                    value[0] = original.getAsInt();
+                } catch (NumberFormatException e) {
+                    LOGGER.warn("Failed to decode `{}`: {}", original, e.getMessage());
+                }
+            } else {
+                LOGGER.warn("Failed to decode `{}`: not a primitive", original);
+            }
+
+            Function<Integer, Component> message = color -> Component.literal("0x"+Integer.toHexString(color)).withColor(color | 0xFF000000);
+
+            return new AbstractButton(0, 0, width, Button.DEFAULT_HEIGHT, Component.empty()) {
+                {
+                    setTooltip(Tooltip.create(creationInfo.componentInfo().description()));
+                }
+
+                @Override
+                public void onPress() {
+                    var screen = new ColorPickScreen(parent, creationInfo.componentInfo().title(), color -> {
+                        update.accept(new JsonPrimitive(color));
+                        value[0] = color;
+                    }, includeAlpha);
+                    screen.setColor(value[0]);
+                    Minecraft.getInstance().setScreen(screen);
+                }
+
+                @Override
+                protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {
+                    this.defaultButtonNarrationText(narrationElementOutput);
+                }
+
+                @Override
+                protected void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
+                    super.renderWidget(guiGraphics, i, j, f);
+                    int rectangleHeight = 12;
+                    int startY = getY() + getHeight()/2 - rectangleHeight/2;
+                    int startX = getX() + (startY - getY());
+                    int endY = getY() + getHeight()/2 + rectangleHeight/2;
+                    int endX = getX() + getWidth() - (startX - getX());
+                    if (includeAlpha) {
+                        guiGraphics.blitSprite(TRANSPARENT, startX, startY, endX - startX, endY - startY);
+                    }
+                    guiGraphics.fill(startX, startY, endX, endY, includeAlpha ? value[0] : value[0] | 0xFF000000);
+                }
+            };
+        });
     }
 
     public static <T, N extends Number & Comparable<N>> LayoutFactory<T> slider(Range<N> range, Function<N, DataResult<JsonElement>> toJson, Function<JsonElement, DataResult<N>> fromJson, boolean isDoubleLike) {

@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.IdentityInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
@@ -18,7 +19,8 @@ public record TestConfig(
     int a, float b, boolean c,
     String d, Optional<Boolean> e, Optional<String> f,
     Unit g, List<String> strings, Dispatches dispatches,
-    int intInRange, float floatInRange
+    int intInRange, float floatInRange, int argb,
+    int rgb
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
@@ -77,11 +79,14 @@ public record TestConfig(
         var dispatches = builder.addOptional("dispatches", Dispatches.STRUCTURE, TestConfig::dispatches, () -> IdentityInterpreter.INSTANCE.interpret(Abc.STRUCTURE).getOrThrow());
         var intInRange = builder.addOptional("intInRange", Structure.intInRange(10, 60), TestConfig::intInRange, () -> 50);
         var floatInRange = builder.addOptional("floatInRange", Structure.floatInRange(1.0f, 5.0f), TestConfig::floatInRange, () -> 3.0f);
+        var argb = builder.addOptional("argb", MinecraftStructures.ARGB_COLOR, TestConfig::argb, () -> 0xFF0000FF);
+        var rgb = builder.addOptional("rgb", MinecraftStructures.RGB_COLOR, TestConfig::rgb, () -> 0xFF0000);
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
             g.apply(container), strings.apply(container), dispatches.apply(container),
-            intInRange.apply(container), floatInRange.apply(container)
+            intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
+            rgb.apply(container)
         );
     });
 

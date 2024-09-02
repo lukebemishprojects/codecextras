@@ -124,6 +124,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Widgets.canHandleOptional(Widgets.text(ResourceLocation::read, rl -> DataResult.success(rl.toString()), string -> string.matches("([a-z0-9._-]+:)?[a-z0-9/._-]*"), false)),
                     new EntryCreationInfo<>(ResourceLocation.CODEC, ComponentInfo.empty())
                 ))
+                .add(MinecraftKeys.ARGB_COLOR, ConfigScreenEntry.single(
+                    Widgets.color(true),
+                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                ))
+                .add(MinecraftKeys.RGB_COLOR, ConfigScreenEntry.single(
+                    Widgets.color(false),
+                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                ))
                 .build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
                 .add(Interpreter.INT_IN_RANGE, new ParametricKeyedValue<>() {
