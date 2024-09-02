@@ -25,6 +25,7 @@ class ColorPickWidget extends AbstractWidget {
     private double value;
 
     private int fullySaturated;
+    private int inverted;
 
     ColorPickWidget(int i, int j, Component component, Consumer<Integer> consumer, boolean hasAlpha) {
         super(i, j, calculateWidth(hasAlpha), 128 + 2, component);
@@ -56,6 +57,7 @@ class ColorPickWidget extends AbstractWidget {
         }
 
         this.fullySaturated = 0xFF000000 | toRgb(hue, 1.0, 1.0);
+        this.inverted = 0xFF000000 | toRgb(1.0 - hue, 1.0, 1.0 - value);
     }
 
     private static int toRgb(double hue, double saturation, double value) {
@@ -124,13 +126,6 @@ class ColorPickWidget extends AbstractWidget {
         return h;
     }
 
-    private int invert(int rgb) {
-        int r = 255 - (rgb >> 16 & 255);
-        int g = 255 - (rgb >> 8 & 255);
-        int b = 255 - (rgb & 255);
-        return r << 16 | g << 8 | b;
-    }
-
     @Override
     protected void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
         if (!this.visible) {
@@ -157,8 +152,8 @@ class ColorPickWidget extends AbstractWidget {
         guiGraphics.enableScissor(x1, y1, x2, y2);
         int xCenter = (int) (x1 + saturation * 127);
         int yCenter = (int) (y1 + (1 - value) * 127);
-        guiGraphics.fill(xCenter-2, yCenter, xCenter+3, yCenter+1, invert(color) | 0xFF000000);
-        guiGraphics.fill(xCenter, yCenter-2, xCenter+1, yCenter+3, invert(color) | 0xFF000000);
+        guiGraphics.fill(xCenter-2, yCenter, xCenter+3, yCenter+1, inverted);
+        guiGraphics.fill(xCenter, yCenter-2, xCenter+1, yCenter+3, inverted);
         guiGraphics.disableScissor();
 
         guiGraphics.blitSprite(HUE, x1+128+8+2, y1, 8, 128);
