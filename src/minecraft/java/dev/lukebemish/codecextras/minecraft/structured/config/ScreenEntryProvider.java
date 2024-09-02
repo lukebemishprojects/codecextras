@@ -6,7 +6,7 @@ public interface ScreenEntryProvider {
     void onExit();
     void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent);
 
-    static Screen create(ScreenEntryProvider provider, Screen parent, EntryCreationInfo<?> info) {
-        return new EntryListScreen(parent, info.componentInfo().title(), provider);
+    static Screen create(ScreenEntryProvider provider, Screen parent, ComponentInfo componentInfo) {
+        return new EntryListScreen(parent, componentInfo.title(), provider);
     }
 }

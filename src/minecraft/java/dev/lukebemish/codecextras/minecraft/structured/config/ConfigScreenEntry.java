@@ -10,7 +10,6 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T> screenEntryProvider, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
 
@@ -42,11 +41,7 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
         );
     }
 
-    public Screen rootScreen(Screen parent, Consumer<T> onClose, DynamicOps<JsonElement> ops, T initialData) {
-        return this.rootScreen(parent, onClose, ops, initialData, LoggerFactory.getLogger(ConfigScreenEntry.class));
-    }
-
-    public Screen rootScreen(Screen parent, Consumer<T> onClose, DynamicOps<JsonElement> ops, T initialData, Logger logger) {
+    Screen rootScreen(Screen parent, Consumer<T> onClose, DynamicOps<JsonElement> ops, T initialData, Logger logger) {
         var initial = entryCreationInfo.codec().encodeStart(ops, initialData);
         JsonElement initialJson;
         if (initial.error().isPresent()) {
@@ -63,6 +58,6 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
                 onClose.accept(decoded.getOrThrow());
             }
         }, this.entryCreationInfo());
-        return ScreenEntryProvider.create(provider, parent, entryCreationInfo);
+        return ScreenEntryProvider.create(provider, parent, entryCreationInfo.componentInfo());
     }
 }

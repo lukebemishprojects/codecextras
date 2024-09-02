@@ -4,6 +4,7 @@ import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
+import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenBuilder;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.test.common.TestConfig;
@@ -23,7 +24,9 @@ public class CodecExtrasTest {
         ).interpret(TestConfig.STRUCTURE).getOrThrow();
 
         modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) ->
-            entry.rootScreen(parent, CONFIG::save, JsonOps.INSTANCE, CONFIG.load())
+                ConfigScreenBuilder.create()
+                    .add(entry, CONFIG::save, JsonOps.INSTANCE, CONFIG::load)
+                    .factory().apply(parent)
         );
     }
 }

@@ -6,6 +6,7 @@ import com.terraformersmc.modmenu.api.ModMenuApi;
 import dev.lukebemish.codecextras.config.ConfigType;
 import dev.lukebemish.codecextras.config.GsonOpsIo;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
+import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenBuilder;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenEntry;
 import dev.lukebemish.codecextras.minecraft.structured.config.ConfigScreenInterpreter;
 import dev.lukebemish.codecextras.test.common.TestConfig;
@@ -21,6 +22,8 @@ public class CodecExtrasModMenu implements ModMenuApi {
             MinecraftInterpreters.CODEC_INTERPRETER
         ).interpret(TestConfig.STRUCTURE).getOrThrow();
 
-        return parent -> entry.rootScreen(parent, CONFIG::save, JsonOps.INSTANCE, CONFIG.load());
+        return parent -> ConfigScreenBuilder.create()
+            .add(entry, CONFIG::save, JsonOps.INSTANCE, CONFIG::load)
+            .factory().apply(parent);
     }
 }

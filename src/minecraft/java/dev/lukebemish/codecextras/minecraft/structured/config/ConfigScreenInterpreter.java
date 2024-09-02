@@ -313,7 +313,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Component.translatable("codecextras.config.configurelist"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
                         ops, finalOriginal, update, creationInfo
-                    ), parent, creationInfo))
+                    ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
             factory,
@@ -348,7 +348,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Component.translatable("codecextras.config.configurerecord"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
                         ops, finalOriginal, update, creationInfo
-                    ), parent, creationInfo))
+                    ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
             factory,
@@ -448,7 +448,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Component.translatable("codecextras.config.configurerecord"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
                         ops, finalOriginal, update, creationInfo
-                    ), parent, creationInfo))
+                    ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
             factory,
