@@ -16,7 +16,7 @@ loom {
 }
 
 dependencies {
-    normalRuntimeModClasses(project(path: ':', configuration: 'minecraftIntermediaryRuntimeModClasses')) {
+    normalRuntimeModClasses(project(path: ':', configuration: 'minecraftFabricRuntimeModClasses')) {
         transitive = false
     }
 }

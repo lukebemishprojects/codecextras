@@ -25,7 +25,7 @@ dependencies {
     normalRuntimeModClasses(project(path: ':', configuration: 'runtimeModClasses')) {
         transitive = false
     }
-    minecraftRuntimeModClasses(project(path: ':', configuration: 'minecraftRuntimeModClasses')) {
+    minecraftRuntimeModClasses(project(path: ':', configuration: 'minecraftNeoforgeRuntimeModClasses')) {
         transitive = false
     }
 }

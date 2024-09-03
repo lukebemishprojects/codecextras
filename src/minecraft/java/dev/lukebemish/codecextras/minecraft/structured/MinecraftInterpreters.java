@@ -11,6 +11,8 @@ import dev.lukebemish.codecextras.structured.MapCodecInterpreter;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
 import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import net.minecraft.core.RegistryCodecs;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
@@ -33,6 +35,8 @@ public final class MinecraftInterpreters {
         }
     }).join(Keys.<CodecInterpreter.Holder.Mu, Object>builder()
         .add(MinecraftKeys.RESOURCE_LOCATION, new CodecInterpreter.Holder<>(ResourceLocation.CODEC))
+        .add(MinecraftKeys.DATA_COMPONENT_MAP, new CodecInterpreter.Holder<>(DataComponentMap.CODEC))
+        .add(MinecraftKeys.DATA_COMPONENT_PATCH, new CodecInterpreter.Holder<>(DataComponentPatch.CODEC))
         .build()
     );
 
@@ -117,6 +121,7 @@ public final class MinecraftInterpreters {
             return new StreamCodecInterpreter.Holder<>(StreamCodecInterpreter.unbox(input).cast());
         }
     }).join(Keys.<StreamCodecInterpreter.Holder.Mu<RegistryFriendlyByteBuf>, Object>builder()
+        .add(MinecraftKeys.DATA_COMPONENT_PATCH, new StreamCodecInterpreter.Holder<>(DataComponentPatch.STREAM_CODEC))
         .build()
     );
 

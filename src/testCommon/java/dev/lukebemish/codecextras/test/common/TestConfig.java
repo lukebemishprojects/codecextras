@@ -36,7 +36,7 @@ public record TestConfig(
             "type",
             d -> DataResult.success(d.key()),
             DISPATCHES::keySet,
-            DISPATCHES::get
+            k -> DataResult.success(DISPATCHES.get(k))
         );
         String key();
     }

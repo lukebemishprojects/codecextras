@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -82,7 +83,7 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
-    public <E, A> DataResult<App<Identity.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Identity.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return DataResult.error(() -> "No default value available for a dispatch");
     }
 

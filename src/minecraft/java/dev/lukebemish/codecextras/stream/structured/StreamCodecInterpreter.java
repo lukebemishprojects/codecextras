@@ -203,13 +203,13 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <E, A> DataResult<App<Holder.Mu<B>, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu<B>, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyStreamCodec = unbox(keyCodecApp);
             Supplier<Map<Object, DataResult<StreamCodec<B, ? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
                 Map<Object, DataResult<StreamCodec<B, ? extends E>>> codecMap = new HashMap<>();
-                for (var entryKey : keys) {
-                    var result = structures.apply(entryKey).interpret(this);
+                for (var entryKey : keys.get()) {
+                    var result = structures.apply(entryKey).flatMap(it -> it.interpret(this));
                     if (result.error().isPresent()) {
                         codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
                     }

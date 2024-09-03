@@ -185,7 +185,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
-    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keySchemaApp -> {
             var definitions = new HashMap<>(definitions(keySchemaApp));
             var keySchema = schemaValue(keySchemaApp);
@@ -202,8 +202,8 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
                 return DataResult.error(keyCodecResult.error().get().messageSupplier());
             }
             var keyCodec = keyCodecResult.result().orElseThrow();
-            for (A entryKey : keys) {
-                var result = structures.apply(entryKey).interpret(this);
+            for (A entryKey : keys.get()) {
+                var result = structures.apply(entryKey).flatMap(it -> it.interpret(this));
                 if (result.error().isPresent()) {
                     return DataResult.error(result.error().get().messageSupplier());
                 }

@@ -168,12 +168,22 @@ public interface Structure<A> {
         return flatXmap(a -> DataResult.success(deserializer.apply(a)), b -> DataResult.success(serializer.apply(b)));
     }
 
-    default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, Structure<? extends E>> structures) {
+    default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         var outer = this;
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.dispatch(key, outer, function, keys.get(), structures);
+                return interpreter.dispatch(key, outer, function, keys, structures);
+            }
+        };
+    }
+
+    default <V> Structure<Map<A, V>> dispatchMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
+        var outer = this;
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, Map<A, V>>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.dispatchMap(outer, keys, structures);
             }
         };
     }

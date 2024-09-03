@@ -41,7 +41,10 @@ multisource.of(':') {
 		mappings.add loom.officialMojangMappings()
 	}
 	common('minecraft', []) {}
-	fabric('minecraftIntermediary', ['minecraft']) {}
+    fabric('minecraftFabric', ['minecraft']) {}
+    neoforge('minecraftNeoforge', ['minecraft']) {
+        neoForge.add project.libs.neoforge
+    }
     common('testCommon', []) {}
     neoforge('testNeoforge', ['testCommon']) {
         neoForge.add project.libs.neoforge

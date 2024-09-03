@@ -99,13 +99,13 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyCodec = unbox(keyCodecApp);
             // Object here as it's the furthest super A and we have only ? super A
             Supplier<Map<A, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
                 Map<A, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
-                for (var entryKey : keys) {
+                for (var entryKey : keys.get()) {
                     var result = structures.apply(entryKey).interpret(mapCodecInterpreter());
                     if (result.error().isPresent()) {
                         codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));

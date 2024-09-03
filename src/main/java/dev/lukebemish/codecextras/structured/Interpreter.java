@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface Interpreter<Mu extends K1> {
     <A> DataResult<App<Mu, List<A>>> list(App<Mu, A> single);
@@ -25,7 +26,7 @@ public interface Interpreter<Mu extends K1> {
 
     <A> DataResult<App<Mu, A>> annotate(Structure<A> original, Keys<Identity.Mu, Object> annotations);
 
-    <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures);
+    <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures);
 
     default Optional<Key<Mu>> key() {
         return Optional.empty();
@@ -54,4 +55,6 @@ public interface Interpreter<Mu extends K1> {
     Key2<StringRepresentation.Mu, Identity.Mu> STRING_REPRESENTABLE = Key2.create("enum");
 
     <L, R> DataResult<App<Mu, Either<L,R>>> either(App<Mu, L> left, App<Mu, R> right);
+
+    <K, V> DataResult<App<Mu, Map<K, V>>> dispatchMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
 }

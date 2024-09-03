@@ -97,18 +97,18 @@ println "Building: $version"
 
 sourceSets {
     minecraft {}
-    minecraftIntermediary {}
+    minecraftFabric {}
 	jmh {}
 }
 
 configurations {
     testNeoforgeRuntimeClasspath.extendsFrom minecraftRuntimeClasspath
-    testFabricRuntimeClasspath.extendsFrom minecraftIntermediaryRuntimeClasspath
-    testFabricToRemapRuntimeClasspath.extendsFrom minecraftIntermediaryToRemapRuntimeClasspath
+    testFabricRuntimeClasspath.extendsFrom minecraftFabricRuntimeClasspath
+    testFabricToRemapRuntimeClasspath.extendsFrom minecraftFabricToRemapRuntimeClasspath
 
     testNeoforgeCompileClasspath.extendsFrom minecraftCompileClasspath
-    testFabricCompileClasspath.extendsFrom minecraftIntermediaryCompileClasspath
-    testFabricToRemapCompileClasspath.extendsFrom minecraftIntermediaryToRemapCompileClasspath
+    testFabricCompileClasspath.extendsFrom minecraftFabricCompileClasspath
+    testFabricToRemapCompileClasspath.extendsFrom minecraftFabricToRemapCompileClasspath
 
     runtimeModClasses {
         canBeConsumed = true
@@ -136,19 +136,25 @@ java {
 		withSourcesJar()
 		withJavadocJar()
         capability(project.group as String, "$project.name-minecraft", project.version as String)
-        capability(project.group as String, "$project.name-minecraft-mojmap", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-common", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
-        capability(project.group as String, "$project.name-stream-mojmap", project.version as String)
 	}
-	registerFeature("minecraftIntermediary") {
-		usingSourceSet sourceSets.minecraftIntermediary
+    registerFeature("minecraftFabric") {
+        usingSourceSet sourceSets.minecraftFabric
         capability(project.group as String, "$project.name-minecraft", project.version as String)
-        capability(project.group as String, "$project.name-minecraft-intermediary", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-fabric", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
         capability(project.group as String, "$project.name-stream-intermediary", project.version as String)
-	}
+    }
+    registerFeature("minecraftNeoforge") {
+        usingSourceSet sourceSets.minecraftNeoforge
+        capability(project.group as String, "$project.name-minecraft", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-neoforge", project.version as String)
+        // Old name
+        capability(project.group as String, "$project.name-stream", project.version as String)
+    }
 }
 
 repositories {
@@ -192,23 +198,31 @@ dependencies {
 	minecraftApi project(':')
     minecraftCompileOnly cLibs.bundles.compileonly
     minecraftAnnotationProcessor cLibs.bundles.annotationprocessor
-    minecraftIntermediaryApi project(':')
-	testImplementation sourceSets.minecraft.output
+    minecraftFabricCompileOnly cLibs.bundles.compileonly
+    minecraftFabricAnnotationProcessor cLibs.bundles.annotationprocessor
+    minecraftNeoforgeCompileOnly cLibs.bundles.compileonly
+    minecraftNeoforgeAnnotationProcessor cLibs.bundles.annotationprocessor
+    minecraftFabricApi project(':')
+    minecraftNeoforgeApi project(':')
 
-    testNeoforgeCompileOnly sourceSets.minecraft.output
-    testFabricCompileOnly sourceSets.minecraftIntermediary.output
+    testNeoforgeCompileOnly sourceSets.minecraftNeoforge.output
+    testFabricCompileOnly sourceSets.minecraftFabric.output
     testCommonCompileOnly(project(':')) {
         capabilities {
-            requireCapability 'dev.lukebemish:codecextras-minecraft-mojmap'
+            requireCapability 'dev.lukebemish:codecextras-minecraft-common'
         }
     }
 
     modTestFabricImplementation libs.fabric.loader
-    modTestFabricLocalImplementation libs.modmenu
     modTestFabricLocalImplementation libs.fabric.api
+    modTestFabricLocalImplementation libs.modmenu
+
+    modMinecraftFabricImplementation libs.fabric.loader
+    modMinecraftFabricImplementation libs.fabric.api
+    modMinecraftFabricLocalImplementation libs.modmenu
 }
 
-['minecraftJar', 'minecraftIntermediaryJar', 'jar'].each {
+['minecraftJar', 'minecraftFabricJar', 'minecraftNeoforgeJar', 'jar'].each {
     tasks.named(it, Jar) {
         manifest {
             attributes(
@@ -230,7 +244,7 @@ tasks.named('jar', Jar) {
     }
 }
 
-['minecraftJar', 'minecraftIntermediaryJar'].each {
+['minecraftJar', 'minecraftFabricJar', 'minecraftNeoforgeJar'].each {
     tasks.named(it, Jar) {
         manifest {
             attributes(
@@ -262,8 +276,12 @@ tasks.register('jmhResults', FormatJmhOutput) {
 	formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
-tasks.named('remapMinecraftIntermediaryJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
-	task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-intermediary.jar")
+tasks.named('remapMinecraftFabricJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
+    task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-intermediary.jar")
+}
+
+tasks.named('minecraftNeoforgeJar', Jar) { task ->
+    task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-neoforge.jar")
 }
 
 tasks.compileJava {
@@ -276,12 +294,13 @@ tasks.compileJava {
 	}
 }
 
-['processResources', 'processMinecraftResources', 'processMinecraftIntermediaryResources'].each {
+['processResources', 'processMinecraftResources', 'processMinecraftFabricResources', 'processMinecraftNeoforgeResources'].each {
     tasks.named(it, ProcessResources) {
         inputs.property "version", project.version.toString()
 
         filesMatching(["fabric.mod.json", "META-INF/neoforge.mods.toml"]) {
             expand "version": project.version.toString()
+            expand "minecraft_version": libs.versions.minecraft.get()
         }
     }
 }

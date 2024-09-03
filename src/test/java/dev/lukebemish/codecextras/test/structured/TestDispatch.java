@@ -20,7 +20,7 @@ public class TestDispatch {
             "type",
             d -> DataResult.success(d.key()),
             MAP::keySet,
-            MAP::get
+            k -> DataResult.success(MAP.get(k))
         ).annotate(SchemaAnnotations.REUSE_KEY, "dispatches");
         String key();
     }

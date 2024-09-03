@@ -511,15 +511,15 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     }
 
     @Override
-    public <E, A> DataResult<App<ConfigScreenEntry.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Set<A> keys, Function<A, Structure<? extends E>> structures) {
+    public <E, A> DataResult<App<ConfigScreenEntry.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         var keyResult = interpret(keyStructure).map(entry -> entry.withComponentInfo(info -> info.fallbackTitle(Component.literal(key))));
         if (keyResult.error().isPresent()) {
             return DataResult.error(keyResult.error().get().messageSupplier());
         }
         Supplier<Map<A, DataResult<ConfigScreenEntry<? extends E>>>> entries = Suppliers.memoize(() -> {
             Map<A, DataResult<ConfigScreenEntry<? extends E>>> map = new HashMap<>();
-            for (var entryKey : keys) {
-                var result = structures.apply(entryKey).interpret(this);
+            for (var entryKey : keys.get()) {
+                var result = structures.apply(entryKey).flatMap(it -> it.interpret(this));
                 if (result.error().isPresent()) {
                     map.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
                 } else {
