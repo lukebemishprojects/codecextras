@@ -10,7 +10,7 @@ import java.util.function.UnaryOperator;
 import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.Logger;
 
-public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T> screenEntryProvider, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
+public record ConfigScreenEntry<T>(LayoutFactory<T> layout, ScreenEntryFactory<T> screenEntryProvider, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
 
     public static final class Mu implements K1 { private Mu() {} }
 
@@ -23,14 +23,14 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> widget, ScreenEntryFactory<T
     }
 
     public ConfigScreenEntry<T> withComponentInfo(UnaryOperator<ComponentInfo> function) {
-        return new ConfigScreenEntry<>(this.widget, this.screenEntryProvider, this.entryCreationInfo.withComponentInfo(function));
+        return new ConfigScreenEntry<>(this.layout, this.screenEntryProvider, this.entryCreationInfo.withComponentInfo(function));
     }
 
     public <A> ConfigScreenEntry<A> withEntryCreationInfo(Function<EntryCreationInfo<T>, EntryCreationInfo<A>> function, Function<EntryCreationInfo<A>, EntryCreationInfo<T>> reverse) {
         return new ConfigScreenEntry<>(
             (parent, width, context, original, update, entry, handleOptional) -> {
                 var entryCreationInfo = reverse.apply(entry);
-                return this.widget.create(parent, width, context, original, update, entryCreationInfo, handleOptional);
+                return this.layout.create(parent, width, context, original, update, entryCreationInfo, handleOptional);
             },
             (context, original, onClose, entry) -> {
                 var entryCreationInfo = reverse.apply(entry);

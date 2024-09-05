@@ -27,7 +27,7 @@ public record TestConfig(
     Unit g, List<String> strings, Dispatches dispatches,
     int intInRange, float floatInRange, int argb,
     int rgb, ResourceKey<Item> item, Rarity rarity,
-    Map<String, Integer> unbounded, Either<String, Integer> either
+    Map<String, Integer> unbounded, Either<String, Integer> either, Map<String, Dispatches> dispatchedMap
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
@@ -92,13 +92,14 @@ public record TestConfig(
         var rarity = builder.addOptional("rarity", Structure.stringRepresentable(Rarity::values, Rarity::getSerializedName), TestConfig::rarity, () -> Rarity.COMMON);
         var unbounded = builder.addOptional("unbounded", Structure.unboundedMap(Structure.STRING, MinecraftStructures.RGB_COLOR), TestConfig::unbounded, () -> Map.of("test", 123));
         var either = builder.addOptional("either", Structure.either(Structure.STRING, MinecraftStructures.RGB_COLOR), TestConfig::either, () -> Either.right(0x00FFAA));
+        var dispatchedMap = builder.addOptional("dispatchedMap", Structure.STRING.dispatchedMap(DISPATCHES::keySet, k -> DataResult.success(DISPATCHES.get(k))), TestConfig::dispatchedMap, Map::of);
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
             g.apply(container), strings.apply(container), dispatches.apply(container),
             intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
             rgb.apply(container), item.apply(container), rarity.apply(container),
-            unbounded.apply(container), either.apply(container)
+            unbounded.apply(container), either.apply(container), dispatchedMap.apply(container)
         );
     });
 

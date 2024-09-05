@@ -32,6 +32,16 @@ public interface Interpreter<Mu extends K1> {
         return Optional.empty();
     }
 
+    default <A> DataResult<App<Mu,A>> bounded(App<Mu, A> input, Supplier<Set<A>> values) {
+        Function<A, DataResult<A>> verifier = a -> {
+            if (values.get().contains(a)) {
+                return DataResult.success(a);
+            }
+            return DataResult.error(() -> "Invalid value: " + a);
+        };
+        return flatXmap(input, verifier, verifier);
+    }
+
     <K, V> DataResult<App<Mu, Map<K,V>>> unboundedMap(App<Mu, K> key, App<Mu, V> value);
 
     Key<Unit> UNIT = Key.create("UNIT");
@@ -56,5 +66,5 @@ public interface Interpreter<Mu extends K1> {
 
     <L, R> DataResult<App<Mu, Either<L,R>>> either(App<Mu, L> left, App<Mu, R> right);
 
-    <K, V> DataResult<App<Mu, Map<K, V>>> dispatchMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
+    <K, V> DataResult<App<Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
 }

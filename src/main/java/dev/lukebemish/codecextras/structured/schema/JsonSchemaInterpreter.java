@@ -246,16 +246,37 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     @Override
     public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> either(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
         var schema = new JsonObject();
-        var oneOf = new JsonArray();
+        var anyOf = new JsonArray();
         var definitions = new HashMap<String, Structure<?>>();
         var leftSchema = schemaValue(left);
         var rightSchema = schemaValue(right);
         definitions.putAll(definitions(left));
         definitions.putAll(definitions(right));
-        oneOf.add(leftSchema);
-        oneOf.add(rightSchema);
-        schema.add("oneOf", oneOf);
+        anyOf.add(leftSchema);
+        anyOf.add(rightSchema);
+        schema.add("anyOf", anyOf);
         return DataResult.success(new Holder<>(schema, definitions));
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
+        var definitions = new HashMap<String, Structure<?>>();
+        return codecInterpreter.interpret(keyStructure).flatMap(keyCodec -> {
+            var schema = OBJECT.get();
+            for (var key : keys.get()) {
+                var keyValue = keyCodec.encodeStart(ops, key).flatMap(ops::getStringValue);
+                if (keyValue.error().isPresent()) {
+                    return DataResult.error(keyValue.error().get().messageSupplier());
+                }
+                var valueSchema = valueStructures.apply(key).flatMap(it -> it.interpret(this));
+                if (valueSchema.error().isPresent()) {
+                    return DataResult.error(valueSchema.error().get().messageSupplier());
+                }
+                schema.add(keyValue.result().orElseThrow(), schemaValue(valueSchema.result().orElseThrow()));
+                definitions.putAll(definitions(valueSchema.result().orElseThrow()));
+            }
+            return DataResult.success(schema);
+        }).map(schema -> new Holder<>(schema, definitions));
     }
 
     private static JsonObject schemaValue(App<Holder.Mu, ?> box) {

@@ -20,6 +20,7 @@ import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
+import io.netty.handler.codec.EncoderException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
@@ -65,17 +67,17 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                     Supplier<StreamCodec<B, T>> lazy = Suppliers.memoize(() -> {
                         var values = representation.values().get();
                         Map<T, Integer> toIndexMap = new IdentityHashMap<>();
-                        for (int i = 0; i < values.length; i++) {
-                            toIndexMap.put(values[i], i);
+                        for (int i = 0; i < values.size(); i++) {
+                            toIndexMap.put(values.get(i), i);
                         }
                         return new StreamCodec<>() {
                             @Override
                             public T decode(B buffer) {
                                 var intValue = VarInt.read(buffer);
-                                if (intValue < 0 || intValue >= values.length) {
+                                if (intValue < 0 || intValue >= values.size()) {
                                     throw new DecoderException("Unknown representation value: " + intValue);
                                 }
-                                return values[intValue];
+                                return values.get(intValue);
                             }
 
                             @Override
@@ -206,20 +208,48 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     public <E, A> DataResult<App<Holder.Mu<B>, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keyCodecApp -> {
             var keyStreamCodec = unbox(keyCodecApp);
-            Supplier<Map<Object, DataResult<StreamCodec<B, ? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
-                Map<Object, DataResult<StreamCodec<B, ? extends E>>> codecMap = new HashMap<>();
-                for (var entryKey : keys.get()) {
-                    var result = structures.apply(entryKey).flatMap(it -> it.interpret(this));
-                    if (result.error().isPresent()) {
-                        codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
-                    }
-                    codecMap.put(entryKey, DataResult.success(StreamCodecInterpreter.unbox(result.result().orElseThrow())));
-                }
-                return codecMap;
-            });
+            var map = new ConcurrentHashMap<A, DataResult<StreamCodec<B, ? extends E>>>();
+            Function<A, DataResult<StreamCodec<B, ? extends E>>> cache = k -> map.computeIfAbsent(k , structures.andThen(result -> result.flatMap(s -> s.interpret(this)).map(StreamCodecInterpreter::unbox)));
             return DataResult.success(new Holder<>(
-                keyStreamCodec.dispatch(function.andThen(DataResult::getOrThrow), k -> codecMapSupplier.get().get(k).getOrThrow())
+                keyStreamCodec.dispatch(function.andThen(DataResult::getOrThrow), cache.andThen(DataResult::getOrThrow))
             ));
+        });
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu<B>, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
+        return keyStructure.interpret(this).map(StreamCodecInterpreter::unbox).flatMap(keyCodec -> {
+            var map = new ConcurrentHashMap<K, DataResult<StreamCodec<B, ? extends V>>>();
+            Function<K, DataResult<StreamCodec<B, ? extends V>>> cache = k -> map.computeIfAbsent(k , valueStructures.andThen(result -> result.flatMap(s -> s.interpret(this)).map(StreamCodecInterpreter::unbox)));
+            return DataResult.success(new Holder<>(new StreamCodec<>() {
+                @Override
+                public Map<K, V> decode(B buffer) {
+                    var map = new HashMap<K, V>();
+                    var size = VarInt.read(buffer);
+                    for (int i = 0; i < size; i++) {
+                        var key = keyCodec.decode(buffer);
+                        var valueCodec = cache.apply(key).getOrThrow(s -> new DecoderException("Could not find StreamCodec for key "+key+": "+s));
+                        var value = valueCodec.decode(buffer);
+                        map.put(key, value);
+                    }
+                    return map;
+                }
+
+                @Override
+                public void encode(B buffer, Map<K, V> object) {
+                    buffer.writeInt(object.size());
+                    object.forEach((key, value) -> {
+                        keyCodec.encode(buffer, key);
+                        var valueCodec = cache.apply(key).getOrThrow(s -> new EncoderException("Could not find StreamCodec for key "+ key +": "+s));
+                        encodeValue(buffer, valueCodec, value);
+                    });
+                }
+
+                @SuppressWarnings("unchecked")
+                private <X extends V> void encodeValue(B buffer, StreamCodec<B, X> valueCodec, V value) {
+                    valueCodec.encode(buffer, (X) value);
+                }
+            }));
         });
     }
 

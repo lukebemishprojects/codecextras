@@ -83,11 +83,15 @@ public final class MinecraftKeys {
         }
     }
 
+    public static final Key<DataComponentPatchKey<?>> DATA_COMPONENT_PATCH_KEY = Key.create("data_component_patch_key");
+
+    public record DataComponentPatchKey<T>(DataComponentType<T> type, boolean removes) {}
+
     public static final Key2<RegistryKeyHolder.Mu, ResourceKeyHolder.Mu> RESOURCE_KEY = Key2.create("resource_key");
 
     public static final Key2<RegistryKeyHolder.Mu, TagKeyHolder.Mu> TAG_KEY = Key2.create("tag_key");
 
     public static final Key2<RegistryKeyHolder.Mu, TagKeyHolder.Mu> HASHED_TAG_KEY = Key2.create("#tag_key");
 
-    public static final Key2<RegistryKeyHolder.Mu, HolderSetHolder.Mu> HOMOGENOUS_LIST_KEY = Key2.create("homogenous_list");
+    public static final Key2<RegistryKeyHolder.Mu, HolderSetHolder.Mu> HOMOGENOUS_LIST = Key2.create("homogenous_list");
 }

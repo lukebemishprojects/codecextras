@@ -71,7 +71,7 @@ public final class MinecraftInterpreters {
                 return new CodecInterpreter.Holder<>(TagKey.hashedCodec(MinecraftKeys.RegistryKeyHolder.unbox(parameter).value()).xmap(MinecraftKeys.TagKeyHolder::new, a -> MinecraftKeys.TagKeyHolder.unbox(a).value()));
             }
         })
-        .add(MinecraftKeys.HOMOGENOUS_LIST_KEY, new ParametricKeyedValue<>() {
+        .add(MinecraftKeys.HOMOGENOUS_LIST, new ParametricKeyedValue<>() {
             @Override
             public <T> App<CodecInterpreter.Holder.Mu, App<MinecraftKeys.HolderSetHolder.Mu, T>> convert(App<MinecraftKeys.RegistryKeyHolder.Mu, T> parameter) {
                 return new CodecInterpreter.Holder<>(RegistryCodecs.homogeneousList(MinecraftKeys.RegistryKeyHolder.unbox(parameter).value()).xmap(MinecraftKeys.HolderSetHolder::new, a -> MinecraftKeys.HolderSetHolder.unbox(a).value()));

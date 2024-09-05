@@ -67,45 +67,18 @@ class UnboundedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
 
     @Override
     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
-        var fullWidth = Button.DEFAULT_WIDTH*2+ EntryListScreen.Entry.SPACING;
+        var fullWidth = Button.DEFAULT_WIDTH*2 + EntryListScreen.Entry.SPACING;
         for (int i = 0; i < values.size(); i++) {
             var index = i;
             var layout = new EqualSpacingLayout(fullWidth, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             // 5 gives us good spacing here
-            var keyAndValueWidth = (fullWidth - (Button.DEFAULT_HEIGHT + 5)*3 - 5)/2;
+            var keyAndValueWidth = (fullWidth - (Button.DEFAULT_HEIGHT + 5) - 5)/2;
             layout.addChild(Button.builder(Component.translatable("codecextras.config.list.icon.remove"), b -> {
                 values.remove(index);
+                updateValue();
                 rebuild.run();
             }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.list.remove"))).build(), LayoutSettings.defaults().alignVerticallyMiddle());
-            var upButton = Button.builder(Component.translatable("codecextras.config.list.icon.up"), b -> {
-                if (index == 0) {
-                    return;
-                }
-                var oldAbove = values.get(index - 1);
-                var old = values.get(index);
-                values.set(index - 1, old);
-                values.set(index, oldAbove);
-                rebuild.run();
-            }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.list.up"))).build();
-            if (index == 0) {
-                upButton.active = false;
-            }
-            layout.addChild(upButton, LayoutSettings.defaults().alignVerticallyMiddle());
-            var downButton = Button.builder(Component.translatable("codecextras.config.list.icon.down"), b -> {
-                if (index == values.size()-1) {
-                    return;
-                }
-                var oldBelow = values.get(index + 1);
-                var old = values.get(index);
-                values.set(index + 1, old);
-                values.set(index, oldBelow);
-                rebuild.run();
-            }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.list.down"))).build();
-            if (index == values.size()-1) {
-                downButton.active = false;
-            }
-            layout.addChild(downButton, LayoutSettings.defaults().alignVerticallyMiddle());
-            layout.addChild(keyEntry.widget().create(
+            layout.addChild(keyEntry.layout().create(
                 parent,
                 keyAndValueWidth,
                 context, values.get(index).getFirst(),
@@ -115,7 +88,7 @@ class UnboundedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
                 }, keyEntry.entryCreationInfo(),
                 false
             ), LayoutSettings.defaults().alignVerticallyMiddle());
-            layout.addChild(valueEntry.widget().create(
+            layout.addChild(valueEntry.layout().create(
                 parent,
                 keyAndValueWidth,
                 context, values.get(index).getSecond(),
@@ -130,6 +103,7 @@ class UnboundedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
         var addLayout = new FrameLayout(fullWidth, 0);
         addLayout.addChild(Button.builder(Component.translatable("codecextras.config.list.icon.add"), b -> {
             values.add(new Pair<>(JsonNull.INSTANCE, JsonNull.INSTANCE));
+            updateValue();
             rebuild.run();
         }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.list.add"))).build(), LayoutSettings.defaults().alignHorizontallyLeft().alignVerticallyMiddle());
         list.addSingle(addLayout);

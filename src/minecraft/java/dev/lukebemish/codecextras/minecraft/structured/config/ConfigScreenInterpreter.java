@@ -10,6 +10,7 @@ import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
+import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
@@ -41,8 +42,11 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
 
 public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenEntry.Mu, ConfigScreenInterpreter> {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     private final CodecInterpreter codecInterpreter;
 
     public ConfigScreenInterpreter(
@@ -283,7 +287,6 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     }
                 })
                 .add(MinecraftKeys.RESOURCE_KEY, new ParametricKeyedValue<>() {
-                    @SuppressWarnings("unchecked")
                     @Override
                     public <T> App<ConfigScreenEntry.Mu, App<MinecraftKeys.ResourceKeyHolder.Mu, T>> convert(App<MinecraftKeys.RegistryKeyHolder.Mu, T> parameter) {
                         var registryKey = MinecraftKeys.RegistryKeyHolder.unbox(parameter).value();
@@ -295,7 +298,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                 LayoutFactory<ResourceKey<T>> wrapped;
                                 Function<ResourceKey<T>, String> mapper = key -> key.location().toString();
                                 if (registry.isPresent()) {
-                                    Supplier<ResourceKey<T>[]> values = () -> registry.get().registryKeySet().stream().sorted(Comparator.<ResourceKey<T>, String>comparing(key -> key.location().getNamespace()).thenComparing(key -> key.location().getPath())).toArray(ResourceKey[]::new);
+                                    Supplier<List<ResourceKey<T>>> values = () -> registry.get().registryKeySet().stream().sorted(Comparator.<ResourceKey<T>, String>comparing(key -> key.location().getNamespace()).thenComparing(key -> key.location().getPath())).toList();
                                     wrapped = Widgets.pickWidget(new StringRepresentation<>(values, mapper));
                                 } else {
                                     wrapped = (parent2, width2, context2, original2, update2, creationInfo2, handleOptional2) -> Widgets.text(
@@ -343,10 +346,43 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
         }
         return DataResult.success(ConfigScreenEntry.single(
             Widgets.either(
-                ConfigScreenEntry.unbox(left).widget(),
-                ConfigScreenEntry.unbox(right).widget()
+                ConfigScreenEntry.unbox(left).layout(),
+                ConfigScreenEntry.unbox(right).layout()
             ),
             new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+        ));
+    }
+
+    @Override
+    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> bounded(App<ConfigScreenEntry.Mu, A> input, Supplier<Set<A>> values) {
+        var codec = codecInterpreter.bounded(new CodecInterpreter.Holder<>(ConfigScreenEntry.unbox(input).entryCreationInfo().codec()), values).map(CodecInterpreter::unbox);
+        if (codec.isError()) {
+            return DataResult.error(codec.error().orElseThrow().messageSupplier());
+        }
+        return DataResult.success(ConfigScreenEntry.single(
+            (parent, width, context, original, update, creationInfo, handleOptional) -> {
+                List<A> knownValues = new ArrayList<>();
+                Map<A, String> stringValues = new HashMap<>();
+                for (var value : values.get()) {
+                    var encoded = codec.getOrThrow().encodeStart(context.ops(), value);
+                    if (encoded.error().isPresent()) {
+                        LOGGER.error("Error encoding value `{}`: {}", value, encoded.error().get());
+                        continue;
+                    }
+                    String string;
+                    var result = encoded.getOrThrow();
+                    if (result.isJsonPrimitive()) {
+                        string = result.getAsString();
+                    } else {
+                        string = result.toString();
+                    }
+                    knownValues.add(value);
+                    stringValues.put(value, string);
+                }
+                var wrapped = Widgets.pickWidget(new StringRepresentation<>(() -> knownValues, stringValues::get));
+                return wrapped.create(parent, width, context, original, update, creationInfo, handleOptional);
+            },
+            ConfigScreenEntry.unbox(input).entryCreationInfo().withCodec(codec.getOrThrow())
         ));
     }
 
@@ -372,11 +408,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         update.accept(original);
                     }
                 }
-                JsonElement finalOriginal = original;
+                JsonElement[] finalOriginal = new JsonElement[] {original};
                 return Button.builder(
                     Component.translatable("codecextras.config.configurelist"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
-                        context, finalOriginal, update, creationInfo
+                        context, finalOriginal[0], value -> {
+                            finalOriginal[0] = value;
+                            update.accept(value);
+                        }, creationInfo
                     ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
@@ -403,11 +442,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         update.accept(original);
                     }
                 }
-                JsonElement finalOriginal = original;
+                JsonElement[] finalOriginal = new JsonElement[] {original};
                 return Button.builder(
                     Component.translatable("codecextras.config.configurelist"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
-                        context, finalOriginal, update, creationInfo
+                        context, finalOriginal[0], jsonValue -> {
+                            finalOriginal[0] = jsonValue;
+                            update.accept(jsonValue);
+                        }, creationInfo
                     ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
@@ -440,11 +482,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         update.accept(original);
                     }
                 }
-                JsonElement finalOriginal = original;
+                JsonElement[] finalOriginal = new JsonElement[] {original};
                 return Button.builder(
                     Component.translatable("codecextras.config.configurerecord"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
-                        context, finalOriginal, update, creationInfo
+                        context, finalOriginal[0], value -> {
+                            finalOriginal[0] = value;
+                            update.accept(value);
+                        }, creationInfo
                     ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),
@@ -533,7 +578,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             return DataResult.error(() -> "Error creating dispatch codec: "+codecResult.error().orElseThrow().messageSupplier());
         }
         ScreenEntryFactory<E> factory = (context, original, onClose, creationInfo) ->
-            new DispatchScreenEntryProvider<>(keyResult.getOrThrow().entryCreationInfo(), original, key, onClose, context, entries.get());
+            new DispatchScreenEntryProvider<>(keyResult.getOrThrow(), original, key, onClose, context, entries.get());
         return DataResult.success(new ConfigScreenEntry<>(
             Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
                 if (original.isJsonNull()) {
@@ -542,11 +587,62 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         update.accept(original);
                     }
                 }
-                JsonElement finalOriginal = original;
+                JsonElement[] finalOriginal = new JsonElement[] {original};
                 return Button.builder(
                     Component.translatable("codecextras.config.configurerecord"),
                     b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
-                        context, finalOriginal, update, creationInfo
+                        context, finalOriginal[0], value -> {
+                            finalOriginal[0] = value;
+                            update.accept(value);
+                        }, creationInfo
+                    ), parent, creationInfo.componentInfo()))
+                ).width(width).build();
+            }),
+            factory,
+            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), ComponentInfo.empty())
+        ));
+    }
+
+    @Override
+    public <K, V> DataResult<App<ConfigScreenEntry.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
+        var keyResult = interpret(keyStructure);
+        if (keyResult.error().isPresent()) {
+            return DataResult.error(keyResult.error().get().messageSupplier());
+        }
+        Supplier<Map<K, DataResult<ConfigScreenEntry<? extends V>>>> entries = Suppliers.memoize(() -> {
+            Map<K, DataResult<ConfigScreenEntry<? extends V>>> map = new HashMap<>();
+            for (var entryKey : keys.get()) {
+                var result = valueStructures.apply(entryKey).flatMap(it -> it.interpret(this));
+                if (result.error().isPresent()) {
+                    map.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
+                } else {
+                    map.put(entryKey, DataResult.success(ConfigScreenEntry.unbox(result.getOrThrow())));
+                }
+            }
+            return map;
+        });
+        var codecResult = codecInterpreter.dispatchedMap(keyStructure, keys, valueStructures);
+        if (codecResult.isError()) {
+            return DataResult.error(() -> "Error creating dispatch codec: "+codecResult.error().orElseThrow().messageSupplier());
+        }
+        ScreenEntryFactory<Map<K, V>> factory = (context, original, onClose, creationInfo) ->
+            new DispatchedMapScreenEntryProvider<>(keyResult.getOrThrow(), original, onClose, context, entries.get());
+        return DataResult.success(new ConfigScreenEntry<>(
+            Widgets.wrapWithOptionalHandling((parent, width, context, original, update, creationInfo, handleOptional) -> {
+                if (original.isJsonNull()) {
+                    original = new JsonObject();
+                    if (!handleOptional) {
+                        update.accept(original);
+                    }
+                }
+                JsonElement[] finalOriginal = new JsonElement[] {original};
+                return Button.builder(
+                    Component.translatable("codecextras.config.configurerecord"),
+                    b -> Minecraft.getInstance().setScreen(ScreenEntryProvider.create(factory.open(
+                        context, finalOriginal[0], value -> {
+                            finalOriginal[0] = value;
+                            update.accept(value);
+                        }, creationInfo
                     ), parent, creationInfo.componentInfo()))
                 ).width(width).build();
             }),

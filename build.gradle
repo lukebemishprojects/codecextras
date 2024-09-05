@@ -296,11 +296,17 @@ tasks.compileJava {
 
 ['processResources', 'processMinecraftResources', 'processMinecraftFabricResources', 'processMinecraftNeoforgeResources'].each {
     tasks.named(it, ProcessResources) {
-        inputs.property "version", project.version.toString()
+        var version = project.version.toString()
+        var minecraftVersion = libs.versions.minecraft.get()
+
+        inputs.property "version", version
+        inputs.property "minecraft_version", minecraftVersion
 
         filesMatching(["fabric.mod.json", "META-INF/neoforge.mods.toml"]) {
-            expand "version": project.version.toString()
-            expand "minecraft_version": libs.versions.minecraft.get()
+            expand([
+                "version": version,
+                "minecraft_version": minecraftVersion
+            ])
         }
     }
 }

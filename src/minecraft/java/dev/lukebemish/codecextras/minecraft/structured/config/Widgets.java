@@ -126,7 +126,7 @@ public final class Widgets {
                             this.button.setMessage(calculateMessage.get());
                         }
                     }));
-                }).tooltip(Tooltip.create(creationInfo.componentInfo().description())).build();
+                }).width(width).tooltip(Tooltip.create(creationInfo.componentInfo().description())).build();
             };
             return holder.button;
         });
@@ -138,7 +138,7 @@ public final class Widgets {
                 return assumesNonOptional.create(parent, fullWidth, context, original, update, creationInfo, false);
             }
             var remainingWidth = fullWidth - Button.DEFAULT_HEIGHT - DEFAULT_SPACING;
-            var layout = new EqualSpacingLayout(Button.DEFAULT_WIDTH, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
+            var layout = new EqualSpacingLayout(fullWidth, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var object = new Object() {
                 private JsonElement value = original;
                 private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, context, original, json -> {
@@ -226,8 +226,6 @@ public final class Widgets {
             } else {
                 LOGGER.warn("Failed to decode `{}`: not a primitive", original);
             }
-
-            Function<Integer, Component> message = color -> Component.literal("0x"+Integer.toHexString(color)).withColor(color | 0xFF000000);
 
             return new AbstractButton(0, 0, width, Button.DEFAULT_HEIGHT, Component.empty()) {
                 {

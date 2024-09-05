@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.collect.Sets;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
@@ -15,7 +16,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Represents the structure of a data type in a generic form. This structure can then be interpreted into any number of
@@ -52,7 +52,7 @@ public interface Structure<A> {
     default <T> Structure<A> annotate(Key<T> key, T value) {
         var outer = this;
         var annotations = annotations().with(key, new Identity<>(value));
-        return annotatedDelegatingStructure(outer, annotations);
+        return annotatedDelegatingStructure(Function.identity(), outer, annotations);
     }
 
     /**
@@ -63,24 +63,23 @@ public interface Structure<A> {
     default Structure<A> annotate(Keys<Identity.Mu, Object> annotations) {
         var outer = this;
         var combined = annotations().join(annotations);
-        return annotatedDelegatingStructure(outer, combined);
+        return annotatedDelegatingStructure(Function.identity(), outer, combined);
     }
 
-    private static <A> Structure<A> annotatedDelegatingStructure(Structure<A> outer, Keys<Identity.Mu, Object> annotations) {
-        final class AnnotatedDelegatingStructure implements Structure<A> {
-            final @Nullable AnnotatedDelegatingStructure delegate;
+    private static <A, O> Structure<A> annotatedDelegatingStructure(Function<Structure<O>, Structure<A>> outerFunction, Structure<O> outer, Keys<Identity.Mu, Object> annotations) {
+        final class AnnotatedDelegatingStructure<X> implements Structure<X> {
+            final Structure<X> original;
 
-            AnnotatedDelegatingStructure(@Nullable AnnotatedDelegatingStructure delegate) {
-                this.delegate = delegate;
+            AnnotatedDelegatingStructure(Function<Structure<O>, Structure<X>> function, Structure<O> original) {
+                while (original instanceof AnnotatedDelegatingStructure<O> annotatedDelegatingStructure) {
+                    original = annotatedDelegatingStructure.original;
+                }
+                this.original = function.apply(original);
             }
 
             @Override
-            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.annotate(original(), annotations);
-            }
-
-            private Structure<A> original() {
-                return delegate != null ? delegate.original() : outer;
+            public <Mu extends K1> DataResult<App<Mu, X>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.annotate(original, annotations);
             }
 
             @Override
@@ -89,7 +88,7 @@ public interface Structure<A> {
             }
         }
 
-        return new AnnotatedDelegatingStructure(outer instanceof AnnotatedDelegatingStructure annotatedDelegatingStructure ? annotatedDelegatingStructure : null);
+        return new AnnotatedDelegatingStructure<>(outerFunction, outer);
     }
 
     /**
@@ -148,13 +147,13 @@ public interface Structure<A> {
      * @param <B> the new type to represent
      */
     default <B> Structure<B> flatXmap(Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
-        var outer = this;
-        return annotatedDelegatingStructure(new Structure<>() {
+        Function<Structure<A>, Structure<B>> structureMaker = outer -> new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, B>> interpret(Interpreter<Mu> interpreter) {
                 return outer.interpret(interpreter).flatMap(app -> interpreter.flatXmap(app, deserializer, serializer));
             }
-        }, outer.annotations());
+        };
+        return annotatedDelegatingStructure(structureMaker, this, this.annotations());
     }
 
     /**
@@ -169,7 +168,15 @@ public interface Structure<A> {
     }
 
     default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
-        var outer = this;
+        return dispatch(key, function, keys, structures, true);
+    }
+
+    default <E> Structure<E> dispatchUnbounded(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
+        return dispatch(key, function, keys, structures, false);
+    }
+
+    private <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures, boolean bounded) {
+        var outer = bounded ? this.bounded(keys) : this;
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, E>> interpret(Interpreter<Mu> interpreter) {
@@ -178,12 +185,20 @@ public interface Structure<A> {
         };
     }
 
-    default <V> Structure<Map<A, V>> dispatchMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
-        var outer = this;
+    default <V> Structure<Map<A, V>> dispatchedMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
+        return dispatchedMap(keys, structures, true);
+    }
+
+    default <V> Structure<Map<A, V>> dispatchedUnboundedMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
+        return dispatchedMap(keys, structures, false);
+    }
+
+    private <V> Structure<Map<A, V>> dispatchedMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures, boolean bounded) {
+        var outer = bounded ? this.bounded(keys) : this;
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, Map<A, V>>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.dispatchMap(outer, keys, structures);
+                return interpreter.dispatchedMap(outer, keys, structures);
             }
         };
     }
@@ -334,6 +349,34 @@ public interface Structure<A> {
         };
     }
 
+    default Structure<A> bounded(Supplier<Set<A>> available) {
+        final class BoundedStructure implements Structure<A> {
+            private final Structure<A> outer;
+            private final Supplier<Set<A>> totalAvailable;
+
+            BoundedStructure(Structure<A> outer) {
+                if (outer instanceof BoundedStructure boundedStructure) {
+                    this.outer = boundedStructure.outer;
+                    this.totalAvailable = () -> Sets.union(boundedStructure.totalAvailable.get(), available.get());
+                } else {
+                    this.outer = outer;
+                    this.totalAvailable = available;
+                }
+            }
+
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return outer.interpret(interpreter).flatMap(app -> interpreter.bounded(app, totalAvailable));
+            }
+        }
+
+        return annotatedDelegatingStructure(BoundedStructure::new, this, this.annotations());
+    }
+
+    default Structure<A> validate(Function<A, DataResult<A>> verifier) {
+        return this.flatXmap(verifier, verifier);
+    }
+
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
         return RecordStructure.create(builder);
     }
@@ -442,7 +485,7 @@ public interface Structure<A> {
      * @param <T> the type to represent
      */
     static <T> Structure<T> stringRepresentable(Supplier<T[]> values, Function<T, String> representation) {
-        return Structure.parametricallyKeyed(Interpreter.STRING_REPRESENTABLE, new StringRepresentation<>(values, representation), app -> (Identity<T>) app)
+        return Structure.parametricallyKeyed(Interpreter.STRING_REPRESENTABLE, StringRepresentation.ofArray(values, representation), app -> (Identity<T>) app)
                 .xmap(i -> Identity.unbox(i).value(), Identity::new);
     }
 }

@@ -88,6 +88,11 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
+    public <K, V> DataResult<App<Identity.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
+        return DataResult.error(() -> "No default value available for a dispatched map");
+    }
+
+    @Override
     public <MuO extends K1, MuP extends K1, T> DataResult<App<Identity.Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter) {
         return DataResult.error(() -> "No default value available for a parametric key");
     }

@@ -64,7 +64,7 @@ public final class MinecraftStructures {
             }
             return DataResult.error(() -> "Data component type " + type + " is not registered");
         })
-        .dispatchMap(() -> BuiltInRegistries.DATA_COMPONENT_TYPE.stream().collect(Collectors.toSet()), MinecraftStructures::dataComponentTypeStructure);
+        .dispatchedMap(() -> BuiltInRegistries.DATA_COMPONENT_TYPE.stream().collect(Collectors.toSet()), MinecraftStructures::dataComponentTypeStructure);
 
     public static final Structure<Map<DataComponentType<?>, Object>> DATA_COMPONENT_VALUE_MAP = Structure.keyed(
         MinecraftKeys.VALUE_MAP,
@@ -87,6 +87,29 @@ public final class MinecraftStructures {
         }, dataComponentMap -> dataComponentMap.stream().collect(Collectors.toMap(TypedDataComponent::type, TypedDataComponent::value)))
     );
 
+    public static final Structure<MinecraftKeys.DataComponentPatchKey<?>> DATA_COMPONENT_PATCH_KEY = Structure.keyed(
+        MinecraftKeys.DATA_COMPONENT_PATCH_KEY,
+        Structure.STRING
+            .<MinecraftKeys.DataComponentPatchKey<?>>flatXmap(string -> {
+                boolean removes = string.startsWith("!");
+                string = removes ? string.substring(1) : string;
+                return ResourceLocation.read(string).flatMap(rl -> {
+                    var type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(rl);
+                    if (type == null) {
+                        return DataResult.error(() -> "Unknown data component type: " + rl);
+                    }
+                    return DataResult.success(new MinecraftKeys.DataComponentPatchKey<>(type, removes));
+                });
+            }, key -> {
+                var rl = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(key.type());
+                if (rl == null) {
+                    return DataResult.error(() -> "Unknown data component type: " + key.type());
+                }
+                return DataResult.success((key.removes() ? "!" : "") + rl);
+            })
+            .bounded(MinecraftStructures::possibleDataComponentPatchKeys)
+    );
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static final Structure<DataComponentPatch> DATA_COMPONENT_PATCH = Structure.keyed(
         MinecraftKeys.DATA_COMPONENT_PATCH,
@@ -94,22 +117,22 @@ public final class MinecraftStructures {
             .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(DataComponentPatch.CODEC)))
             .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(DataComponentPatch.STREAM_CODEC)))
             .build(),
-        DataComponentPatchKey.STRUCTURE
-            .dispatchMap(DataComponentPatchKey::possibleKeys, DataComponentPatchKey::valueCodec)
+        DATA_COMPONENT_PATCH_KEY
+            .dispatchedUnboundedMap(MinecraftStructures::possibleDataComponentPatchKeys, MinecraftStructures::dataComponentPatchValueCodec)
             .xmap(map -> {
                 var builder = DataComponentPatch.builder();
                 map.forEach((key, value) -> {
-                    if (key.removes) {
-                        builder.remove(key.type);
+                    if (key.removes()) {
+                        builder.remove(key.type());
                     } else {
-                        builder.set((DataComponentType) key.type, value);
+                        builder.set((DataComponentType) key.type(), value);
                     }
                 });
                 return builder.build();
             }, patches -> patches.entrySet().stream().collect(Collectors.toMap(entry -> {
                 var key = entry.getKey();
                 var removes = entry.getValue().isEmpty();
-                return new DataComponentPatchKey<>(key, removes);
+                return new MinecraftKeys.DataComponentPatchKey<>(key, removes);
             }, entry -> {
                 if (entry.getValue().isEmpty()) {
                     return Unit.INSTANCE;
@@ -136,7 +159,7 @@ public final class MinecraftStructures {
 
     public static <T> Structure<HolderSet<T>> homogenousList(ResourceKey<? extends Registry<T>> registry) {
         return Structure.parametricallyKeyed(
-                MinecraftKeys.HOMOGENOUS_LIST_KEY,
+                MinecraftKeys.HOMOGENOUS_LIST,
                 new MinecraftKeys.RegistryKeyHolder<>(registry),
                 MinecraftKeys.HolderSetHolder::unbox,
                 Keys.<Flip.Mu<MinecraftKeys.HolderSetHolder<T>>, K1>builder()
@@ -186,8 +209,10 @@ public final class MinecraftStructures {
         return fallbackDataComponentTypeStructure(type, structure);
     }
 
-    @SuppressWarnings("unchecked")
     private static <T> DataResult<Structure<?>> fallbackDataComponentTypeStructure(DataComponentType<T> type, @Nullable Structure<? extends DataComponentType<?>> fallback) {
+        if (fallback != null) {
+            return DataResult.success(fallback);
+        }
         var key = MinecraftKeys.dataComponentType(type);
         var codec = type.codec();
         var streamCodec = type.streamCodec();
@@ -197,55 +222,23 @@ public final class MinecraftStructures {
             keysBuilder.add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(codec)));
         }
         var keys = keysBuilder.build();
-        if (fallback == null) {
-            return DataResult.success(Structure.keyed(
-                key,
-                keys
-            ));
-        }
         return DataResult.success(Structure.keyed(
             key,
-            keys,
-            (Structure<T>) fallback
+            keys
         ));
     }
 
-    public static final class Types {
-        private Types() {}
-
+    private static Set<MinecraftKeys.DataComponentPatchKey<?>> possibleDataComponentPatchKeys() {
+        return BuiltInRegistries.DATA_COMPONENT_TYPE.stream()
+            .flatMap(type -> Stream.of(new MinecraftKeys.DataComponentPatchKey<>(type, false), new MinecraftKeys.DataComponentPatchKey<>(type, true)))
+            .collect(Collectors.toSet());
     }
 
-    private record DataComponentPatchKey<T>(DataComponentType<T> type, boolean removes) {
-        private static Set<DataComponentPatchKey<?>> possibleKeys() {
-            return BuiltInRegistries.DATA_COMPONENT_TYPE.stream()
-                .flatMap(type -> Stream.of(new DataComponentPatchKey<>(type, false), new DataComponentPatchKey<>(type, true)))
-                .collect(Collectors.toSet());
+    private static DataResult<Structure<?>> dataComponentPatchValueCodec(MinecraftKeys.DataComponentPatchKey<?> key) {
+        if (key.removes()) {
+            return DataResult.success(Structure.UNIT);
         }
-
-        private static final Structure<DataComponentPatchKey<?>> STRUCTURE = Structure.STRING
-            .flatXmap(string -> {
-                boolean removes = string.startsWith("!");
-                string = removes ? string.substring(1) : string;
-                return ResourceLocation.read(string).flatMap(rl -> {
-                    var type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(rl);
-                    if (type == null) {
-                        return DataResult.error(() -> "Unknown data component type: " + rl);
-                    }
-                    return DataResult.success(new DataComponentPatchKey<>(type, removes));
-                });
-            }, key -> {
-                var rl = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(key.type);
-                if (rl == null) {
-                    return DataResult.error(() -> "Unknown data component type: " + key.type);
-                }
-                return DataResult.success((key.removes ? "!" : "") + rl);
-            });
-
-        private DataResult<Structure<?>> valueCodec() {
-            if (removes) {
-                return DataResult.success(Structure.UNIT);
-            }
-            return dataComponentTypeStructure(type);
-        }
+        return dataComponentTypeStructure(key.type());
     }
+
 }

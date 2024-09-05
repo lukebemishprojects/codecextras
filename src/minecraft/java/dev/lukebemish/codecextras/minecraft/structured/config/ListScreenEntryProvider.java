@@ -81,7 +81,7 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
                 downButton.active = false;
             }
             layout.addChild(downButton, LayoutSettings.defaults().alignVerticallyMiddle());
-            layout.addChild(entry.widget().create(
+            layout.addChild(entry.layout().create(
                 parent,
                 remainingWidth,
                 context, jsonValue.get(index),

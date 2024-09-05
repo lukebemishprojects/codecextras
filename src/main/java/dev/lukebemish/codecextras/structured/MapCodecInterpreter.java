@@ -1,6 +1,5 @@
 package dev.lukebemish.codecextras.structured;
 
-import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
@@ -10,11 +9,11 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.KeyDispatchCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -81,21 +80,15 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(codecInterpreter()).flatMap(keyCodecApp -> {
             var keyCodec = CodecInterpreter.unbox(keyCodecApp);
-            // Object here as it's the furthest super A and we have only ? super A
-            Supplier<Map<Object, DataResult<MapCodec<? extends E>>>> codecMapSupplier = Suppliers.memoize(() -> {
-                Map<Object, DataResult<MapCodec<? extends E>>> codecMap = new HashMap<>();
-                for (var entryKey : keys.get()) {
-                    var result = structures.apply(entryKey).flatMap(it -> it.interpret(this));
-                    if (result.error().isPresent()) {
-                        codecMap.put(entryKey, DataResult.error(result.error().get().messageSupplier()));
-                    } else {
-                        codecMap.put(entryKey, DataResult.success(MapCodecInterpreter.unbox(result.result().orElseThrow())));
-                    }
-                }
-                return codecMap;
-            });
-            return DataResult.success(new MapCodecInterpreter.Holder<>(new KeyDispatchCodec<>(key, keyCodec, function, k -> codecMapSupplier.get().get(k))));
+            var map = new ConcurrentHashMap<A, DataResult<MapCodec<? extends E>>>();
+            Function<A, DataResult<MapCodec<? extends E>>> cache = k -> map.computeIfAbsent(k , structures.andThen(result -> result.flatMap(s -> s.interpret(this)).map(MapCodecInterpreter::unbox)));
+            return DataResult.success(new MapCodecInterpreter.Holder<>(new KeyDispatchCodec<>(key, keyCodec, function, cache)));
         });
+    }
+
+    @Override
+    public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
+        return DataResult.error(() -> "Cannot make a MapCodec for a dispatched map");
     }
 
     @Override

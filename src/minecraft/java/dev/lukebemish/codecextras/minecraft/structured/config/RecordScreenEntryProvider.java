@@ -67,7 +67,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
             return encoded.result().orElseThrow();
         });
         JsonElement specificValueWithDefault = specificValue.isJsonNull() && defaultValue.isPresent() ? defaultValue.get() : specificValue;
-        return entry.entry().widget().create(parent, Button.DEFAULT_WIDTH, context, specificValueWithDefault, newValue -> {
+        return entry.entry().layout().create(parent, Button.DEFAULT_WIDTH, context, specificValueWithDefault, newValue -> {
             if (shouldUpdate(newValue, entry)) {
                 this.jsonValue.add(entry.key(), newValue);
             } else {
