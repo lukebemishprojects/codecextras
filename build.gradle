@@ -289,9 +289,6 @@ tasks.compileJava {
 		'-Aautoextension.name=CodecExtras',
 		"-Aautoextension.version=${version}".toString()
 	]
-	javaCompiler = javaToolchains.compilerFor {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
 }
 
 ['processResources', 'processMinecraftResources', 'processMinecraftFabricResources', 'processMinecraftNeoforgeResources'].each {

@@ -147,13 +147,12 @@ public interface Structure<A> {
      * @param <B> the new type to represent
      */
     default <B> Structure<B> flatXmap(Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
-        Function<Structure<A>, Structure<B>> structureMaker = outer -> new Structure<>() {
+        return annotatedDelegatingStructure(outer -> new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, B>> interpret(Interpreter<Mu> interpreter) {
                 return outer.interpret(interpreter).flatMap(app -> interpreter.flatXmap(app, deserializer, serializer));
             }
-        };
-        return annotatedDelegatingStructure(structureMaker, this, this.annotations());
+        }, this, this.annotations());
     }
 
     /**

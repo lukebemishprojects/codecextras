@@ -3,6 +3,7 @@ package dev.lukebemish.codecextras.minecraft.structured.config;
 import com.google.common.base.Suppliers;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
@@ -14,7 +15,9 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftKeys;
+import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Interpreter;
@@ -39,6 +42,13 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.EqualSpacingLayout;
+import net.minecraft.client.gui.layouts.LayoutSettings;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -139,6 +149,78 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 .add(MinecraftKeys.RGB_COLOR, ConfigScreenEntry.single(
                     Widgets.color(false),
                     new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                ))
+                .add(MinecraftKeys.DATA_COMPONENT_PATCH_KEY, ConfigScreenEntry.single(
+                    (parent, width, context, original, update, creationInfo, handleOptional) -> {
+                        boolean[] removes = new boolean[1];
+                        DataComponentType<?>[] type = new DataComponentType<?>[1];
+                        if (!original.isJsonNull()) {
+                            var initialResult = creationInfo.codec().parse(context.ops(), original);
+                            if (initialResult.error().isPresent()) {
+                                LOGGER.error("Error parsing data component patch key: {}", initialResult.error().get());
+                            } else {
+                                removes[0] = initialResult.getOrThrow().removes();
+                                type[0] = initialResult.getOrThrow().type();
+                            }
+                        }
+                        var remainingWidth = width - Button.DEFAULT_HEIGHT - 5;
+                        var cycle = CycleButton.<Boolean>builder(bool -> {
+                            if (bool == Boolean.TRUE) {
+                                return Component.translatable("codecextras.config.datacomponent.keytoggle.removes");
+                            }
+                            return Component.empty();
+                        }).withValues(List.of(true, false))
+                            .withInitialValue(removes[0])
+                            .displayOnlyValue()
+                            .create(0, 0, Button.DEFAULT_HEIGHT, Button.DEFAULT_HEIGHT, Component.translatable("codecextras.config.datacomponent.keytoggle"), (b, bool) -> {
+                                removes[0] = bool;
+                                if (type[0] != null) {
+                                    var result = creationInfo.codec().encodeStart(context.ops(), new MinecraftKeys.DataComponentPatchKey<>(type[0], removes[0]));
+                                    if (result.error().isPresent()) {
+                                        LOGGER.error("Error encoding data component patch key: {}", result.error().get());
+                                    } else {
+                                        update.accept(result.getOrThrow());
+                                    }
+                                }
+                            });
+                        var typeKeys = BuiltInRegistries.DATA_COMPONENT_TYPE.registryKeySet().stream().toList();
+                        var actual = Widgets.pickWidget(
+                            new StringRepresentation<>(() -> typeKeys, key -> key.location().toString())
+                        ).create(parent, remainingWidth, context, type[0] == null ? JsonNull.INSTANCE : new JsonPrimitive(BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type[0]).toString()), json -> {
+                            if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isString()) {
+                                String string = json.getAsJsonPrimitive().getAsString();
+                                var rlResult = ResourceLocation.read(string);
+                                if (rlResult.error().isPresent()) {
+                                    LOGGER.error("Error reading resource location: {}", rlResult.error().get());
+                                    return;
+                                }
+                                var key = rlResult.getOrThrow();
+                                var typeResult = BuiltInRegistries.DATA_COMPONENT_TYPE.getOptional(key);
+                                if (typeResult.isEmpty()) {
+                                    LOGGER.error("Unknown data component type: {}", key);
+                                    return;
+                                }
+                                type[0] = typeResult.get();
+                                var result = creationInfo.codec().encodeStart(context.ops(), new MinecraftKeys.DataComponentPatchKey<>(type[0], removes[0]));
+                                if (result.error().isPresent()) {
+                                    LOGGER.error("Error encoding data component patch key: {}", result.error().get());
+                                } else {
+                                    update.accept(result.getOrThrow());
+                                }
+                            } else {
+                                LOGGER.error("Not a string: {}", json);
+                            }
+                        }, creationInfo.withCodec(ResourceKey.codec(Registries.DATA_COMPONENT_TYPE)), false);
+                        var tooltipToggle = Tooltip.create(Component.translatable("codecextras.config.datacomponent.keytoggle"));
+                        var tooltipType = Tooltip.create(creationInfo.componentInfo().description());
+                        cycle.setTooltip(tooltipToggle);
+                        actual.visitWidgets(w -> w.setTooltip(tooltipType));
+                        var layout = new EqualSpacingLayout(width, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
+                        layout.addChild(cycle, LayoutSettings.defaults().alignVerticallyMiddle());
+                        layout.addChild(actual, LayoutSettings.defaults().alignVerticallyMiddle());
+                        return layout;
+                    },
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(MinecraftStructures.DATA_COMPONENT_PATCH_KEY).getOrThrow(), ComponentInfo.empty())
                 ))
                 .build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
@@ -363,6 +445,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
             (parent, width, context, original, update, creationInfo, handleOptional) -> {
                 List<A> knownValues = new ArrayList<>();
                 Map<A, String> stringValues = new HashMap<>();
+                Map<String, A> inverse = new HashMap<>();
                 for (var value : values.get()) {
                     var encoded = codec.getOrThrow().encodeStart(context.ops(), value);
                     if (encoded.error().isPresent()) {
@@ -378,8 +461,9 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     }
                     knownValues.add(value);
                     stringValues.put(value, string);
+                    inverse.put(string, value);
                 }
-                var wrapped = Widgets.pickWidget(new StringRepresentation<>(() -> knownValues, stringValues::get));
+                var wrapped = Widgets.pickWidget(new StringRepresentation<>(() -> knownValues, stringValues::get, inverse::get, false));
                 return wrapped.create(parent, width, context, original, update, creationInfo, handleOptional);
             },
             ConfigScreenEntry.unbox(input).entryCreationInfo().withCodec(codec.getOrThrow())
