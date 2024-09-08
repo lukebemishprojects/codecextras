@@ -38,7 +38,7 @@ class UnboundedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
             updateValue();
         } else {
             if (!jsonValue.isJsonNull()) {
-                LOGGER.warn("Value {} was not a JSON array", jsonValue);
+                LOGGER.error("Value {} was not a JSON object", jsonValue);
             }
         }
         this.update = update;
@@ -50,18 +50,21 @@ class UnboundedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
         for (var pair : values) {
             if (pair.getFirst().isJsonPrimitive()) {
                 if (pair.getFirst().getAsJsonPrimitive().isString()) {
+                    if (jsonValue.has(pair.getFirst().getAsString())) {
+                        LOGGER.warn("Duplicate key {}", pair.getFirst().getAsString());
+                    }
                     jsonValue.add(pair.getFirst().getAsString(), pair.getSecond());
                 } else {
-                    LOGGER.warn("Key {} was not a JSON string", pair.getFirst());
+                    LOGGER.error("Key {} was not a JSON string", pair.getFirst());
                 }
             } else if (!pair.getFirst().isJsonNull()) {
-                LOGGER.warn("Key {} was not a JSON primitive", pair.getFirst());
+                LOGGER.error("Key {} was not a JSON primitive", pair.getFirst());
             }
         }
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         this.update.accept(jsonValue);
     }
 

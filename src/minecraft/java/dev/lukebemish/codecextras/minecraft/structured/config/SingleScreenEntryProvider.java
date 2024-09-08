@@ -22,7 +22,7 @@ class SingleScreenEntryProvider<T> implements ScreenEntryProvider {
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         update.accept(value);
     }
 

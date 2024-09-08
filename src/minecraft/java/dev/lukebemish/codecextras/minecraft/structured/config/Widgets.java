@@ -2,6 +2,7 @@ package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.util.Either;
 import com.mojang.logging.LogUtils;
@@ -425,7 +426,42 @@ public final class Widgets {
         };
     }
 
-    public static <T> LayoutFactory<T> bool(boolean falseIfMissing) {
+    public static <T> LayoutFactory<T> unit() {
+        return (parent, width, context, original, update, creationInfo, handleOptional) -> {
+            if (original.isJsonNull()) {
+                original = new JsonObject();
+                if (!handleOptional) {
+                    update.accept(original);
+                }
+            }
+            if (handleOptional) {
+                var w = Checkbox.builder(Component.empty(), Minecraft.getInstance().font)
+                    .maxWidth(width)
+                    .onValueChange((checkbox, b) -> {
+                        update.accept(b ? new JsonObject() : JsonNull.INSTANCE);
+                    })
+                    .selected(original.isJsonPrimitive() && original.getAsJsonPrimitive().getAsBoolean())
+                    .build();
+                creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
+                    var tooltip = Tooltip.create(description);
+                    w.setTooltip(tooltip);
+                });
+                w.setMessage(creationInfo.componentInfo().title());
+                return w;
+            } else {
+                var button = Button.builder(Component.translatable("codecextras.config.unit"), b -> {
+                    })
+                    .width(width)
+                    .build();
+                var tooltip = Tooltip.create(creationInfo.componentInfo().description());
+                button.setTooltip(tooltip);
+                button.active = false;
+                return button;
+            }
+        };
+    }
+
+    public static <T> LayoutFactory<T> bool() {
         LayoutFactory<T> widget = (parent, width, context, original, update, creationInfo, handleOptional) -> {
             if (original.isJsonNull()) {
                 original = new JsonPrimitive(false);
@@ -436,9 +472,6 @@ public final class Widgets {
             var w = Checkbox.builder(Component.empty(), Minecraft.getInstance().font)
                 .maxWidth(width)
                 .onValueChange((checkbox, b) -> {
-                    if (falseIfMissing && !b) {
-                        update.accept(JsonNull.INSTANCE);
-                    }
                     update.accept(new JsonPrimitive(b));
                 })
                 .selected(original.isJsonPrimitive() && original.getAsJsonPrimitive().getAsBoolean())
@@ -450,9 +483,6 @@ public final class Widgets {
             w.setMessage(creationInfo.componentInfo().title());
             return w;
         };
-        if (!falseIfMissing) {
-            return wrapWithOptionalHandling(widget);
-        }
         return (parent, width, context, original, update, entry, handleOptional) -> {
             if (handleOptional) {
                 return widget.create(parent, width, context, original, update, entry, true);

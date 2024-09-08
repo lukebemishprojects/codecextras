@@ -4,6 +4,7 @@ import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Key2;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.HolderSet;
@@ -11,7 +12,6 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -21,6 +21,7 @@ public final class MinecraftKeys {
     public static Key<Map<DataComponentType<?>, Object>> VALUE_MAP = Key.create("value_map");
     public static Key<DataComponentMap> DATA_COMPONENT_MAP = Key.create("data_component_map");
     public static Key<DataComponentPatch> DATA_COMPONENT_PATCH = Key.create("data_component_patch");
+    public static Key2<DataComponentTypeHolder.Mu, Identity.Mu> FALLBACK_DATA_COMPONENT_TYPE = Key2.create("data_component_type");
 
     private MinecraftKeys() {
     }
@@ -29,13 +30,15 @@ public final class MinecraftKeys {
     public static final Key<Integer> ARGB_COLOR = Key.create("argb_color");
     public static final Key<Integer> RGB_COLOR = Key.create("rgb_color");
 
-    @SuppressWarnings("unchecked")
-    public static <T> Key<T> dataComponentType(DataComponentType<T> type) {
-        var location = BuiltInRegistries.DATA_COMPONENT_TYPE.getResourceKey(type);
-        if (location.isPresent()) {
-            return (Key<T>) DATA_COMPONENT_TYPE_KEYS.computeIfAbsent(location.orElseThrow(), key -> Key.create(key.location().toString()));
+    public record DataComponentTypeHolder<T>(DataComponentType<T> value) implements App<DataComponentTypeHolder.Mu, T> {
+        public static final class Mu implements K1 {
+            private Mu() {
+            }
         }
-        throw new IllegalArgumentException("Data component type " + type + " is not registered");
+
+        public static <T> DataComponentTypeHolder<T> unbox(App<DataComponentTypeHolder.Mu, T> box) {
+            return (DataComponentTypeHolder<T>) box;
+        }
     }
 
     public record ResourceKeyHolder<T>(ResourceKey<T> value) implements App<ResourceKeyHolder.Mu, T> {

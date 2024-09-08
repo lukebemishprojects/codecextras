@@ -14,6 +14,7 @@ import net.minecraft.client.gui.layouts.Layout;
 import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -24,11 +25,13 @@ class EntryListScreen extends Screen {
     private final Screen lastScreen;
     private @Nullable EntryList list;
     private final ScreenEntryProvider screenEntries;
+    private final EntryCreationContext context;
 
-    public EntryListScreen(Screen screen, Component title, ScreenEntryProvider screenEntries) {
+    public EntryListScreen(Screen screen, Component title, ScreenEntryProvider screenEntries, EntryCreationContext context) {
         super(title);
         this.lastScreen = screen;
         this.screenEntries = screenEntries;
+        this.context = context;
     }
 
     protected void init() {
@@ -65,7 +68,24 @@ class EntryListScreen extends Screen {
     }
 
     public void onClose() {
-        this.screenEntries.onExit();
+        this.screenEntries.onExit(this.context);
+        var problems = this.context.problems;
+        if (!problems.isEmpty()) {
+            var issues = String.join("\n", problems.values());
+            var screen = new ConfirmScreen(bl -> {
+                // Resolve everything in either case
+                for (var problem : problems.keySet().stream().toList()) {
+                    this.context.resolve(problem);
+                }
+                if (bl) {
+                    this.minecraft.setScreen(this.lastScreen);
+                } else {
+                    this.minecraft.setScreen(this);
+                }
+            }, Component.translatable("codecextras.config.issue"), Component.translatable("codecextras.config.issue.message", issues));
+            this.minecraft.setScreen(screen);
+            return;
+        }
         this.minecraft.setScreen(this.lastScreen);
     }
 

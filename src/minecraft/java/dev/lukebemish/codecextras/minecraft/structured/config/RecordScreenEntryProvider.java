@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.screens.Screen;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 class RecordScreenEntryProvider implements ScreenEntryProvider {
@@ -28,7 +29,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
             this.jsonValue = jsonValue.getAsJsonObject();
         } else {
             if (!jsonValue.isJsonNull()) {
-                LOGGER.warn("Value {} was not a JSON object", jsonValue);
+                LOGGER.error("Value {} was not a JSON object", jsonValue);
             }
             this.jsonValue = new JsonObject();
         }
@@ -37,7 +38,7 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         this.update.accept(jsonValue);
     }
 
@@ -76,6 +77,8 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
         }, entry.entry().entryCreationInfo(), defaultValue.isPresent() && defaultValue.get().isJsonNull());
     }
 
+    private EntryCreationContext.@Nullable ProblemMarker encodeValueProblem;
+
     private <F> boolean shouldUpdate(JsonElement newValue, RecordEntry<F> entry) {
         if (newValue.isJsonNull()) {
             return false;
@@ -83,9 +86,10 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
         if (entry.missingBehavior().isPresent()) {
             var decoded = entry.codec().parse(this.context.ops(), newValue);
             if (decoded.isError()) {
-                LOGGER.warn("Could not encode new value {}", newValue);
+                encodeValueProblem = context.problem(encodeValueProblem, decoded.error().orElseThrow().message());
                 return false;
             }
+            context.resolve(encodeValueProblem);
             return entry.missingBehavior().get().predicate().test(decoded.result().orElseThrow());
         }
         return true;

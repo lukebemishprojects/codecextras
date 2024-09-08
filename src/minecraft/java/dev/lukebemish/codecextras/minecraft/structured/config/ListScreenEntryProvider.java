@@ -28,7 +28,7 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
             this.jsonValue = jsonValue.getAsJsonArray();
         } else {
             if (!jsonValue.isJsonNull()) {
-                LOGGER.warn("Value {} was not a JSON array", jsonValue);
+                LOGGER.error("Value {} was not a JSON array", jsonValue);
             }
             this.jsonValue = new JsonArray();
         }
@@ -37,7 +37,7 @@ class ListScreenEntryProvider<T> implements ScreenEntryProvider {
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         this.update.accept(jsonValue);
     }
 

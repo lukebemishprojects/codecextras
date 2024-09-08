@@ -9,6 +9,7 @@ import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import dev.lukebemish.codecextras.types.Flip;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -23,6 +24,7 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.TypedDataComponent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -205,7 +207,10 @@ public final class MinecraftStructures {
         if (resourceKey.isEmpty()) {
             return DataResult.error(() -> "Unregistered data component type: " + type);
         }
-        var structure = CodecExtrasRegistries.Registries.DATA_COMPONENT_STRUCTURES.get().get(resourceKey.orElseThrow().location());
+        if (!CodecExtrasRegistries.REGISTRIES.dataComponentStructures().isReady()) {
+            return DataResult.error(() -> "Data component structures registry is not frozen");
+        }
+        var structure = CodecExtrasRegistries.REGISTRIES.dataComponentStructures().get().get(resourceKey.orElseThrow().location());
         return fallbackDataComponentTypeStructure(type, structure);
     }
 
@@ -213,17 +218,20 @@ public final class MinecraftStructures {
         if (fallback != null) {
             return DataResult.success(fallback);
         }
-        var key = MinecraftKeys.dataComponentType(type);
+        var key2 = MinecraftKeys.FALLBACK_DATA_COMPONENT_TYPE;
+
         var codec = type.codec();
         var streamCodec = type.streamCodec();
-        var keysBuilder = Keys.<Flip.Mu<T>, K1>builder()
-            .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(streamCodec.cast())));;
+        var keysBuilder = Keys.<Flip.Mu<Identity<T>>, K1>builder()
+            .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(streamCodec.<RegistryFriendlyByteBuf>cast().map(Identity::new, i -> Identity.unbox(i).value()))));;
         if (codec != null) {
-            keysBuilder.add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(codec)));
+            keysBuilder.add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(codec.xmap(Identity::new, i -> Identity.unbox(i).value()))));
         }
         var keys = keysBuilder.build();
-        return DataResult.success(Structure.keyed(
-            key,
+        return DataResult.success(Structure.parametricallyKeyed(
+            key2,
+            new MinecraftKeys.DataComponentTypeHolder<>(type),
+            Identity::unbox,
             keys
         ));
     }

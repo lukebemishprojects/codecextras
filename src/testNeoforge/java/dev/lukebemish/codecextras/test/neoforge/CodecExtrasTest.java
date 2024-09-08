@@ -19,14 +19,13 @@ public class CodecExtrasTest {
             .handle(FMLPaths.CONFIGDIR.get().resolve("codecextras_testmod.json"), GsonOpsIo.INSTANCE);
 
     public CodecExtrasTest(ModContainer modContainer) {
-        ConfigScreenEntry<TestConfig> entry = new ConfigScreenInterpreter(
-            MinecraftInterpreters.CODEC_INTERPRETER
-        ).interpret(TestConfig.STRUCTURE).getOrThrow();
+        modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) -> {
+            var interpreter = new ConfigScreenInterpreter(MinecraftInterpreters.CODEC_INTERPRETER);
+            ConfigScreenEntry<TestConfig> entry = interpreter.interpret(TestConfig.STRUCTURE).getOrThrow();
 
-        modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) ->
-                ConfigScreenBuilder.create()
-                    .add(entry, CONFIG::save, () -> EntryCreationContext.builder().build(), CONFIG::load)
-                    .factory().apply(parent)
-        );
+            return ConfigScreenBuilder.create()
+                .add(entry, CONFIG::save, () -> EntryCreationContext.builder().build(), CONFIG::load)
+                .factory().apply(parent);
+        });
     }
 }

@@ -6,7 +6,9 @@ import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
@@ -416,6 +418,16 @@ public interface Structure<A> {
      * Represents a {@link String} value.
      */
     Structure<String> STRING = keyed(Interpreter.STRING);
+
+    /**
+     * Represents a {@link Dynamic} value.
+     */
+    Structure<Dynamic<?>> PASSTHROUGH = keyed(
+        Interpreter.PASSTHROUGH,
+        Keys.<Flip.Mu<Dynamic<?>>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(Codec.PASSTHROUGH)))
+            .build()
+    );
 
     /**
      * {@return a structure representing integer values within a range}

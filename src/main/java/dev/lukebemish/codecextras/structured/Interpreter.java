@@ -6,6 +6,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
@@ -53,6 +54,7 @@ public interface Interpreter<Mu extends K1> {
     Key<Float> FLOAT = Key.create("FLOAT");
     Key<Double> DOUBLE = Key.create("DOUBLE");
     Key<String> STRING = Key.create("STRING");
+    Key<Dynamic<?>> PASSTHROUGH = Key.create("PASSTHROUGH");
 
     <MuO extends K1, MuP extends K1, T> DataResult<App<Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP,MuO> key, App<MuP, T> parameter);
 

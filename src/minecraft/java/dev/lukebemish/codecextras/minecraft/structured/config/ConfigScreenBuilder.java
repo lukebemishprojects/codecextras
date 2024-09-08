@@ -47,7 +47,7 @@ public class ConfigScreenBuilder {
             } else {
                 return ScreenEntryProvider.create(new ScreenEntryProvider() {
                     @Override
-                    public void onExit() {}
+                    public void onExit(EntryCreationContext context) {}
 
                     @Override
                     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
@@ -65,7 +65,7 @@ public class ConfigScreenBuilder {
                             list.addPair(label, button);
                         }
                     }
-                }, parent, ComponentInfo.empty());
+                }, parent, EntryCreationContext.builder().build(), ComponentInfo.empty());
             }
         };
     }

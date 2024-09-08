@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.StringWidget;
@@ -29,17 +30,17 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
     private JsonObject jsonValue;
     private final Consumer<JsonElement> update;
     private final List<JsonElement> keys;
-    private final Map<JsonElement, ConfigScreenEntry<? extends T>> keyProviders;
+    private final Map<JsonElement, Supplier<DataResult<ConfigScreenEntry<? extends T>>>> keyProviders;
     private final EntryCreationContext context;
 
-    public DispatchScreenEntryProvider(ConfigScreenEntry<K> keyEntry, JsonElement jsonValue, String key, Consumer<JsonElement> update, EntryCreationContext context, Map<K, DataResult<ConfigScreenEntry<? extends T>>> entries) {
+    public DispatchScreenEntryProvider(ConfigScreenEntry<K> keyEntry, JsonElement jsonValue, String key, Consumer<JsonElement> update, EntryCreationContext context, Map<K, Supplier<DataResult<ConfigScreenEntry<? extends T>>>> entries) {
         this.keyEntry = keyEntry;
         this.key = key;
         if (jsonValue.isJsonObject()) {
             this.jsonValue = jsonValue.getAsJsonObject();
         } else {
             if (!jsonValue.isJsonNull()) {
-                LOGGER.warn("Value {} was not a JSON object", jsonValue);
+                LOGGER.error("Value {} was not a JSON object", jsonValue);
             }
             this.jsonValue = new JsonObject();
         }
@@ -50,14 +51,11 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
         for (var entry : entries.entrySet()) {
             var keyResult = keyEntry.entryCreationInfo().codec().encodeStart(context.ops(), entry.getKey());
             if (keyResult.isError()) {
-                LOGGER.warn("Failed to encode key {}", entry.getKey());
+                LOGGER.error("Failed to encode key {}", entry.getKey());
                 continue;
             }
             JsonElement keyElement = keyResult.getOrThrow();
-            if (entry.getValue().isError()) {
-                LOGGER.warn("Failed to create screen entry for key {}: {}", entry.getKey(), entry.getValue().error().orElseThrow().message());
-            }
-            keyProviders.put(keyElement, entry.getValue().getOrThrow());
+            keyProviders.put(keyElement, entry.getValue());
             this.keys.add(keyElement);
         }
         this.keys.sort(JsonComparator.INSTANCE);
@@ -67,14 +65,14 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         if (nestedOnExit != null) {
-            nestedOnExit.run();
+            nestedOnExit.accept(context);
         }
         update.accept(jsonValue);
     }
 
-    private @Nullable Runnable nestedOnExit;
+    private @Nullable Consumer<EntryCreationContext> nestedOnExit;
 
     @Override
     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
@@ -105,15 +103,20 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
         if (!keyValue.isJsonNull()) {
             var provider = keyProviders.get(keyValue);
             if (provider != null) {
-                JsonObject valueCopy = new JsonObject();
-                valueCopy.asMap().putAll(jsonValue.asMap());
-                addEntry(provider, valueCopy, list, rebuild, parent);
+                var entry = provider.get();
+                if (entry.isError()) {
+                    LOGGER.error("Failed to create screen entry for key {}: {}", keyValue, entry.error().orElseThrow().message());
+                } else {
+                    JsonObject valueCopy = new JsonObject();
+                    valueCopy.asMap().putAll(jsonValue.asMap());
+                    addEntry(entry.getOrThrow(), valueCopy, list, rebuild, parent);
+                }
             }
         }
     }
 
     private <F extends T> void addEntry(ConfigScreenEntry<F> provider, JsonObject valueCopy, ScreenEntryList list, Runnable rebuild, Screen parent) {
-        var entryProvider = provider.screenEntryProvider().open(context, valueCopy, newValue -> {
+        var entryProvider = provider.screenEntryProvider().openChecked(context, valueCopy, newValue -> {
             if (newValue.isJsonObject()) {
                 for (var entry : newValue.getAsJsonObject().entrySet()) {
                     if (entry.getKey().equals(key)) {
@@ -122,10 +125,10 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
                     this.jsonValue.add(entry.getKey(), entry.getValue());
                 }
             } else {
-                LOGGER.warn("Value {} was not a JSON object", newValue);
+                LOGGER.error("Value {} was not a JSON object", newValue);
             }
         }, provider.entryCreationInfo());
-        this.nestedOnExit = entryProvider::onExit;
+        this.nestedOnExit = context -> entryProvider.onExit(context);
         entryProvider.addEntries(list, rebuild, parent);
     }
 }

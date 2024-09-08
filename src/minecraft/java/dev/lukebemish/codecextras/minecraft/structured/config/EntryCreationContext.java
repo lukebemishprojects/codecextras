@@ -1,15 +1,27 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.google.gson.JsonElement;
+import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Objects;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
 
 public class EntryCreationContext {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     private final DynamicOps<JsonElement> ops;
     private final RegistryAccess registryAccess;
+    final Map<ProblemMarker, String> problems = new IdentityHashMap<>();
+
+    public static final class ProblemMarker {
+        private ProblemMarker() {}
+    }
 
     private EntryCreationContext(DynamicOps<JsonElement> ops, RegistryAccess registryAccess) {
         this.ops = ops;
@@ -22,6 +34,23 @@ public class EntryCreationContext {
 
     public RegistryAccess registryAccess() {
         return registryAccess;
+    }
+
+    public ProblemMarker problem(@Nullable ProblemMarker old, String message) {
+        ProblemMarker marker = old == null ? new ProblemMarker() : old;
+        problems.put(marker, message);
+        LOGGER.error(message);
+        return marker;
+    }
+
+    public EntryCreationContext subContext() {
+        return new EntryCreationContext(ops, registryAccess);
+    }
+
+    public void resolve(@Nullable ProblemMarker problem) {
+        if (problem != null) {
+            problems.remove(problem);
+        }
     }
 
     public static Builder builder() {

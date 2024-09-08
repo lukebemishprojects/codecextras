@@ -34,7 +34,7 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> layout, ScreenEntryFactory<T
             },
             (context, original, onClose, entry) -> {
                 var entryCreationInfo = reverse.apply(entry);
-                return this.screenEntryProvider.open(context, original, onClose, entryCreationInfo);
+                return this.screenEntryProvider.openChecked(context, original, onClose, entryCreationInfo);
             },
             function.apply(this.entryCreationInfo)
         );
@@ -44,19 +44,19 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> layout, ScreenEntryFactory<T
         var initial = entryCreationInfo.codec().encodeStart(context.ops(), initialData);
         JsonElement initialJson;
         if (initial.error().isPresent()) {
-            logger.warn("Failed to encode `{}`: {}", initialData, initial.error().get().message());
+            logger.error("Failed to encode `{}`: {}", initialData, initial.error().get().message());
             initialJson = JsonNull.INSTANCE;
         } else {
             initialJson = initial.getOrThrow();
         }
-        var provider = screenEntryProvider().open(context, initialJson, json -> {
+        var provider = screenEntryProvider().openChecked(context, initialJson, json -> {
             var decoded = entryCreationInfo.codec().parse(context.ops(), json);
             if (decoded.error().isPresent()) {
-                logger.warn("Failed to decode `{}`: {}", json, decoded.error().get().message());
+                logger.error("Failed to decode `{}`: {}", json, decoded.error().get().message());
             } else {
                 onClose.accept(decoded.getOrThrow());
             }
         }, this.entryCreationInfo());
-        return ScreenEntryProvider.create(provider, parent, entryCreationInfo.componentInfo());
+        return ScreenEntryProvider.create(provider, parent, context, entryCreationInfo.componentInfo());
     }
 }

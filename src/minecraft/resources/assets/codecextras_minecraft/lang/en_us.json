@@ -14,5 +14,15 @@
   "codecextras.config.either.switch": "Switch entry type",
   "codecextras.config.dispatchedmap.icon.disabled": "Pick a type to configure",
   "codecextras.config.datacomponent.keytoggle": "Toggle remove/add",
-  "codecextras.config.datacomponent.keytoggle.removes": "!"
+  "codecextras.config.datacomponent.keytoggle.removes": "!",
+  "codecextras.config.datacomponent.notpersistent": "%s is not a persistent component",
+  "codecextras.config.json.object": "Object",
+  "codecextras.config.json.array": "Array",
+  "codecextras.config.json.string": "String",
+  "codecextras.config.json.number": "Number",
+  "codecextras.config.json.boolean": "Boolean",
+  "codecextras.config.json.raw": "Raw JSON",
+  "codecextras.config.json.type": "Change type",
+  "codecextras.config.issue": "Issues with configuration!",
+  "codecextras.config.issue.message": "Found issues:\n%s\nDo you wish to continue? Data may be lost if you do."
 }

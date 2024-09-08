@@ -206,7 +206,9 @@ dependencies {
     minecraftNeoforgeApi project(':')
 
     testNeoforgeCompileOnly sourceSets.minecraftNeoforge.output
+    testNeoforgeCompileOnly sourceSets.minecraft.output
     testFabricCompileOnly sourceSets.minecraftFabric.output
+    testFabricCompileOnly sourceSets.minecraft.output
     testCommonCompileOnly(project(':')) {
         capabilities {
             requireCapability 'dev.lukebemish:codecextras-minecraft-common'

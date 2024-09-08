@@ -2,8 +2,6 @@ package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
-import java.util.Locale;
-import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -14,7 +12,11 @@ import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
+
+import java.util.Locale;
+import java.util.function.Consumer;
 
 class ColorPickScreen extends Screen {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -24,8 +26,8 @@ class ColorPickScreen extends Screen {
     private final Consumer<Integer> consumer;
     private final boolean hasAlpha;
     int color;
-    private EditBox textField;
-    private ColorPickWidget pick;
+    private @Nullable EditBox textField;
+    private @Nullable ColorPickWidget pick;
 
     protected ColorPickScreen(Screen backgroundScreen, Component component, Consumer<Integer> consumer, boolean hasAlpha) {
         super(component);
@@ -57,10 +59,10 @@ class ColorPickScreen extends Screen {
                 var color = Integer.parseUnsignedInt(string, 16);
                 setColor(color);
             } catch (NumberFormatException e) {
-                LOGGER.warn("Invalid hex number: {}", string, e);
+                LOGGER.error("Invalid hex number: {}", string, e);
             }
         });
-        textField.setFilter(string -> string.matches("[0-9a-fA-F]*"));
+        textField.setFilter(string -> string.matches("^[0-9a-fA-F]{0,"+(hasAlpha ? 8 : 6)+"}$"));
         var button = Button.builder(CommonComponents.GUI_DONE, b -> this.onClose()).width(pick.getWidth() - 80 - 8).build();
         bottomLayout.addChild(textField);
         bottomLayout.addChild(button);

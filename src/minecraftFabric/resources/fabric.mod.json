@@ -10,5 +10,8 @@
   ],
   "depends": {
     "minecraft": ">=${minecraft_version}"
-  }
+  },
+  "mixins": [
+    "codecextras.minecraft.mixin.json"
+  ]
 }

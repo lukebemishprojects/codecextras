@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.EqualSpacingLayout;
@@ -29,13 +30,13 @@ class DispatchedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
 
     private final ConfigScreenEntry<K> keyEntry;
     private final List<String> keys;
-    private final Map<String, ConfigScreenEntry<? extends V>> keyProviders;
+    private final Map<String, Supplier<DataResult<ConfigScreenEntry<? extends V>>>> keyProviders;
     private final List<Pair<Optional<String>, JsonElement>> values = new ArrayList<>();
     private final JsonObject jsonValue = new JsonObject();
     private final Consumer<JsonElement> update;
     private final EntryCreationContext context;
 
-    public DispatchedMapScreenEntryProvider(ConfigScreenEntry<K> keyEntry, JsonElement jsonValue, Consumer<JsonElement> update, EntryCreationContext context, Map<K, DataResult<ConfigScreenEntry<? extends V>>> entries) {
+    public DispatchedMapScreenEntryProvider(ConfigScreenEntry<K> keyEntry, JsonElement jsonValue, Consumer<JsonElement> update, EntryCreationContext context, Map<K, Supplier<DataResult<ConfigScreenEntry<? extends V>>>> entries) {
         this.keyEntry = keyEntry;
         if (jsonValue.isJsonObject()) {
             jsonValue.getAsJsonObject().entrySet().stream()
@@ -44,7 +45,7 @@ class DispatchedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
             updateValue();
         } else {
             if (!jsonValue.isJsonNull()) {
-                LOGGER.warn("Value {} was not a JSON array", jsonValue);
+                LOGGER.error("Value {} was not a JSON array", jsonValue);
             }
         }
         this.update = update;
@@ -52,24 +53,21 @@ class DispatchedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
         this.keys = new ArrayList<>();
         this.keyProviders = new HashMap<>();
         for (var entry : entries.entrySet()) {
-            if (entry.getValue().isError()) {
-                LOGGER.warn("Failed to create screen entry for key {}: {}", entry.getKey(), entry.getValue().error().orElseThrow().message());
-            }
             var keyResult = keyEntry.entryCreationInfo().codec().encodeStart(context.ops(), entry.getKey());
             if (keyResult.isError()) {
-                LOGGER.warn("Failed to encode key {}", entry.getKey());
+                LOGGER.error("Failed to encode key {}", entry.getKey());
                 continue;
             }
             JsonElement keyElement = keyResult.getOrThrow();
             if (!keyElement.isJsonPrimitive()) {
-                LOGGER.warn("Key {} was not a JSON primitive", keyElement);
+                LOGGER.error("Key {} was not a JSON primitive", keyElement);
                 continue;
             } else if (!keyElement.getAsJsonPrimitive().isString()) {
-                LOGGER.warn("Key {} was not a JSON string", keyElement);
+                LOGGER.error("Key {} was not a JSON string", keyElement);
                 continue;
             }
             String keyAsString = keyElement.getAsString();
-            keyProviders.put(keyAsString, entry.getValue().getOrThrow());
+            keyProviders.put(keyAsString, entry.getValue());
             this.keys.add(keyAsString);
         }
         this.keys.sort(Comparator.naturalOrder());
@@ -89,7 +87,7 @@ class DispatchedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
     }
 
     @Override
-    public void onExit() {
+    public void onExit(EntryCreationContext context) {
         this.update.accept(jsonValue);
     }
 
@@ -129,7 +127,12 @@ class DispatchedMapScreenEntryProvider<K, V> implements ScreenEntryProvider {
             layout.addChild(keyLayout, LayoutSettings.defaults().alignVerticallyMiddle());
             var valueEntry = keyValue.map(keyProviders::get).orElse(null);
             if (valueEntry != null) {
-                addValueEntry(parent, layout, valueEntry, keyAndValueWidth, index);
+                var valueScreenEntry = valueEntry.get();
+                if (valueScreenEntry.isError()) {
+                    LOGGER.error("Failed to create screen entry for key {}: {}", keyValue.orElseThrow(), valueScreenEntry.error().orElseThrow().message());
+                } else {
+                    addValueEntry(parent, layout, valueScreenEntry.getOrThrow(), keyAndValueWidth, index);
+                }
             } else {
                 var disabled = Button.builder(Component.translatable("codecextras.config.dispatchedmap.icon.disabled"), b -> {}).width(keyAndValueWidth).build();
                 disabled.active = false;
