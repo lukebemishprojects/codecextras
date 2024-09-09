@@ -143,29 +143,37 @@ public interface Structure<A> {
     /**
      * Like codecs, the type a structure represents can be changed without changing the actual underlying data structure,
      * by providing conversion functions to and from the new type.
-     * @param deserializer converts the old type to the new type, if possible
-     * @param serializer converts the new type to the old type, if possible
+     * @param to converts the old type to the new type, if possible
+     * @param from converts the new type to the old type, if possible
      * @return a new structure representing the new type
      * @param <B> the new type to represent
      */
-    default <B> Structure<B> flatXmap(Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    default <B> Structure<B> flatXmap(Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         return annotatedDelegatingStructure(outer -> new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, B>> interpret(Interpreter<Mu> interpreter) {
-                return outer.interpret(interpreter).flatMap(app -> interpreter.flatXmap(app, deserializer, serializer));
+                return outer.interpret(interpreter).flatMap(app -> interpreter.flatXmap(app, to, from));
             }
         }, this, this.annotations());
     }
 
     /**
      * Similar to {@link #flatXmap(Function, Function)} (Function, Function)}, except that the conversion functions are not allowed to fail.
-     * @param deserializer converts the old type to the new type
-     * @param serializer converts the new type to the old type
+     * @param to converts the old type to the new type
+     * @param from converts the new type to the old type
      * @return a new structure representing the new type
      * @param <B> the new type to represent
      */
-    default <B> Structure<B> xmap(Function<A, B> deserializer, Function<B, A> serializer) {
-        return flatXmap(a -> DataResult.success(deserializer.apply(a)), b -> DataResult.success(serializer.apply(b)));
+    default <B> Structure<B> xmap(Function<A, B> to, Function<B, A> from) {
+        return flatXmap(a -> DataResult.success(to.apply(a)), b -> DataResult.success(from.apply(b)));
+    }
+
+    default <B> Structure<B> comapFlatMap(Function<A, DataResult<B>> to, Function<B, A> from) {
+        return flatXmap(to, b -> DataResult.success(from.apply(b)));
+    }
+
+    default <B> Structure<B> flatComapMap(Function<A, B> to, Function<B, DataResult<A>> from) {
+        return flatXmap(a -> DataResult.success(to.apply(a)), from);
     }
 
     default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
@@ -265,13 +273,14 @@ public interface Structure<A> {
      * @param keys the set of specific representations to match against
      * @return a new structure
      * @param <A> the type of data the structure represents
-     * @see Interpreter#key()
+     * @see Interpreter#keyConsumers()
      */
     static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
+                return interpreter.keyConsumers().flatMap(c -> convertedAppFromKeys(keys, c).stream())
+                    .findFirst()
                     .map(DataResult::success)
                     .orElseGet(() -> interpreter.keyed(key));
             }
@@ -283,7 +292,8 @@ public interface Structure<A> {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                var result = interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
+                var result = interpreter.keyConsumers().flatMap(c -> convertedAppFromKeys(keys, c).stream())
+                    .findFirst()
                     .map(DataResult::success)
                     .orElseGet(() -> interpreter.keyed(key));
                 if (result.error().isPresent()) {
@@ -324,8 +334,8 @@ public interface Structure<A> {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
-                    .map(DataResult::success)
+                return interpreter.keyConsumers().flatMap(c -> convertedAppFromKeys(keys, c).stream())
+                    .findFirst().map(DataResult::success)
                     .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
                         interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
                     ));
@@ -333,11 +343,19 @@ public interface Structure<A> {
         };
     }
 
+    private static <A, Mu extends K1, MuK extends K1> Optional<App<Mu, A>> convertedAppFromKeys(Keys<Flip.Mu<A>, K1> keys, Interpreter.KeyConsumer<MuK, Mu> c) {
+        return keys.get(c.key())
+            .map(Flip::unbox)
+            .map(Flip::value)
+            .map(c::convert);
+    }
+
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Flip.Mu<A>, K1> keys, Structure<A> fallback) {
         return new Structure<>() {
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                var result = interpreter.key().flatMap(k -> keys.get(k).<Flip<Mu, A>>map(Flip::unbox).map(Flip::value))
+                var result = interpreter.keyConsumers().flatMap(c -> convertedAppFromKeys(keys, c).stream())
+                    .findFirst()
                     .map(DataResult::success)
                     .orElseGet(() -> interpreter.parametricallyKeyed(key, parameter).flatMap(app ->
                         interpreter.flatXmap(app, a -> DataResult.success(unboxer.apply(a)), DataResult::success)
@@ -427,6 +445,17 @@ public interface Structure<A> {
         Keys.<Flip.Mu<Dynamic<?>>, K1>builder()
             .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(Codec.PASSTHROUGH)))
             .build()
+    );
+
+    Structure<Unit> EMPTY_MAP = keyed(
+        Interpreter.EMPTY_MAP,
+        unboundedMap(STRING, PASSTHROUGH)
+            .comapFlatMap(map -> map.isEmpty() ? DataResult.success(Unit.INSTANCE) : DataResult.error(() -> "Expected an empty map"), u -> Map.of())
+    );
+    Structure<Unit> EMPTY_LIST = keyed(
+        Interpreter.EMPTY_LIST,
+        PASSTHROUGH.listOf()
+            .comapFlatMap(list -> list.isEmpty() ? DataResult.success(Unit.INSTANCE) : DataResult.error(() -> "Expected an empty list"), u -> List.of())
     );
 
     /**

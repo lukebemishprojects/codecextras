@@ -24,10 +24,10 @@ import dev.lukebemish.codecextras.types.Identity;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu, JsonSchemaInterpreter> {
@@ -151,7 +151,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
-    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         return DataResult.success(new Holder<>(schemaValue(input), definitions(input)));
     }
 
@@ -322,8 +322,20 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public static final Key<Holder.Mu> KEY = Key.create("JsonSchemaInterpreter");
 
     @Override
-    public Optional<Key<Holder.Mu>> key() {
-        return Optional.of(KEY);
+    public Stream<KeyConsumer<?, Holder.Mu>> keyConsumers() {
+        return Stream.of(
+            new KeyConsumer<Holder.Mu, Holder.Mu>() {
+                @Override
+                public Key<Holder.Mu> key() {
+                    return KEY;
+                }
+
+                @Override
+                public <T> App<Holder.Mu, T> convert(App<Holder.Mu, T> input) {
+                    return input;
+                }
+            }
+        );
     }
 
     public record Holder<T>(JsonObject jsonObject, Map<String, Structure<?>> definition) implements App<Holder.Mu, T> {

@@ -98,5 +98,10 @@ public final class Keys<Mu extends K1, L> {
         public Keys<Mu, L> build() {
             return new Keys<>(new IdentityHashMap<>(keys));
         }
+
+        public Builder<Mu, L> join(Keys<Mu, L> other) {
+            keys.putAll(other.keys);
+            return this;
+        }
     }
 }

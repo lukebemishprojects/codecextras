@@ -1,6 +1,7 @@
 package dev.lukebemish.codecextras.minecraft.structured;
 
 import com.mojang.datafixers.kinds.K1;
+import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.stream.structured.StreamCodecInterpreter;
@@ -10,11 +11,14 @@ import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
+import io.netty.handler.codec.DecoderException;
+import io.netty.handler.codec.EncoderException;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryCodecs;
@@ -24,10 +28,15 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.TypedDataComponent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
 
 public final class MinecraftStructures {
@@ -38,6 +47,7 @@ public final class MinecraftStructures {
         MinecraftKeys.RESOURCE_LOCATION,
         Keys.<Flip.Mu<ResourceLocation>, K1>builder()
                     .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ResourceLocation.CODEC)))
+                    .add(StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ResourceLocation.STREAM_CODEC.cast())))
                     .build(),
         Structure.STRING.flatXmap(ResourceLocation::read, rl -> DataResult.success(rl.toString()))
     );
@@ -143,6 +153,61 @@ public final class MinecraftStructures {
             })))
     );
 
+    @SuppressWarnings("deprecation")
+    public static final Structure<Holder<Item>> ITEM_NON_AIR = Structure.keyed(
+        MinecraftKeys.ITEM_NON_AIR,
+        Keys.<Flip.Mu<Holder<Item>>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.ITEM_NON_AIR_CODEC)))
+            .build(),
+        registryOrderedHolder(BuiltInRegistries.ITEM)
+            .validate(holder -> holder.is(Items.AIR.builtInRegistryHolder()) ? DataResult.error(() -> "Item must not be minecraft:air") : DataResult.success(holder))
+    );
+
+    public static final Structure<ItemStack> NON_EMPTY_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.NON_EMPTY_ITEM_STACK,
+        Keys.<Flip.Mu<ItemStack>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.CODEC)))
+            .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ItemStack.STREAM_CODEC)))
+            .build(),
+        Structure.record(builder -> {
+            var item = builder.add("id", ITEM_NON_AIR, ItemStack::getItemHolder);
+            var count = builder.addOptional("count", Structure.intInRange(1, 99), ItemStack::getCount, () -> 1);
+            var patch = builder.addOptional("components", DATA_COMPONENT_PATCH, ItemStack::getComponentsPatch, () -> DataComponentPatch.EMPTY);
+            return container -> new ItemStack(
+                item.apply(container),
+                count.apply(container),
+                patch.apply(container)
+            );
+        })
+    ));
+
+    public static final Structure<ItemStack> OPTIONAL_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.OPTIONAL_ITEM_STACK,
+        Keys.<Flip.Mu<ItemStack>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.OPTIONAL_CODEC)))
+            .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ItemStack.OPTIONAL_STREAM_CODEC)))
+            .build(),
+        Structure.either(Structure.EMPTY_MAP, NON_EMPTY_ITEM_STACK)
+            .xmap(e -> e.map(u -> ItemStack.EMPTY, Function.identity()), itemStack -> itemStack.isEmpty() ? Either.left(Unit.INSTANCE) : Either.right(itemStack))
+    ));
+
+    public static final Structure<ItemStack> STRICT_NON_EMPTY_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.STRICT_NON_EMPTY_ITEM_STACK,
+        Keys.<Flip.Mu<ItemStack>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.STRICT_CODEC)))
+            .build(),
+        NON_EMPTY_ITEM_STACK.validate(MinecraftStructures::validateItemStackStrict)
+    ));
+
+    private static DataResult<ItemStack> validateItemStackStrict(ItemStack itemStack) {
+        return ItemStack.validateComponents(itemStack.getComponents())
+            .flatMap(
+                u -> itemStack.getCount() > itemStack.getMaxStackSize() ?
+                    DataResult.error(() -> "Item stack with stack size of " + itemStack.getCount() + " was larger than maximum: " + itemStack.getMaxStackSize()) :
+                    DataResult.success(itemStack)
+            );
+    }
+
     public static <T> Structure<ResourceKey<T>> resourceKey(ResourceKey<? extends Registry<T>> registry) {
         return Structure.parametricallyKeyed(
                 MinecraftKeys.RESOURCE_KEY,
@@ -155,8 +220,68 @@ public final class MinecraftStructures {
                                         ResourceKey.codec(registry).xmap(MinecraftKeys.ResourceKeyHolder::new, MinecraftKeys.ResourceKeyHolder::value)
                                 ))
                         )
-                        .build()
+                        .add(
+                            StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY,
+                            new Flip<>(new StreamCodecInterpreter.Holder<>(
+                                ResourceKey.streamCodec(registry).map(MinecraftKeys.ResourceKeyHolder::new, MinecraftKeys.ResourceKeyHolder::value).cast()
+                            ))
+                        )
+                        .build(),
+            RESOURCE_LOCATION.xmap(resourceLocation -> ResourceKey.create(registry, resourceLocation), ResourceKey::location)
+                        .xmap(MinecraftKeys.ResourceKeyHolder::new, MinecraftKeys.ResourceKeyHolder::value)
         ).xmap(MinecraftKeys.ResourceKeyHolder::value, MinecraftKeys.ResourceKeyHolder::new);
+    }
+
+    public static <T> Structure<Holder<T>> registryOrderedHolder(Registry<T> registry) {
+        return Structure.parametricallyKeyed(
+            MinecraftKeys.ORDERED_HOLDER,
+            new MinecraftKeys.RegistryHolder<>(registry),
+            MinecraftKeys.HolderHolder::unbox,
+            Keys.<Flip.Mu<MinecraftKeys.HolderHolder<T>>, K1>builder()
+                .add(
+                    CodecInterpreter.KEY,
+                    new Flip<>(new CodecInterpreter.Holder<>(
+                        registry.holderByNameCodec().xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
+                    ))
+                )
+                .add(
+                    StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY,
+                    new Flip<>(new StreamCodecInterpreter.Holder<>(
+                        ByteBufCodecs.holderRegistry(registry.key()).map(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
+                    ))
+                )
+                .build()
+        ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
+    }
+
+    public static <T> Structure<Holder<T>> registryUnorderedHolder(Registry<T> registry) {
+        return Structure.parametricallyKeyed(
+            MinecraftKeys.UNORDERED_HOLDER,
+            new MinecraftKeys.RegistryHolder<>(registry),
+            MinecraftKeys.HolderHolder::unbox,
+            Keys.<Flip.Mu<MinecraftKeys.HolderHolder<T>>, K1>builder()
+                .add(
+                    CodecInterpreter.KEY,
+                    new Flip<>(new CodecInterpreter.Holder<>(
+                        registry.holderByNameCodec().xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
+                    ))
+                )
+                .add(
+                    StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY,
+                    new Flip<>(new StreamCodecInterpreter.Holder<>(
+                        ResourceLocation.STREAM_CODEC.<Holder<T>>map(
+                            rl -> registry.getHolder(rl).orElseThrow(() -> new DecoderException("Unknown registry entry: " + rl)),
+                            holder -> {
+                                if (holder instanceof Holder.Reference<T> reference) {
+                                    return reference.key().location();
+                                }
+                                throw new EncoderException("Unknown registry entry: " + holder);
+                            }
+                        ).<FriendlyByteBuf>cast().map(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
+                    ))
+                )
+                .build()
+        ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
     }
 
     public static <T> Structure<HolderSet<T>> homogenousList(ResourceKey<? extends Registry<T>> registry) {
@@ -187,7 +312,11 @@ public final class MinecraftStructures {
                                         (hashPrefix ? TagKey.hashedCodec(registry) : TagKey.codec(registry)).xmap(MinecraftKeys.TagKeyHolder::new, MinecraftKeys.TagKeyHolder::value)
                                 ))
                         )
-                        .build()
+                        .build(),
+            (hashPrefix ?
+                    Structure.STRING.comapFlatMap(string -> string.startsWith("#") ? ResourceLocation.read(string.substring(1)).map(resourceLocation -> TagKey.create(registry, resourceLocation)) : DataResult.<TagKey<T>>error(() -> "Not a tag id"), tagKey -> "#" + tagKey.location()) :
+                    RESOURCE_LOCATION.xmap(resourceLocation -> TagKey.create(registry, resourceLocation), TagKey::location))
+                        .xmap(MinecraftKeys.TagKeyHolder::new, MinecraftKeys.TagKeyHolder::value)
         ).xmap(MinecraftKeys.TagKeyHolder::value, MinecraftKeys.TagKeyHolder::new);
     }
 

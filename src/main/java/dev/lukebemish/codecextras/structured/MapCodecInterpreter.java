@@ -11,11 +11,11 @@ import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu, MapCodecInterpreter> {
     public MapCodecInterpreter(
@@ -52,9 +52,9 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     }
 
     @Override
-    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         var mapCodec = unbox(input);
-        return DataResult.success(new Holder<>(mapCodec.flatXmap(deserializer, serializer)));
+        return DataResult.success(new Holder<>(mapCodec.flatXmap(to, from)));
     }
 
     @Override
@@ -133,7 +133,19 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     public static final Key<Holder.Mu> KEY = Key.create("MapCodecInterpreter");
 
     @Override
-    public Optional<Key<Holder.Mu>> key() {
-        return Optional.of(KEY);
+    public Stream<KeyConsumer<?, Holder.Mu>> keyConsumers() {
+        return Stream.of(
+            new KeyConsumer<Holder.Mu, Holder.Mu>() {
+                @Override
+                public Key<Holder.Mu> key() {
+                    return KEY;
+                }
+
+                @Override
+                public <T> App<Holder.Mu, T> convert(App<Holder.Mu, T> input) {
+                    return input;
+                }
+            }
+        );
     }
 }

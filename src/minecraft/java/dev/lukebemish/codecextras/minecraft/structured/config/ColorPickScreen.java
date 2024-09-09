@@ -2,6 +2,8 @@ package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
+import java.util.Locale;
+import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -14,9 +16,6 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
-
-import java.util.Locale;
-import java.util.function.Consumer;
 
 class ColorPickScreen extends Screen {
     private static final Logger LOGGER = LogUtils.getLogger();

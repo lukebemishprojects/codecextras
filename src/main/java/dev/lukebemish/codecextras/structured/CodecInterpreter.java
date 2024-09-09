@@ -14,11 +14,11 @@ import dev.lukebemish.codecextras.comments.CommentFirstListCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu, CodecInterpreter> {
     public CodecInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
@@ -87,9 +87,9 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    public <A, B> DataResult<App<Holder.Mu, B>> flatXmap(App<Holder.Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         var codec = Holder.unbox(input).codec();
-        return DataResult.success(new Holder<>(codec.flatXmap(deserializer, serializer)));
+        return DataResult.success(new Holder<>(codec.flatXmap(to, from)));
     }
 
     @Override
@@ -153,8 +153,31 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     public static final Key<Holder.Mu> KEY = Key.create("CodecInterpreter");
 
     @Override
-    public Optional<Key<Holder.Mu>> key() {
-        return Optional.of(KEY);
+    public Stream<KeyConsumer<?, Holder.Mu>> keyConsumers() {
+        return Stream.of(
+            new KeyConsumer<Holder.Mu, Holder.Mu>() {
+                @Override
+                public Key<Holder.Mu> key() {
+                    return KEY;
+                }
+
+                @Override
+                public <T> App<Holder.Mu, T> convert(App<Holder.Mu, T> input) {
+                    return input;
+                }
+            },
+            new KeyConsumer<MapCodecInterpreter.Holder.Mu, Holder.Mu>() {
+                @Override
+                public Key<MapCodecInterpreter.Holder.Mu> key() {
+                    return MapCodecInterpreter.KEY;
+                }
+
+                @Override
+                public <T> App<Holder.Mu, T> convert(App<MapCodecInterpreter.Holder.Mu, T> input) {
+                    return new Holder<>(MapCodecInterpreter.unbox(input).codec());
+                }
+            }
+        );
     }
 
     public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {

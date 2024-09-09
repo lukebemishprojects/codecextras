@@ -2,6 +2,7 @@ package dev.lukebemish.codecextras.stream.structured;
 
 import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.App2;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
@@ -31,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.VarInt;
@@ -40,9 +42,11 @@ import org.jspecify.annotations.Nullable;
 
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>, StreamCodecInterpreter<B>> {
     private final Key<Holder.Mu<B>> key;
+    private final List<KeyConsumer<?, Holder.Mu<B>>> parentConsumers;
+    private final List<StreamCodecInterpreter<? super B>> parents;
 
-    public StreamCodecInterpreter(Key<Holder.Mu<B>> key, Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
-        super(keys.join(Keys.<Holder.Mu<B>, Object>builder()
+    public StreamCodecInterpreter(Key<Holder.Mu<B>> key, List<StreamCodecInterpreter<? super B>> parents, Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
+        super(Keys.<Holder.Mu<B>, Object>builder()
             .add(Interpreter.UNIT, new Holder<>(StreamCodec.of((buf, data) -> {}, buf -> Unit.INSTANCE)))
             .add(Interpreter.BOOL, new Holder<>(ByteBufCodecs.BOOL.cast()))
             .add(Interpreter.BYTE, new Holder<>(ByteBufCodecs.BYTE.cast()))
@@ -52,8 +56,8 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
             .add(Interpreter.FLOAT, new Holder<>(ByteBufCodecs.FLOAT.cast()))
             .add(Interpreter.DOUBLE, new Holder<>(ByteBufCodecs.DOUBLE.cast()))
             .add(Interpreter.STRING, new Holder<>(ByteBufCodecs.STRING_UTF8.cast()))
-            .build()
-        ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder()
+            .build().join(buildCombinedKeys(parents)).join(keys),
+            Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder()
             .add(Interpreter.INT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.VAR_INT.cast()))
             .add(Interpreter.BYTE_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.BYTE.cast()))
             .add(Interpreter.SHORT_IN_RANGE, numberRangeCodecParameter(ByteBufCodecs.SHORT.cast()))
@@ -104,9 +108,74 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                     });
                 }
             })
-            .build()
-        ));
+            .build().join(buildCombinedParametricKeys(parents)).join(parametricKeys)
+        );
+        this.parents = parents;
+        this.parentConsumers = new ArrayList<>();
+        for (var parent : parents) {
+            parent.parentConsumers.forEach(c -> addKeyConsumer(this.parentConsumers, c));
+        }
         this.key = key;
+    }
+
+    private static <B extends ByteBuf> Keys<Holder.Mu<B>, Object> buildCombinedKeys(List<StreamCodecInterpreter<? super B>> parents) {
+        var builder = Keys.<Holder.Mu<B>, Object>builder();
+        for (var parent : parents) {
+            addConvertedKeysFromParent(builder, parent);
+        }
+        return builder.build();
+    }
+
+    private static <B extends ByteBuf> Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> buildCombinedParametricKeys(List<StreamCodecInterpreter<? super B>> parents) {
+        var builder = Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder();
+        for (var parent : parents) {
+            addConvertedParametricKeysFromParent(builder, parent);
+        }
+        return builder.build();
+    }
+
+    private static <P extends ByteBuf, B extends P> void addConvertedParametricKeysFromParent(Keys2.Builder<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> builder, StreamCodecInterpreter<P> parent) {
+        builder.join(parent.parametricKeys().map(new Keys2.Converter<>() {
+            @Override
+            public <X extends K1, Y extends K1> App2<ParametricKeyedValue.Mu<Holder.Mu<B>>, X, Y> convert(App2<ParametricKeyedValue.Mu<Holder.Mu<P>>, X, Y> input) {
+                var value = ParametricKeyedValue.unbox(input);
+                return value.map(new ParametricKeyedValue.Converter<>() {
+                    @Override
+                    public <T, MuO extends K1> App<Holder.Mu<B>, App<MuO, T>> convert(App<Holder.Mu<P>, App<MuO, T>> app) {
+                        return new Holder<>(unbox(app).cast());
+                    }
+                });
+            }
+        }));
+    }
+
+    private static <P extends ByteBuf, B extends P> void addConvertedKeysFromParent(Keys.Builder<Holder.Mu<B>, Object> builder, StreamCodecInterpreter<P> parent) {
+        builder.join(parent.keys().map(new Keys.Converter<>() {
+            @Override
+            public <A> App<Holder.Mu<B>, A> convert(App<Holder.Mu<P>, A> input) {
+                return new Holder<>(unbox(input).cast());
+            }
+        }));
+    }
+
+    private static <P extends ByteBuf, B extends P, MuA extends K1> void addKeyConsumer(List<KeyConsumer<?, Holder.Mu<B>>> keyConsumers, KeyConsumer<MuA, Holder.Mu<P>> original) {
+        keyConsumers.add(new KeyConsumer<MuA, Holder.Mu<B>>() {
+            @Override
+            public Key<MuA> key() {
+                return original.key();
+            }
+
+            @Override
+            public <T> App<Holder.Mu<B>, T> convert(App<MuA, T> input) {
+                var converted = original.convert(input);
+                var stream = unbox(converted);
+                return new StreamCodecInterpreter.Holder<>(stream.cast());
+            }
+        });
+    }
+
+    public StreamCodecInterpreter(Key<Holder.Mu<B>> key, Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
+        this(key, List.of(), keys, parametricKeys);
     }
 
     public static final Key<Holder.Mu<FriendlyByteBuf>> FRIENDLY_BYTE_BUF_KEY = Key.create("StreamCodecInterpreter<FriendlyByteBuf>");
@@ -154,7 +223,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
     @Override
     public StreamCodecInterpreter<B> with(Keys<Holder.Mu<B>, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1> parametricKeys) {
-        return new StreamCodecInterpreter<>(key, keys().join(keys), parametricKeys().join(parametricKeys));
+        return new StreamCodecInterpreter<>(key, parents, keys().join(keys), parametricKeys().join(parametricKeys));
     }
 
     @Override
@@ -190,11 +259,11 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <X, Y> DataResult<App<Holder.Mu<B>, Y>> flatXmap(App<Holder.Mu<B>, X> input, Function<X, DataResult<Y>> deserializer, Function<Y, DataResult<X>> serializer) {
+    public <X, Y> DataResult<App<Holder.Mu<B>, Y>> flatXmap(App<Holder.Mu<B>, X> input, Function<X, DataResult<Y>> to, Function<Y, DataResult<X>> from) {
         var streamCodec = unbox(input);
         return DataResult.success(new Holder<>(streamCodec.map(
-            x -> deserializer.apply(x).getOrThrow(),
-            y -> serializer.apply(y).getOrThrow()
+            x -> to.apply(x).getOrThrow(),
+            y -> from.apply(y).getOrThrow()
         )));
     }
 
@@ -301,8 +370,21 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public Optional<Key<Holder.Mu<B>>> key() {
-        return Optional.of(key);
+    public Stream<KeyConsumer<?, Holder.Mu<B>>> keyConsumers() {
+        return Stream.concat(
+            Stream.of(new KeyConsumer<Holder.Mu<B>, Holder.Mu<B>>() {
+                @Override
+                public Key<Holder.Mu<B>> key() {
+                    return key;
+                }
+
+                @Override
+                public <T> App<Holder.Mu<B>, T> convert(App<Holder.Mu<B>, T> input) {
+                    return input;
+                }
+            }),
+            parentConsumers.stream()
+        );
     }
 
     @Override

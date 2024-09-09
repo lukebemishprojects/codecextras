@@ -7,10 +7,10 @@ import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -28,8 +28,20 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     public static final Key<Identity.Mu> KEY = Key.create("IdentityInterpreter");
 
     @Override
-    public Optional<Key<Identity.Mu>> key() {
-        return Optional.of(KEY);
+    public Stream<KeyConsumer<?, Identity.Mu>> keyConsumers() {
+        return Stream.of(
+            new KeyConsumer<Identity.Mu, Identity.Mu>() {
+                @Override
+                public Key<Identity.Mu> key() {
+                    return KEY;
+                }
+
+                @Override
+                public <T> App<Identity.Mu, T> convert(App<Identity.Mu, T> input) {
+                    return input;
+                }
+            }
+        );
     }
 
     @Override
@@ -72,9 +84,9 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
-    public <A, B> DataResult<App<Identity.Mu, B>> flatXmap(App<Identity.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    public <A, B> DataResult<App<Identity.Mu, B>> flatXmap(App<Identity.Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         var value = Identity.unbox(input).value();
-        return deserializer.apply(value).map(Identity::new);
+        return to.apply(value).map(Identity::new);
     }
 
     @Override

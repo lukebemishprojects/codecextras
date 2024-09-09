@@ -7,6 +7,7 @@ import dev.lukebemish.codecextras.structured.Key2;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentMap;
@@ -15,6 +16,8 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 public final class MinecraftKeys {
     private static final Map<ResourceKey<DataComponentType<?>>, Key<?>> DATA_COMPONENT_TYPE_KEYS = new ConcurrentHashMap<>();
@@ -29,6 +32,11 @@ public final class MinecraftKeys {
     public static final Key<ResourceLocation> RESOURCE_LOCATION = Key.create("resource_location");
     public static final Key<Integer> ARGB_COLOR = Key.create("argb_color");
     public static final Key<Integer> RGB_COLOR = Key.create("rgb_color");
+
+    public static final Key<Holder<Item>> ITEM_NON_AIR = Key.create("item_non_air");
+    public static final Key<ItemStack> OPTIONAL_ITEM_STACK = Key.create("optional_item_stack");
+    public static final Key<ItemStack> NON_EMPTY_ITEM_STACK = Key.create("non_empty_item_stack");
+    public static final Key<ItemStack> STRICT_NON_EMPTY_ITEM_STACK = Key.create("strict_non_empty_item_stack");
 
     public record DataComponentTypeHolder<T>(DataComponentType<T> value) implements App<DataComponentTypeHolder.Mu, T> {
         public static final class Mu implements K1 {
@@ -86,11 +94,41 @@ public final class MinecraftKeys {
         }
     }
 
+    public record RegistryHolder<T>(Registry<T> value) implements App<RegistryHolder.Mu, T> {
+        public static final class Mu implements K1 {
+            private Mu() {
+            }
+        }
+
+        public static <T> RegistryHolder<T> unbox(App<RegistryHolder.Mu, T> box) {
+            return (RegistryHolder<T>) box;
+        }
+    }
+
+    public record HolderHolder<T>(Holder<T> value) implements App<HolderHolder.Mu, T> {
+        public static final class Mu implements K1 {
+            private Mu() {
+            }
+        }
+
+        public static <T> HolderHolder<T> unbox(App<HolderHolder.Mu, T> box) {
+            return (HolderHolder<T>) box;
+        }
+    }
+
     public static final Key<DataComponentPatchKey<?>> DATA_COMPONENT_PATCH_KEY = Key.create("data_component_patch_key");
 
     public record DataComponentPatchKey<T>(DataComponentType<T> type, boolean removes) {}
 
     public static final Key2<RegistryKeyHolder.Mu, ResourceKeyHolder.Mu> RESOURCE_KEY = Key2.create("resource_key");
+    /**
+     * A key for structures handling a {@link Holder}, using an ID when handling non-permanent data.
+     */
+    public static final Key2<RegistryHolder.Mu, HolderHolder.Mu> ORDERED_HOLDER = Key2.create("holder");
+    /**
+     * A key for structures handling a {@link Holder}, which does not use an ID.
+     */
+    public static final Key2<RegistryHolder.Mu, HolderHolder.Mu> UNORDERED_HOLDER = Key2.create("holder");
 
     public static final Key2<RegistryKeyHolder.Mu, TagKeyHolder.Mu> TAG_KEY = Key2.create("tag_key");
 

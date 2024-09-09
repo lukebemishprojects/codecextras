@@ -43,12 +43,12 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -687,8 +687,20 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     public static final Key<ConfigScreenEntry.Mu> KEY = Key.create("ConfigScreenInterpreter");
 
     @Override
-    public Optional<Key<ConfigScreenEntry.Mu>> key() {
-        return Optional.of(KEY);
+    public Stream<KeyConsumer<?, ConfigScreenEntry.Mu>> keyConsumers() {
+        return Stream.of(
+            new KeyConsumer<ConfigScreenEntry.Mu, ConfigScreenEntry.Mu>() {
+                @Override
+                public Key<ConfigScreenEntry.Mu> key() {
+                    return KEY;
+                }
+
+                @Override
+                public <T> App<ConfigScreenEntry.Mu, T> convert(App<ConfigScreenEntry.Mu, T> input) {
+                    return input;
+                }
+            }
+        );
     }
 
     @Override
@@ -878,10 +890,10 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     }
 
     @Override
-    public <A, B> DataResult<App<ConfigScreenEntry.Mu, B>> flatXmap(App<ConfigScreenEntry.Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer) {
+    public <A, B> DataResult<App<ConfigScreenEntry.Mu, B>> flatXmap(App<ConfigScreenEntry.Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from) {
         var original = ConfigScreenEntry.unbox(input);
         var codecOriginal = original.entryCreationInfo().codec();
-        var codecMapped = codecInterpreter.flatXmap(new CodecInterpreter.Holder<>(codecOriginal), deserializer, serializer).map(CodecInterpreter::unbox);
+        var codecMapped = codecInterpreter.flatXmap(new CodecInterpreter.Holder<>(codecOriginal), to, from).map(CodecInterpreter::unbox);
         if (codecMapped.error().isPresent()) {
             return DataResult.error(codecMapped.error().get().messageSupplier());
         }

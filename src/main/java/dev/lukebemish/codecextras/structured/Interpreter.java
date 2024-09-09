@@ -11,10 +11,10 @@ import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 public interface Interpreter<Mu extends K1> {
     <A> DataResult<App<Mu, List<A>>> list(App<Mu, A> single);
@@ -23,14 +23,19 @@ public interface Interpreter<Mu extends K1> {
 
     <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
 
-    <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> deserializer, Function<B, DataResult<A>> serializer);
+    <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from);
 
     <A> DataResult<App<Mu, A>> annotate(Structure<A> original, Keys<Identity.Mu, Object> annotations);
 
     <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures);
 
-    default Optional<Key<Mu>> key() {
-        return Optional.empty();
+    default Stream<KeyConsumer<?, Mu>> keyConsumers() {
+        return Stream.of();
+    }
+
+    public interface KeyConsumer<MuK extends K1, MuI extends K1> {
+        Key<MuK> key();
+        <T> App<MuI, T> convert(App<MuK, T> input);
     }
 
     default <A> DataResult<App<Mu,A>> bounded(App<Mu, A> input, Supplier<Set<A>> values) {
@@ -55,6 +60,8 @@ public interface Interpreter<Mu extends K1> {
     Key<Double> DOUBLE = Key.create("DOUBLE");
     Key<String> STRING = Key.create("STRING");
     Key<Dynamic<?>> PASSTHROUGH = Key.create("PASSTHROUGH");
+    Key<Unit> EMPTY_MAP = Key.create("EMPTY_MAP");
+    Key<Unit> EMPTY_LIST = Key.create("EMPTY_LIST");
 
     <MuO extends K1, MuP extends K1, T> DataResult<App<Mu, App<MuO, T>>> parametricallyKeyed(Key2<MuP,MuO> key, App<MuP, T> parameter);
 
