@@ -10,12 +10,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Range;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -26,12 +20,18 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.EqualSpacingLayout;
 import net.minecraft.client.gui.layouts.FrameLayout;
-import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public final class Widgets {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -142,10 +142,10 @@ public final class Widgets {
             var layout = new EqualSpacingLayout(fullWidth, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
             var object = new Object() {
                 private JsonElement value = original;
-                private final LayoutElement wrapped = assumesNonOptional.create(parent, remainingWidth, context, original, json -> {
+                private final VisibilityWrapperElement wrapped = VisibilityWrapperElement.ofDirect(assumesNonOptional.create(parent, remainingWidth, context, original, json -> {
                     this.value = json;
                     update.accept(json);
-                }, creationInfo, false);
+                }, creationInfo, false));
                 private final Button disabled = Button.builder(Component.translatable("codecextras.config.missing"), b -> {})
                     .width(remainingWidth)
                     .build();
@@ -156,19 +156,15 @@ public final class Widgets {
                         missing = !b;
                         if (missing) {
                             update.accept(JsonNull.INSTANCE);
-                            wrapped.visitWidgets(w -> {
-                                w.visible = false;
-                                w.active = false;
-                            });
+                            wrapped.setVisible(false);
+                            wrapped.setActive(false);
                             var maxHeight = Math.max(disabled.getHeight(), wrapped.getHeight());
                             disabled.setHeight(maxHeight);
                             disabled.visible = true;
                         } else {
                             update.accept(value);
-                            wrapped.visitWidgets(w -> {
-                                w.visible = true;
-                                w.active = true;
-                            });
+                            wrapped.setVisible(true);
+                            wrapped.setActive(true);
                             var maxHeight = Math.max(disabled.getHeight(), wrapped.getHeight());
                             disabled.setHeight(maxHeight);
                             disabled.visible = false;
@@ -182,10 +178,8 @@ public final class Widgets {
                     disabled.setHeight(maxHeight);
                     disabled.active = false;
                     disabled.visible = missing;
-                    wrapped.visitWidgets(w -> {
-                        w.visible = !missing;
-                        w.active = !missing;
-                    });
+                    wrapped.setVisible(!missing);
+                    wrapped.setActive(!missing);
 
                     creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
                         var tooltip = Tooltip.create(description);
@@ -203,7 +197,7 @@ public final class Widgets {
             right.addChild(object.disabled, LayoutSettings.defaults().alignVerticallyMiddle().alignHorizontallyCenter());
             right.addChild(object.wrapped, LayoutSettings.defaults().alignVerticallyMiddle().alignHorizontallyCenter());
             layout.addChild(right, LayoutSettings.defaults().alignVerticallyMiddle());
-            return layout;
+            return VisibilityWrapperElement.ofDirect(layout);
         };
     }
 
@@ -353,8 +347,8 @@ public final class Widgets {
             }
             Codec<L> leftCodec = creationInfo.codec().comapFlatMap(e -> e.left().map(DataResult::success).orElse(DataResult.error(() -> "Expected left value")), Either::left);
             Codec<R> rightCodec = creationInfo.codec().comapFlatMap(e -> e.right().map(DataResult::success).orElse(DataResult.error(() -> "Expected right value")), Either::right);
-            var leftElement = left.create(parent, remainingWidth, context, isLeft[0] ? original : JsonNull.INSTANCE, update, creationInfo.withCodec(leftCodec), false);
-            var rightElement = right.create(parent, remainingWidth, context, isLeft[0] ? JsonNull.INSTANCE : original, update, creationInfo.withCodec(rightCodec), false);
+            var leftElement = VisibilityWrapperElement.ofDirect(left.create(parent, remainingWidth, context, isLeft[0] ? original : JsonNull.INSTANCE, update, creationInfo.withCodec(leftCodec), false));
+            var rightElement = VisibilityWrapperElement.ofDirect(right.create(parent, remainingWidth, context, isLeft[0] ? JsonNull.INSTANCE : original, update, creationInfo.withCodec(rightCodec), false));
             var missingElement = handleOptional ? Button.builder(Component.translatable("codecextras.config.missing"), b -> {}).width(remainingWidth).build() : null;
             if (handleOptional) {
                 missingElement.active = false;
@@ -365,38 +359,26 @@ public final class Widgets {
             frame.addChild(rightElement);
             Runnable updateVisibility = () -> {
                 if (isMissing[0]) {
-                    rightElement.visitWidgets(w -> {
-                        w.visible = false;
-                        w.active = false;
-                    });
-                    leftElement.visitWidgets(w -> {
-                        w.visible = false;
-                        w.active = false;
-                    });
+                    rightElement.setVisible(false);
+                    rightElement.setActive(false);
+                    leftElement.setVisible(false);
+                    leftElement.setActive(false);
                     if (handleOptional) {
                         missingElement.visible = true;
                     }
                 } else if (isLeft[0]) {
-                    rightElement.visitWidgets(w -> {
-                        w.visible = false;
-                        w.active = false;
-                    });
-                    leftElement.visitWidgets(w -> {
-                        w.visible = true;
-                        w.active = true;
-                    });
+                    rightElement.setVisible(false);
+                    rightElement.setActive(false);
+                    leftElement.setVisible(true);
+                    leftElement.setActive(true);
                     if (handleOptional) {
                         missingElement.visible = false;
                     }
                 } else {
-                    leftElement.visitWidgets(w -> {
-                        w.visible = false;
-                        w.active = false;
-                    });
-                    rightElement.visitWidgets(w -> {
-                        w.visible = true;
-                        w.active = true;
-                    });
+                    leftElement.setVisible(false);
+                    leftElement.setActive(false);
+                    rightElement.setVisible(true);
+                    rightElement.setActive(true);
                     if (handleOptional) {
                         missingElement.visible = false;
                     }
@@ -422,11 +404,15 @@ public final class Widgets {
             }).width(Button.DEFAULT_HEIGHT).tooltip(Tooltip.create(Component.translatable("codecextras.config.either.switch"))).build();
             layout.addChild(switchButton, LayoutSettings.defaults().alignVerticallyMiddle());
             layout.addChild(frame, LayoutSettings.defaults().alignVerticallyMiddle());
-            return layout;
+            return VisibilityWrapperElement.ofDirect(layout);
         };
     }
 
     public static <T> LayoutFactory<T> unit() {
+        return unit(Component.translatable("codecextras.config.unit"));
+    }
+
+    public static <T> LayoutFactory<T> unit(Component text) {
         return (parent, width, context, original, update, creationInfo, handleOptional) -> {
             if (original.isJsonNull()) {
                 original = new JsonObject();
@@ -449,14 +435,14 @@ public final class Widgets {
                 w.setMessage(creationInfo.componentInfo().title());
                 return w;
             } else {
-                var button = Button.builder(Component.translatable("codecextras.config.unit"), b -> {
+                var button = Button.builder(text, b -> {
                     })
                     .width(width)
                     .build();
                 var tooltip = Tooltip.create(creationInfo.componentInfo().description());
                 button.setTooltip(tooltip);
                 button.active = false;
-                return button;
+                return VisibilityWrapperElement.ofInactive(button);
             }
         };
     }
@@ -491,7 +477,7 @@ public final class Widgets {
                 .width(width)
                 .build();
             button.active = false;
-            return button;
+            return VisibilityWrapperElement.ofInactive(button);
         };
     }
 }

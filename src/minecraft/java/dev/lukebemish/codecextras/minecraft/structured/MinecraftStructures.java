@@ -13,11 +13,6 @@ import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
@@ -38,6 +33,13 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class MinecraftStructures {
     private MinecraftStructures() {
@@ -187,7 +189,10 @@ public final class MinecraftStructures {
             .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.OPTIONAL_CODEC)))
             .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ItemStack.OPTIONAL_STREAM_CODEC)))
             .build(),
-        Structure.either(Structure.EMPTY_MAP, NON_EMPTY_ITEM_STACK)
+        Structure.either(
+            Structure.EMPTY_MAP,
+                NON_EMPTY_ITEM_STACK
+            )
             .xmap(e -> e.map(u -> ItemStack.EMPTY, Function.identity()), itemStack -> itemStack.isEmpty() ? Either.left(Unit.INSTANCE) : Either.right(itemStack))
     ));
 
@@ -250,7 +255,12 @@ public final class MinecraftStructures {
                         ByteBufCodecs.holderRegistry(registry.key()).map(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
                     ))
                 )
-                .build()
+                .build(),
+            resourceKey(registry.key())
+                .bounded(registry::registryKeySet)
+                .flatXmap(key -> registry.getHolder(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
+                    keyForEntry(holder, registry).map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + holder)))
+                .xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
         ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
     }
 
@@ -271,17 +281,26 @@ public final class MinecraftStructures {
                     new Flip<>(new StreamCodecInterpreter.Holder<>(
                         ResourceLocation.STREAM_CODEC.<Holder<T>>map(
                             rl -> registry.getHolder(rl).orElseThrow(() -> new DecoderException("Unknown registry entry: " + rl)),
-                            holder -> {
-                                if (holder instanceof Holder.Reference<T> reference) {
-                                    return reference.key().location();
-                                }
-                                throw new EncoderException("Unknown registry entry: " + holder);
-                            }
+                            holder -> keyForEntry(holder, registry).orElseThrow(() -> new EncoderException("Unknown registry entry: " + holder)).location()
                         ).<FriendlyByteBuf>cast().map(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
                     ))
                 )
-                .build()
+                .build(),
+            resourceKey(registry.key())
+                .bounded(registry::registryKeySet)
+                .flatXmap(key -> registry.getHolder(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
+                    keyForEntry(holder, registry).map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + holder)))
+                .xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
         ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
+    }
+
+    private static <T> Optional<ResourceKey<T>> keyForEntry(Holder<T> entry, Registry<T> registry) {
+        if (entry instanceof Holder.Reference<T> reference) {
+            return Optional.of(reference.key());
+        } else {
+            var value = entry.value();
+            return registry.getResourceKey(value);
+        }
     }
 
     public static <T> Structure<HolderSet<T>> homogenousList(ResourceKey<? extends Registry<T>> registry) {

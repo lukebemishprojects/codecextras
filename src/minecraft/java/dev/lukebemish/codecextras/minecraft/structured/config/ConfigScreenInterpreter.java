@@ -36,6 +36,27 @@ import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.EqualSpacingLayout;
+import net.minecraft.client.gui.layouts.FrameLayout;
+import net.minecraft.client.gui.layouts.LayoutElement;
+import net.minecraft.client.gui.layouts.LayoutSettings;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,23 +70,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.CycleButton;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.layouts.EqualSpacingLayout;
-import net.minecraft.client.gui.layouts.FrameLayout;
-import net.minecraft.client.gui.layouts.LayoutElement;
-import net.minecraft.client.gui.layouts.LayoutSettings;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.component.DataComponentType;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
 
 public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenEntry.Mu, ConfigScreenInterpreter> {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -147,6 +151,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Widgets.unit(),
                     new EntryCreationInfo<>(Codec.unit(Unit.INSTANCE), ComponentInfo.empty())
                 ))
+                .add(Interpreter.EMPTY_LIST, ConfigScreenEntry.single(
+                    Widgets.unit(Component.translatable("codecextras.config.unit.empty")),
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_LIST).getOrThrow(), ComponentInfo.empty())
+                ))
+                .add(Interpreter.EMPTY_MAP, ConfigScreenEntry.single(
+                    Widgets.unit(Component.translatable("codecextras.config.unit.empty")),
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_MAP).getOrThrow(), ComponentInfo.empty())
+                ))
                 .add(Interpreter.STRING, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(Widgets.text(DataResult::success, DataResult::success, false)),
                     new EntryCreationInfo<>(Codec.STRING, ComponentInfo.empty())
@@ -154,6 +166,29 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 .add(Interpreter.PASSTHROUGH, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(ConfigScreenInterpreter::byJson),
                     new EntryCreationInfo<>(Codec.PASSTHROUGH, ComponentInfo.empty())
+                ))
+                .add(MinecraftKeys.ITEM_NON_AIR, ConfigScreenEntry.single(
+                    Widgets.pickWidget(new StringRepresentation<>(
+                        () -> BuiltInRegistries.ITEM.holders().<Holder<Item>>map(Function.identity()).toList(),
+                        holder -> {
+                            if (holder instanceof Holder.Reference<Item> reference) {
+                                return reference.key().location().toString();
+                            } else {
+                                var value = holder.value();
+                                return BuiltInRegistries.ITEM.getKey(value).toString();
+                            }
+                        },
+                        string -> {
+                            var rlResult = ResourceLocation.read(string);
+                            if (rlResult.error().isPresent()) {
+                                return null;
+                            }
+                            var key = rlResult.getOrThrow();
+                            return BuiltInRegistries.ITEM.getHolder(key).orElse(null);
+                        },
+                        false
+                    )),
+                    new EntryCreationInfo<>(ItemStack.ITEM_NON_AIR_CODEC, ComponentInfo.empty())
                 ))
                 .add(MinecraftKeys.RESOURCE_LOCATION, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(Widgets.text(ResourceLocation::read, rl -> DataResult.success(rl.toString()), string -> string.matches("^([a-z0-9._-]+:)?[a-z0-9/._-]*$"), false)),
@@ -919,7 +954,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 .map(title -> entry.withComponentInfo(info -> info.withTitle(title)))
                 .orElse(entry);
             return Annotation
-                .get(annotations, ConfigAnnotations.DESCRIPTOIN)
+                .get(annotations, ConfigAnnotations.DESCRIPTION)
                 .or(() -> Annotation.get(annotations, Annotation.DESCRIPTION).map(Component::literal))
                 .or(() -> Annotation.get(annotations, Annotation.COMMENT).map(Component::literal))
                 .map(description -> withTitle.withComponentInfo(info -> info.withDescription(description)))

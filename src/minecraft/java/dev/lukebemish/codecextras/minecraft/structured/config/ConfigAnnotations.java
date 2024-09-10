@@ -7,5 +7,5 @@ public final class ConfigAnnotations {
     private ConfigAnnotations() {}
 
     public static Key<Component> TITLE = Key.create("title");
-    public static Key<Component> DESCRIPTOIN = Key.create("description");
+    public static Key<Component> DESCRIPTION = Key.create("description");
 }

@@ -24,5 +24,6 @@
   "codecextras.config.json.raw": "Raw JSON",
   "codecextras.config.json.type": "Change type",
   "codecextras.config.issue": "Issues with configuration!",
-  "codecextras.config.issue.message": "Found issues:\n%s\nDo you wish to continue? Data may be lost if you do."
+  "codecextras.config.issue.message": "Found issues:\n%s\nDo you wish to continue? Data may be lost if you do.",
+  "codecextras.config.unit.empty": "Empty"
 }
