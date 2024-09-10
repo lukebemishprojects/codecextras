@@ -13,6 +13,12 @@ import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
@@ -33,13 +39,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class MinecraftStructures {
     private MinecraftStructures() {

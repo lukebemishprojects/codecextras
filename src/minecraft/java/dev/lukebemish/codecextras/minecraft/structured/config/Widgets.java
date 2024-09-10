@@ -10,6 +10,12 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.structured.Range;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -25,13 +31,6 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 public final class Widgets {
     private static final Logger LOGGER = LogUtils.getLogger();
