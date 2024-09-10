@@ -260,7 +260,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
                 types.add(result.result().orElseThrow());
             }
             return input.interpret(this).flatMap(outer -> {
-                var schema = schemaValue(outer);
+                var schema = copy(schemaValue(outer));
                 schema.add("enum", types);
                 return DataResult.success(new Holder<>(schema, definitions(outer)));
             });

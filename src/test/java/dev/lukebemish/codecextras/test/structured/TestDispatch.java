@@ -84,7 +84,8 @@ public class TestDispatch {
                     "dispatches": {
                         "properties": {
                             "type": {
-                                "type": "string"
+                                "type": "string",
+                                "enum":["abc","xyz"]
                             }
                         },
                         "required": [
