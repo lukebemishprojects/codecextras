@@ -22,8 +22,18 @@ pluginManagement {
 }
 
 plugins {
+    id 'org.gradlex.extra-java-module-info' version '1.8' apply false
 	id 'dev.lukebemish.conventions' version '0.1.11'
 	id 'dev.lukebemish.multisource' version '0.1.8'
+}
+
+gradle.beforeProject {
+    it.plugins.apply('org.gradlex.extra-java-module-info')
+    it.extraJavaModuleInfo {
+        failOnMissingModuleInfo.set(false)
+        automaticModule('dev.lukebemish.autoextension:autoextension', 'autoextension')
+        automaticModule('com.mojang:datafixerupper', 'datafixerupper')
+    }
 }
 
 multisource.of(':') {

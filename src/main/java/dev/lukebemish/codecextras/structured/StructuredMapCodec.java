@@ -9,7 +9,6 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
-import dev.lukebemish.codecextras.repair.FillMissingMapCodec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -56,7 +55,7 @@ class StructuredMapCodec<A> extends MapCodec<A> {
     }
 
     private static <A,F> MapCodec<F> makeFieldCodec(Codec<F> fieldCodec, RecordStructure.Field<A,F> field, boolean lenient) {
-        return field.missingBehavior().map(behavior -> FillMissingMapCodec.fieldOf(fieldCodec.optionalFieldOf(field.name()), FillMissingMapCodec.lazyRepair(Optional::<F>empty).fieldOf(field.name()), lenient).xmap(
+        return field.missingBehavior().map(behavior -> (lenient ? fieldCodec.lenientOptionalFieldOf(field.name()) : fieldCodec.optionalFieldOf(field.name())).xmap(
             optional -> optional.orElseGet(behavior.missing()),
             value -> behavior.predicate().test(value) ? Optional.of(value) : Optional.empty()
         )).orElseGet(() -> fieldCodec.fieldOf(field.name()));

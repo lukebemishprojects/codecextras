@@ -9,7 +9,7 @@ public interface AccompaniedOps<T> extends DynamicOps<T> {
     }
 
     static <T> Optional<AccompaniedOps<T>> find(DynamicOps<T> ops) {
-        for (var retriever : DelegatingOps.ALTERNATE_COMPANION_RETRIEVERS) {
+        for (var retriever : DelegatingOps.forOps(ops)) {
             var companion = retriever.locateCompanionDelegate(ops);
             if (companion.isPresent()) {
                 return companion;
