@@ -3,6 +3,7 @@ package dev.lukebemish.codecextras.structured.schema;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
@@ -50,6 +51,17 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             .add(Interpreter.FLOAT, new Holder<>(NUMBER.get()))
             .add(Interpreter.DOUBLE, new Holder<>(NUMBER.get()))
             .add(Interpreter.STRING, new Holder<>(STRING.get()))
+            .add(Interpreter.EMPTY_MAP, new Holder<>(() -> {
+                var json = OBJECT.get();
+                json.add("additionalProperties", new JsonPrimitive(false));
+                return json;
+            }))
+            .add(Interpreter.EMPTY_LIST, new Holder<>(() -> {
+                var json = ARRAY.get();
+                json.add("prefixItems", new JsonArray());
+                json.add("items", new JsonPrimitive(false));
+                return json;
+            }))
             .build()
         ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder()
             .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
@@ -175,6 +187,9 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             definitions = new HashMap<>(definitions(result.result().orElseThrow()));
         }
 
+        Annotation.get(annotations, Annotation.PATTERN).ifPresent(pattern -> {
+            schema.addProperty("pattern", pattern);
+        });
         Annotation.get(annotations, Annotation.DESCRIPTION).or(() -> Annotation.get(annotations, Annotation.COMMENT)).ifPresent(comment -> {
             schema.addProperty("description", comment);
         });
@@ -234,10 +249,37 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
+    public <A> DataResult<App<Holder.Mu, A>> bounded(Structure<A> input, Supplier<Set<A>> values) {
+        return codecInterpreter.interpret(input).flatMap(codec -> {
+            var types = new JsonArray();
+            for (var value : values.get()) {
+                var result = codec.encodeStart(ops, value);
+                if (result.error().isPresent()) {
+                    return DataResult.error(result.error().get().messageSupplier());
+                }
+                types.add(result.result().orElseThrow());
+            }
+            return input.interpret(this).flatMap(outer -> {
+                var schema = schemaValue(outer);
+                schema.add("enum", types);
+                return DataResult.success(new Holder<>(schema, definitions(outer)));
+            });
+        });
+    }
+
+    @Override
     public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> unboundedMap(App<Holder.Mu, K> key, App<Holder.Mu, V> value) {
         var schema = OBJECT.get();
         var definitions = new HashMap<String, Structure<?>>();
-        schema.add("additionalProperties", schemaValue(value));
+        var keyJson = schemaValue(key);
+        if (keyJson.has("pattern") && keyJson.get("pattern").isJsonPrimitive()) {
+            // if the key has a pattern, we use "patternProperties"
+            var patternProperties = new JsonObject();
+            patternProperties.add(keyJson.get("pattern").getAsString(), schemaValue(value));
+            schema.add("patternProperties", patternProperties);
+        } else {
+            schema.add("additionalProperties", schemaValue(value));
+        }
         definitions.putAll(definitions(value));
         definitions.putAll(definitions(key));
         return DataResult.success(new Holder<>(schema, definitions));
@@ -341,6 +383,10 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public record Holder<T>(JsonObject jsonObject, Map<String, Structure<?>> definition) implements App<Holder.Mu, T> {
         public Holder(JsonObject object) {
             this(object, Map.of());
+        }
+
+        public Holder(Supplier<JsonObject> objectCreator) {
+            this(objectCreator.get());
         }
 
         public static final class Mu implements K1 { private Mu() {} }

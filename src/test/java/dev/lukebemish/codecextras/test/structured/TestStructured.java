@@ -7,18 +7,19 @@ import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.schema.JsonSchemaInterpreter;
 import dev.lukebemish.codecextras.test.CodecAssertions;
+import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class TestStructured {
-    private record TestRecord(int a, String b, List<Boolean> c, Optional<String> d, String e) {
+    private record TestRecord(int a, String b, List<Boolean> c, Optional<String> d, Identity<String> e) {
         private static final Structure<TestRecord> STRUCTURE = Structure.record(i -> {
             var a = i.add("a", Structure.INT.annotate(Annotation.COMMENT, "Field A"), TestRecord::a);
             var b = i.add(Structure.STRING.fieldOf("b"), TestRecord::b);
             var c = i.add("c", Structure.BOOL.listOf(), TestRecord::c);
             var d = i.add(Structure.STRING.optionalFieldOf("d"), TestRecord::d);
-            var e = i.addOptional("e", Structure.STRING, TestRecord::e, () -> "default");
+            var e = i.addOptional("e", Structure.STRING.annotate(Annotation.PATTERN, "^[a-z]+$").xmap(Identity::new, Identity::value), TestRecord::e, () -> new Identity<>("default"));
             return container -> new TestRecord(a.apply(container), b.apply(container), c.apply(container), d.apply(container), e.apply(container));
         });
 
@@ -54,13 +55,14 @@ class TestStructured {
                     },
                     "e": {
                         "type": "string",
-                        "default": "default"
+                        "default": "default",
+                        "pattern": "^[a-z]+$"
                     }
                 },
                 "required": ["a", "b", "c"]
             }""";
 
-    private final TestRecord record = new TestRecord(1, "test", List.of(true, false, true), Optional.empty(), "default");
+    private final TestRecord record = new TestRecord(1, "test", List.of(true, false, true), Optional.empty(), new Identity<>("default"));
 
     @Test
     void testDecodingCodec() {

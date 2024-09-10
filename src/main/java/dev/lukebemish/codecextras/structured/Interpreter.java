@@ -38,14 +38,14 @@ public interface Interpreter<Mu extends K1> {
         <T> App<MuI, T> convert(App<MuK, T> input);
     }
 
-    default <A> DataResult<App<Mu,A>> bounded(App<Mu, A> input, Supplier<Set<A>> values) {
-        Function<A, DataResult<A>> verifier = a -> {
+    default <A> DataResult<App<Mu,A>> bounded(Structure<A> input, Supplier<Set<A>> values) {
+        Function<A, DataResult<A>> validator = a -> {
             if (values.get().contains(a)) {
                 return DataResult.success(a);
             }
             return DataResult.error(() -> "Invalid value: " + a);
         };
-        return flatXmap(input, verifier, verifier);
+        return input.interpret(this).flatMap(a -> flatXmap(a, validator, validator));
     }
 
     <K, V> DataResult<App<Mu, Map<K,V>>> unboundedMap(App<Mu, K> key, App<Mu, V> value);

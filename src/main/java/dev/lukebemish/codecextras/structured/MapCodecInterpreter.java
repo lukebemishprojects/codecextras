@@ -5,7 +5,10 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.MapLike;
+import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.KeyDispatchCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
@@ -64,6 +67,32 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
                 MapCodec<A> m = unbox(input);
             };
             mapCodec.m = Annotation.get(annotations, Annotation.COMMENT).map(comment -> CommentMapCodec.of(mapCodec.m, comment)).orElse(mapCodec.m);
+            mapCodec.m = Annotation.get(annotations, Annotation.LENIENT).<MapCodec<A>>map(ignored -> {
+                var outer = mapCodec.m;
+                return new MapCodec<>() {
+                    @Override
+                    public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+                        return outer.encode(input, ops, prefix);
+                    }
+
+                    @Override
+                    public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
+                        var result = outer.decode(ops, input);
+                        if (result.error().isPresent()) {
+                            var fromEmpty = ops.getMap(ops.emptyMap()).flatMap(map -> outer.decode(ops, map));
+                            if (fromEmpty.error().isEmpty()) {
+                                return fromEmpty;
+                            }
+                        }
+                        return result;
+                    }
+
+                    @Override
+                    public <T> Stream<T> keys(DynamicOps<T> ops) {
+                        return outer.keys(ops);
+                    }
+                };
+            }).orElse(mapCodec.m);
             return new Holder<>(mapCodec.m);
         });
     }

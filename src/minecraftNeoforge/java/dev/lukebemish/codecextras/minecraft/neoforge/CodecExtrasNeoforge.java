@@ -14,7 +14,7 @@ import net.neoforged.neoforge.registries.RegistryBuilder;
 public final class CodecExtrasNeoforge {
     private static final Registry<Structure<? extends DataComponentType<?>>> DATA_COMPONENT_STRUCTURE_REGISTRY = new RegistryBuilder<>(CodecExtrasRegistries.DATA_COMPONENT_STRUCTURES).create();
 
-    CodecExtrasNeoforge(IEventBus modBus) {
+    public CodecExtrasNeoforge(IEventBus modBus) {
         modBus.addListener(NewRegistryEvent.class, event -> {
             event.register(DATA_COMPONENT_STRUCTURE_REGISTRY);
         });

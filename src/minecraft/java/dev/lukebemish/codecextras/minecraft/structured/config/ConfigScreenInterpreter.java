@@ -755,38 +755,40 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     }
 
     @Override
-    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> bounded(App<ConfigScreenEntry.Mu, A> input, Supplier<Set<A>> values) {
-        var codec = codecInterpreter.bounded(new CodecInterpreter.Holder<>(ConfigScreenEntry.unbox(input).entryCreationInfo().codec()), values).map(CodecInterpreter::unbox);
-        if (codec.isError()) {
-            return DataResult.error(codec.error().orElseThrow().messageSupplier());
-        }
-        return DataResult.success(ConfigScreenEntry.single(
-            (parent, width, context, original, update, creationInfo, handleOptional) -> {
-                List<A> knownValues = new ArrayList<>();
-                Map<A, String> stringValues = new HashMap<>();
-                Map<String, A> inverse = new HashMap<>();
-                for (var value : values.get()) {
-                    var encoded = codec.getOrThrow().encodeStart(context.ops(), value);
-                    if (encoded.error().isPresent()) {
-                        LOGGER.error("Error encoding value `{}`: {}", value, encoded.error().get());
-                        continue;
+    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> bounded(Structure<A> inputSupplier, Supplier<Set<A>> values) {
+        return interpret(inputSupplier).flatMap(input -> {
+            var codec = codecInterpreter.bounded(inputSupplier, values).map(CodecInterpreter::unbox);
+            if (codec.isError()) {
+                return DataResult.error(codec.error().orElseThrow().messageSupplier());
+            }
+            return DataResult.success(ConfigScreenEntry.single(
+                (parent, width, context, original, update, creationInfo, handleOptional) -> {
+                    List<A> knownValues = new ArrayList<>();
+                    Map<A, String> stringValues = new HashMap<>();
+                    Map<String, A> inverse = new HashMap<>();
+                    for (var value : values.get()) {
+                        var encoded = codec.getOrThrow().encodeStart(context.ops(), value);
+                        if (encoded.error().isPresent()) {
+                            LOGGER.error("Error encoding value `{}`: {}", value, encoded.error().get());
+                            continue;
+                        }
+                        String string;
+                        var result = encoded.getOrThrow();
+                        if (result.isJsonPrimitive()) {
+                            string = result.getAsString();
+                        } else {
+                            string = result.toString();
+                        }
+                        knownValues.add(value);
+                        stringValues.put(value, string);
+                        inverse.put(string, value);
                     }
-                    String string;
-                    var result = encoded.getOrThrow();
-                    if (result.isJsonPrimitive()) {
-                        string = result.getAsString();
-                    } else {
-                        string = result.toString();
-                    }
-                    knownValues.add(value);
-                    stringValues.put(value, string);
-                    inverse.put(string, value);
-                }
-                var wrapped = Widgets.pickWidget(new StringRepresentation<>(() -> knownValues, stringValues::get, inverse::get, false));
-                return wrapped.create(parent, width, context, original, update, creationInfo, handleOptional);
-            },
-            ConfigScreenEntry.unbox(input).entryCreationInfo().withCodec(codec.getOrThrow())
-        ));
+                    var wrapped = Widgets.pickWidget(new StringRepresentation<>(() -> knownValues, stringValues::get, inverse::get, false));
+                    return wrapped.create(parent, width, context, original, update, creationInfo, handleOptional);
+                },
+                ConfigScreenEntry.unbox(input).entryCreationInfo().withCodec(codec.getOrThrow())
+            ));
+        });
     }
 
     @Override

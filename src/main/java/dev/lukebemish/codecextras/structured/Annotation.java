@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.mojang.datafixers.util.Unit;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.Optional;
 
@@ -20,6 +21,14 @@ public class Annotation {
      * A human-readable description for a part of a structure; if missing, falls back to {@link #COMMENT}.
      */
     public static final Key<String> DESCRIPTION = Key.create("description");
+    /**
+     * A regex pattern that a string field or key in a structure should match.
+     */
+    public static final Key<String> PATTERN = Key.create("pattern");
+    /**
+     * If present, the attached structure should be lenient as an optional field -- that is, if present but erroring, it is considered to be missing
+     */
+    public static final Key<Unit> LENIENT = Key.create("lenient");
 
     /**
      * Retrieve an annotation value, if present, from a set of annotations.

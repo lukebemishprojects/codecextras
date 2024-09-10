@@ -385,7 +385,7 @@ public interface Structure<A> {
 
             @Override
             public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
-                return outer.interpret(interpreter).flatMap(app -> interpreter.bounded(app, totalAvailable));
+                return interpreter.bounded(outer, totalAvailable);
             }
         }
 

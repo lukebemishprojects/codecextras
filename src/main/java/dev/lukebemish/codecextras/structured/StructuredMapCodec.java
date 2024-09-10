@@ -46,15 +46,16 @@ class StructuredMapCodec<A> extends MapCodec<A> {
             return DataResult.error(result.error().orElseThrow().messageSupplier());
         }
         Codec<F> fieldCodec = unboxer.unbox(result.result().orElseThrow());
+        boolean lenient = Annotation.get(field.structure().annotations(), Annotation.LENIENT).isPresent();
         MapCodec<F> fieldMapCodec = Annotation.get(field.structure().annotations(), Annotation.COMMENT)
-            .map(comment -> CommentMapCodec.of(makeFieldCodec(fieldCodec, field), comment))
-            .orElseGet(() -> makeFieldCodec(fieldCodec, field));
+            .map(comment -> CommentMapCodec.of(makeFieldCodec(fieldCodec, field, lenient), comment))
+            .orElseGet(() -> makeFieldCodec(fieldCodec, field, lenient));
         mapCodecFields.add(new StructuredMapCodec.Field<>(fieldMapCodec, field.key(), field.getter()));
         return null;
     }
 
-    private static <A,F> MapCodec<F> makeFieldCodec(Codec<F> fieldCodec, RecordStructure.Field<A,F> field) {
-        return field.missingBehavior().map(behavior -> fieldCodec.optionalFieldOf(field.name()).xmap(
+    private static <A,F> MapCodec<F> makeFieldCodec(Codec<F> fieldCodec, RecordStructure.Field<A,F> field, boolean lenient) {
+        return field.missingBehavior().map(behavior -> (lenient ? fieldCodec.optionalFieldOf(field.name()) : fieldCodec.lenientOptionalFieldOf(field.name())).xmap(
             optional -> optional.orElseGet(behavior.missing()),
             value -> behavior.predicate().test(value) ? Optional.of(value) : Optional.empty()
         )).orElseGet(() -> fieldCodec.fieldOf(field.name()));

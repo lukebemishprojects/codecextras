@@ -5,6 +5,7 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.DataResult;
 import dev.lukebemish.codecextras.stream.structured.StreamCodecInterpreter;
+import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Structure;
@@ -51,6 +52,7 @@ public final class MinecraftStructures {
                     .add(StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ResourceLocation.STREAM_CODEC.cast())))
                     .build(),
         Structure.STRING.flatXmap(ResourceLocation::read, rl -> DataResult.success(rl.toString()))
+            .annotate(Annotation.PATTERN, "^([a-z0-9_.-]+:)?[a-z0-9_/.-]+$")
     );
 
     public static final Structure<Integer> ARGB_COLOR = Structure.keyed(
@@ -121,6 +123,7 @@ public final class MinecraftStructures {
                 return DataResult.success((key.removes() ? "!" : "") + rl);
             })
             .bounded(MinecraftStructures::possibleDataComponentPatchKeys)
+            .annotate(Annotation.PATTERN, "^[!]?([a-z0-9_.-]+:)?[a-z0-9_/.-]+$")
     );
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -335,6 +338,7 @@ public final class MinecraftStructures {
                     Structure.STRING.comapFlatMap(string -> string.startsWith("#") ? ResourceLocation.read(string.substring(1)).map(resourceLocation -> TagKey.create(registry, resourceLocation)) : DataResult.<TagKey<T>>error(() -> "Not a tag id"), tagKey -> "#" + tagKey.location()) :
                     RESOURCE_LOCATION.xmap(resourceLocation -> TagKey.create(registry, resourceLocation), TagKey::location))
                         .xmap(MinecraftKeys.TagKeyHolder::new, MinecraftKeys.TagKeyHolder::value)
+                        .annotate(Annotation.PATTERN, "^"+(hashPrefix ? "#" : "")+"([a-z0-9_.-]+:)?[a-z0-9_/.-]+$")
         ).xmap(MinecraftKeys.TagKeyHolder::value, MinecraftKeys.TagKeyHolder::new);
     }
 
@@ -395,5 +399,4 @@ public final class MinecraftStructures {
         }
         return dataComponentTypeStructure(key.type());
     }
-
 }
