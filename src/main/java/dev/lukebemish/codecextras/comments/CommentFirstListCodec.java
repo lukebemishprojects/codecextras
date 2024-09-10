@@ -35,12 +35,7 @@ public final class CommentFirstListCodec<A> implements Codec<List<A>> {
     @Override
     public <T> DataResult<T> encode(List<A> input, DynamicOps<T> ops, T prefix) {
         final ListBuilder<T> builder = ops.listBuilder();
-        DynamicOps<T> rest;
-        if (ops instanceof AccompaniedOps<T>) {
-            rest = DelegatingOps.without(CommentOps.TOKEN, ops);
-        } else {
-            rest = ops;
-        }
+        DynamicOps<T> rest = AccompaniedOps.find(ops).map(o -> DelegatingOps.without(CommentOps.TOKEN, ops)).orElse(ops);
         boolean isFirst = true;
         for (A a : input) {
             if (isFirst) {

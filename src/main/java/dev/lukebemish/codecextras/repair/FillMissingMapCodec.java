@@ -101,12 +101,11 @@ public final class FillMissingMapCodec<A> extends MapCodec<A> {
                     if (value == null) {
                         value = ops.empty();
                     }
-                    if (ops instanceof AccompaniedOps<T> accompaniedOps) {
+                    T finalValue = value;
+                    AccompaniedOps.find(ops).ifPresent(accompaniedOps -> {
                         Optional<FillMissingLogOps<T>> fillMissingLogOps = accompaniedOps.getCompanion(FillMissingLogOps.TOKEN);
-                        if (fillMissingLogOps.isPresent()) {
-                            fillMissingLogOps.get().logMissingField(field, value);
-                        }
-                    }
+                        fillMissingLogOps.ifPresent(tFillMissingLogOps -> tFillMissingLogOps.logMissingField(field, finalValue));
+                    });
                     return Repair.this.repair(ops, value);
                 }
             };

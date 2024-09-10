@@ -3,7 +3,7 @@ package dev.lukebemish.codecextras.jmh;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
+import dev.lukebemish.codecextras.record.CurriedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
 import java.lang.invoke.MethodHandles;
@@ -33,7 +33,7 @@ record TestRecord(
         Codec.INT.fieldOf("p").forGetter(TestRecord::p)
     ).apply(i, TestRecord::new));
 
-    public static final Codec<TestRecord> ERCB = ExtendedRecordCodecBuilder
+    public static final Codec<TestRecord> CRCB = CurriedRecordCodecBuilder
         .start(Codec.INT.fieldOf("a"), TestRecord::a)
         .field(Codec.INT.fieldOf("b"), TestRecord::b)
         .field(Codec.INT.fieldOf("c"), TestRecord::c)

@@ -96,7 +96,7 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
             @Override
             public DataResult<T> build(T prefix) {
                 DataResult<T> built = builder.build(prefix);
-                if (this.ops() instanceof AccompaniedOps<T> accompaniedOps) {
+                return AccompaniedOps.find(this.ops()).map(accompaniedOps -> {
                     Optional<CommentOps<T>> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
                     if (commentOps.isPresent()) {
                         return built.flatMap(t ->
@@ -104,8 +104,8 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
                                 ops.createString(e.getKey()), e -> ops.createString(e.getValue()))))
                         );
                     }
-                }
-                return built;
+                    return built;
+                }).orElse(built);
             }
         };
     }
