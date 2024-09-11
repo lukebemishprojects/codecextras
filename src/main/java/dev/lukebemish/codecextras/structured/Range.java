@@ -17,6 +17,10 @@ public record Range<N extends Number & Comparable<N>>(N min, N max) implements A
         }
     }
 
+    /**
+     * {@return the value, or the closest endpoint if the value is outside the range}
+     * @param value the value to clamp
+     */
     public N clamp(N value) {
         if (value.compareTo(min) < 0) {
             return min;

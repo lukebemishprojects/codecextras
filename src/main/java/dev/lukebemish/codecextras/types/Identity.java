@@ -5,6 +5,11 @@ import com.mojang.datafixers.kinds.Applicative;
 import com.mojang.datafixers.kinds.K1;
 import java.util.function.Function;
 
+/**
+ * Represents the type function {@code T -> T} as an {@link App} type.
+ * @param value the boxed value
+ * @param <T> the type represented
+ */
 public record Identity<T>(T value) implements App<Identity.Mu, T> {
     public static final class Mu implements K1 { private Mu() {} }
 

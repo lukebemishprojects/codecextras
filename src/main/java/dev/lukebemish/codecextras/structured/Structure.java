@@ -95,6 +95,7 @@ public interface Structure<A> {
 
     /**
      * {@return a new structure representing a list of the current structure}
+     * Analogous to {@link Codec#listOf()}.
      */
     default Structure<List<A>> listOf() {
         var outer = this;
@@ -106,6 +107,15 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * {@return a structure representing key-value pairs of the provided types, with no bounds on the possible key values)
+     * Unlike a structure created with {@link #record(RecordStructure.Builder)}, there is no set of potential keys known
+     * ahead of time. Analogous to {@link Codec#unboundedMap(Codec, Codec)}.
+     * @param key the structure representing the key type
+     * @param value the structure representing the value type
+     * @param <K> the represented key type
+     * @param <V> the represented value type
+     */
     static <K, V> Structure<Map<K, V>> unboundedMap(Structure<K> key, Structure<V> value) {
         return new Structure<>() {
             @Override
@@ -115,6 +125,15 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * {@return a structure representing data matching at least one of two possible structures, with the left structure preferred}
+     * Analogous to {@link Codec#either(Codec, Codec)}.
+     * @param left the preferred structure
+     * @param right the fallback structure
+     * @param <L> the type of data the first structure represents
+     * @param <R> the type of data the second structure represents
+     * @see #xor(Structure, Structure)
+     */
     static <L, R> Structure<Either<L, R>> either(Structure<L> left, Structure<R> right) {
         return new Structure<>() {
             @Override
@@ -128,21 +147,61 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * {@return a structure representing data matching exactly one of two possible structures}
+     * Analogous to {@link Codec#xor(Codec, Codec)}.
+     * @param left the first structure
+     * @param right the second structure
+     * @param <L> the type of data the first structure represents
+     * @param <R> the type of data the second structure represents
+     * @see #either(Structure, Structure)
+     */
+    static <L, R> Structure<Either<L, R>> xor(Structure<L> left, Structure<R> right) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, Either<L, R>>> interpret(Interpreter<Mu> interpreter) {
+                var leftResult = left.interpret(interpreter);
+                var rightResult = right.interpret(interpreter);
+                return leftResult
+                    .mapError(s -> rightResult.error().map(e -> s + "; " + e.message()).orElse(s))
+                    .flatMap(leftApp -> rightResult.flatMap(rightApp -> interpreter.xor(leftApp, rightApp)));
+            }
+        };
+    }
+
+    /**
+     * {@return a partial record structure containing the current structure as a field}
+     * Analogous to {@link Codec#fieldOf(String)}.
+     * @param name the name of the field
+     * @see #record(RecordStructure.Builder)
+     */
     default RecordStructure.Builder<A> fieldOf(String name) {
         return builder -> builder.add(name, this, Function.identity());
     }
 
+    /**
+     * {@return a record structure optionally containing the current structure as a field}
+     * Analogous t= {@link Codec#optionalFieldOf(String)}.
+     * @param name the name of the field
+     * @see #fieldOf(String)
+     */
     default RecordStructure.Builder<Optional<A>> optionalFieldOf(String name) {
         return builder -> builder.addOptional(name, this, Function.identity());
     }
 
+    /**
+     * {@return a record structure containing the current structure as a field, with a default value if it is not present}
+     * Analogous t= {@link Codec#optionalFieldOf(String, Object)}.
+     * @param name the name of the field
+     * @see #optionalFieldOf(String)
+     */
     default RecordStructure.Builder<A> optionalFieldOf(String name, Supplier<A> defaultValue) {
         return builder -> builder.addOptional(name, this, Function.identity(), defaultValue);
     }
 
     /**
      * Like codecs, the type a structure represents can be changed without changing the actual underlying data structure,
-     * by providing conversion functions to and from the new type.
+     * by providing conversion functions to and from the new type. Analogous to {@link Codec#flatXmap(Function, Function)}.
      * @param to converts the old type to the new type, if possible
      * @param from converts the new type to the old type, if possible
      * @return a new structure representing the new type
@@ -158,7 +217,8 @@ public interface Structure<A> {
     }
 
     /**
-     * Similar to {@link #flatXmap(Function, Function)} (Function, Function)}, except that the conversion functions are not allowed to fail.
+     * Similar to {@link #flatXmap(Function, Function)}, except that the conversion functions are not allowed to fail.
+     * Analogous to {@link Codec#xmap(Function, Function)}.
      * @param to converts the old type to the new type
      * @param from converts the new type to the old type
      * @return a new structure representing the new type
@@ -168,18 +228,55 @@ public interface Structure<A> {
         return flatXmap(a -> DataResult.success(to.apply(a)), b -> DataResult.success(from.apply(b)));
     }
 
+    /**
+     * Similar to {@link #flatXmap(Function, Function)}, except that the second conversion function is not allowed to fail.
+     * Analogous to {@link Codec#comapFlatMap(Function, Function)}.
+     * @param to converts the old type to the new type
+     * @param from converts the new type to the old type
+     * @return a new structure representing the new type
+     * @param <B> the new type to represent
+     */
     default <B> Structure<B> comapFlatMap(Function<A, DataResult<B>> to, Function<B, A> from) {
         return flatXmap(to, b -> DataResult.success(from.apply(b)));
     }
 
+    /**
+     * Similar to {@link #flatXmap(Function, Function)}, except that the first conversion function is not allowed to fail.
+     * Analogous to {@link Codec#flatComapMap(Function, Function)}.
+     * @param to converts the old type to the new type
+     * @param from converts the new type to the old type
+     * @return a new structure representing the new type
+     * @param <B> the new type to represent
+     */
     default <B> Structure<B> flatComapMap(Function<A, B> to, Function<B, DataResult<A>> from) {
         return flatXmap(a -> DataResult.success(to.apply(a)), from);
     }
 
+    /**
+     * Creates a structure such that the structure of the data is dependent on the value for a given key. The key must
+     * have a finite set of possible values. The current structure becomes the structure of the key field.
+     * Analogous to {@link Codec#dispatch(String, Function, Function)}.
+     * @param key the key to dispatch on
+     * @param function retrieve a key from the final data type
+     * @param keys the set of possible key values
+     * @param structures converts keys into structures
+     * @return a new structure representing the data type
+     * @param <E> the type of data the structure represents
+     */
     default <E> Structure<E> dispatch(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return dispatch(key, function, keys, structures, true);
     }
 
+    /**
+     * Similar to {@link #dispatch(String, Function, Supplier, Function)}, except that while the set of keys is still finite,
+     * and keys are still checked as belonging to the set, the resulting structure does not expose information about those bounds.
+     * @param key the key to dispatch on
+     * @param function retrieve a key from the final data type
+     * @param keys the set of possible key values
+     * @param structures converts keys into structures
+     * @return a new structure representing the data type
+     * @param <E> the type of data the structure represents
+     */
     default <E> Structure<E> dispatchUnbounded(String key, Function<? super E, DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return dispatch(key, function, keys, structures, false);
     }
@@ -194,10 +291,26 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * Creates a structure representing a map where the structure of a value is dependent on the key. The key must have a
+     * finite set of possible values. The current structure becomes the structure of the key field. Analogous to {@link Codec#dispatchedMap(Codec, Function)}.
+     * @param keys the set of possible key values
+     * @param structures converts keys into structures
+     * @return a new structure representing the map type
+     * @param <V> the type of data the map values represent
+     */
     default <V> Structure<Map<A, V>> dispatchedMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
         return dispatchedMap(keys, structures, true);
     }
 
+    /**
+     * Similar to {@link #dispatchedMap(Supplier, Function)}, except that while the set of keys is still finite, and keys
+     * are still checked as belonging to the set, the resulting structure does not expose information about those bounds.
+     * @param keys the set of possible key values
+     * @param structures converts keys into structures
+     * @return a new structure representing the map type
+     * @param <V> the type of data the map values represent
+     */
     default <V> Structure<Map<A, V>> dispatchedUnboundedMap(Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends V>>> structures) {
         return dispatchedMap(keys, structures, false);
     }
@@ -213,7 +326,8 @@ public interface Structure<A> {
     }
 
     /**
-     * It might be necessary to lazily-initialize a structure to avoid circular static field dependencies.
+     * It might be necessary to lazily-initialize a structure to avoid circular static field dependencies. Analogous to
+     * {@link Codec#lazyInitialized(Supplier)}.
      * @param supplier the structure to lazily initialize
      * @return a new structure that will initialize the wrapped structure when interpreted
      * @param <A> the type of data the structure represents
@@ -250,6 +364,7 @@ public interface Structure<A> {
      * @param fallback the structure to interpret if the key cannot be resolved
      * @return a new structure
      * @param <A> the type of data the structure represents
+     * @see #keyed(Key)
      */
     static <A> Structure<A> keyed(Key<A> key, Structure<A> fallback) {
         return new Structure<>() {
@@ -274,6 +389,7 @@ public interface Structure<A> {
      * @return a new structure
      * @param <A> the type of data the structure represents
      * @see Interpreter#keyConsumers()
+     * @see #keyed(Key)
      */
     static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
@@ -288,6 +404,18 @@ public interface Structure<A> {
     }
 
 
+    /**
+     * Similar to {@link #keyed(Key)}, providing both a fallback structure and a set of interpreter-specific
+     * representations.
+     * @param key the key which will be matched to a specific representation
+     * @param keys the set of specific representations to match against
+     * @param fallback the structure to interpret if the key cannot be resolved
+     * @return a new structure
+     * @param <A> the type of data the structure represents
+     * @see #keyed(Key)
+     * @see #keyed(Key, Keys)
+     * @see #keyed(Key, Structure)
+     */
     static <A> Structure<A> keyed(Key<A> key, Keys<Flip.Mu<A>, K1> keys, Structure<A> fallback) {
         return new Structure<>() {
             @Override
@@ -304,6 +432,20 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * Similar to a {@link #keyed(Key)}, a parametrically keyed structure provides a key that interpreters can resolve to
+     * obtain a specific representation; however, the key is parameterized by another type, which the structure also contains
+     * an instance of. The structure will resolve a {@link ParametricKeyedValue} for the key, representing a conversion
+     * of the parameter type into the structure type for arbitrary parameterizations of the parameter type.
+     * @param key the key which will be matched to a specific representation
+     * @param parameter the parameter to convert into a specific representation
+     * @param unboxer unboxes the structure type from its {@link App} representation used by the key
+     * @return a new structure
+     * @param <MuO> the type function of the data type represented by the created structure
+     * @param <MuP> the type function of the parameter type associated with the key
+     * @param <T> the type to parameterize both {@link MuO} and {@link MuP} with
+     * @param <A> the type of data the structure represents
+     */
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer) {
         return new Structure<>() {
             @Override
@@ -315,6 +457,20 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * Similar to {@link #parametricallyKeyed(Key2, App, Function)}, except a fallback structure is provided in case the
+     * interpreter cannot resolve the key.
+     * @param key the key which will be matched to a specific representation
+     * @param parameter the parameter to convert into a specific representation
+     * @param unboxer unboxes the structure type from its {@link App} representation used by the key
+     * @param fallback the structure to interpret if the key cannot be resolved
+     * @return a new structure
+     * @param <MuO> the type function of the data type represented by the created structure
+     * @param <MuP> the type function of the parameter type associated with the key
+     * @param <T> the type to parameterize both {@link MuO} and {@link MuP} with
+     * @param <A> the type of data the structure represents
+     * @see #parametricallyKeyed(Key2, App, Function)
+     */
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Structure<A> fallback) {
         return new Structure<>() {
             @Override
@@ -330,6 +486,22 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * Similar to {@link #parametricallyKeyed(Key2, App, Function)}, except that specific representations may also be
+     * stored on the structure, by resolved interpreter-specific keys. The key set used is {@link Flip}ed so that the
+     * type parameterizing the key can be the type function of the interpreter. Interpreter keys are matched against the
+     * provided key set, and if missing the provided key is resolved by the interpreter.
+     * @param key the key which will be matched to a specific representation
+     * @param parameter the parameter to convert into a specific representation
+     * @param unboxer unboxes the structure type from its {@link App} representation used by the key
+     * @param keys the set of specific representations to match against
+     * @return a new structure
+     * @param <MuO> the type function of the data type represented by the created structure
+     * @param <MuP> the type function of the parameter type associated with the key
+     * @param <T> the type to parameterize both {@link MuO} and {@link MuP} with
+     * @param <A> the type of data the structure represents
+     * @see #parametricallyKeyed(Key2, App, Function)
+     */
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Flip.Mu<A>, K1> keys) {
         return new Structure<>() {
             @Override
@@ -350,6 +522,23 @@ public interface Structure<A> {
             .map(c::convert);
     }
 
+    /**
+     * Similar to {@link #parametricallyKeyed(Key2, App, Function)}, providing both a fallback structure and a set of
+     * interpreter-specific representations.
+     * @param key the key which will be matched to a specific representation
+     * @param parameter the parameter to convert into a specific representation
+     * @param unboxer unboxes the structure type from its {@link App} representation used by the key
+     * @param keys the set of specific representations to match against
+     * @param fallback the structure to interpret if the key cannot be resolved
+     * @return a new structure
+     * @param <MuO> the type function of the data type represented by the created structure
+     * @param <MuP> the type function of the parameter type associated with the key
+     * @param <T> the type to parameterize both {@link MuO} and {@link MuP} with
+     * @param <A> the type of data the structure represents
+     * @see #parametricallyKeyed(Key2, App, Function)
+     * @see #parametricallyKeyed(Key2, App, Function, Keys)
+     * @see #parametricallyKeyed(Key2, App, Function, Structure)
+     */
     static <MuO extends K1, MuP extends K1, T, A extends App<MuO, T>> Structure<A> parametricallyKeyed(Key2<MuP, MuO> key, App<MuP, T> parameter, Function<App<MuO, T>, A> unboxer, Keys<Flip.Mu<A>, K1> keys, Structure<A> fallback) {
         return new Structure<>() {
             @Override
@@ -368,6 +557,10 @@ public interface Structure<A> {
         };
     }
 
+    /**
+     * {@return a structure that represents only the provided values}
+     * @param available the set of values to represent
+     */
     default Structure<A> bounded(Supplier<Set<A>> available) {
         final class BoundedStructure implements Structure<A> {
             private final Structure<A> outer;
@@ -392,10 +585,21 @@ public interface Structure<A> {
         return annotatedDelegatingStructure(BoundedStructure::new, this, this.annotations());
     }
 
+    /**
+     * {@return a structure that represents only data passing the provided validation function}
+     * @param verifier the validation function
+     */
     default Structure<A> validate(Function<A, DataResult<A>> verifier) {
         return this.flatXmap(verifier, verifier);
     }
 
+    /**
+     * {@return a structure representing a collection of key-value pairs with defined structures, which may be optionally present}
+     * Analogous to the use of {@link com.mojang.serialization.codecs.RecordCodecBuilder}.
+     * @param builder the builder to use to create the record structure
+     * @param <A> the type of data the structure represents
+     * @see RecordStructure
+     */
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
         return RecordStructure.create(builder);
     }
@@ -447,11 +651,18 @@ public interface Structure<A> {
             .build()
     );
 
+    /**
+     * Represents a {@link Unit} value, but only as an empty map.
+     */
     Structure<Unit> EMPTY_MAP = keyed(
         Interpreter.EMPTY_MAP,
         unboundedMap(STRING, PASSTHROUGH)
             .comapFlatMap(map -> map.isEmpty() ? DataResult.success(Unit.INSTANCE) : DataResult.error(() -> "Expected an empty map"), u -> Map.of())
     );
+
+    /**
+     * Represents a {@link Unit} value, but only as an empty list.
+     */
     Structure<Unit> EMPTY_LIST = keyed(
         Interpreter.EMPTY_LIST,
         PASSTHROUGH.listOf()

@@ -20,6 +20,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+/**
+ * Interprets a {@link Structure} into a {@link Codec} for the same type.
+ * @see #interpret(Structure)
+ */
 public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterpreter.Holder.Mu, CodecInterpreter> {
     public CodecInterpreter(Keys<Holder.Mu, Object> keys, Keys2<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1> parametricKeys) {
         super(keys.join(Keys.<Holder.Mu, Object>builder()
@@ -120,6 +124,13 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
         var leftCodec = unbox(left);
         var rightCodec = unbox(right);
         return DataResult.success(new Holder<>(Codec.either(leftCodec, rightCodec)));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> xor(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var leftCodec = unbox(left);
+        var rightCodec = unbox(right);
+        return DataResult.success(new Holder<>(Codec.xor(leftCodec, rightCodec)));
     }
 
     @Override

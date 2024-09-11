@@ -70,6 +70,13 @@ import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
+/**
+ * Interprets a {@link Structure} into a {@link ConfigScreenEntry} for the same type. Note that interpreting a structure
+ * with this interpreter will require resolving any lazy aspects of the structure, such as bounds, so should not be done
+ * until that is safe.
+ * @see #interpret(Structure)
+ * @see ConfigScreenEntry
+ */
 public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenEntry.Mu, ConfigScreenInterpreter> {
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -742,6 +749,23 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
         var codecLeft = ConfigScreenEntry.unbox(left).entryCreationInfo().codec();
         var codecRight = ConfigScreenEntry.unbox(right).entryCreationInfo().codec();
         var codecResult = codecInterpreter.either(new CodecInterpreter.Holder<>(codecLeft), new CodecInterpreter.Holder<>(codecRight)).map(CodecInterpreter::unbox);
+        if (codecResult.isError()) {
+            return DataResult.error(codecResult.error().orElseThrow().messageSupplier());
+        }
+        return DataResult.success(ConfigScreenEntry.single(
+            Widgets.either(
+                ConfigScreenEntry.unbox(left).layout(),
+                ConfigScreenEntry.unbox(right).layout()
+            ),
+            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+        ));
+    }
+
+    @Override
+    public <L, R> DataResult<App<ConfigScreenEntry.Mu, Either<L, R>>> xor(App<ConfigScreenEntry.Mu, L> left, App<ConfigScreenEntry.Mu, R> right) {
+        var codecLeft = ConfigScreenEntry.unbox(left).entryCreationInfo().codec();
+        var codecRight = ConfigScreenEntry.unbox(right).entryCreationInfo().codec();
+        var codecResult = codecInterpreter.xor(new CodecInterpreter.Holder<>(codecLeft), new CodecInterpreter.Holder<>(codecRight)).map(CodecInterpreter::unbox);
         if (codecResult.isError()) {
             return DataResult.error(codecResult.error().orElseThrow().messageSupplier());
         }

@@ -40,6 +40,11 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Interprets a {@link Structure} into a {@link StreamCodec} for the same type.
+ * @param <B> the type of the {@link ByteBuf} to encode and decode
+ * @see #interpret(Structure)
+ */
 public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpreter<StreamCodecInterpreter.Holder.Mu<B>, StreamCodecInterpreter<B>> {
     private final Key<Holder.Mu<B>> key;
     private final List<KeyConsumer<?, Holder.Mu<B>>> parentConsumers;
@@ -418,6 +423,12 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
         var leftCodec = unbox(left);
         var rightCodec = unbox(right);
         return DataResult.success(new Holder<>(ByteBufCodecs.either(leftCodec, rightCodec)));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu<B>, Either<L, R>>> xor(App<Holder.Mu<B>, L> left, App<Holder.Mu<B>, R> right) {
+        // For stream codecs, xor is just either
+        return either(left, right);
     }
 
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

@@ -31,6 +31,11 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Creates a JSON schema for a given {@link Structure}. Note that interpreting a structure with this interpreter will
+ * require resolving any lazy aspects of the structure, such as bounds, so should not be done until that is safe
+ * @see #interpret(Structure)
+ */
 public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInterpreter.Holder.Mu, JsonSchemaInterpreter> {
     private final CodecInterpreter codecInterpreter;
     private final DynamicOps<JsonElement> ops;
@@ -301,6 +306,21 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> xor(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var schema = new JsonObject();
+        var oneOf = new JsonArray();
+        var definitions = new HashMap<String, Structure<?>>();
+        var leftSchema = schemaValue(left);
+        var rightSchema = schemaValue(right);
+        definitions.putAll(definitions(left));
+        definitions.putAll(definitions(right));
+        oneOf.add(leftSchema);
+        oneOf.add(rightSchema);
+        schema.add("oneOf", oneOf);
+        return DataResult.success(new Holder<>(schema, definitions));
+    }
+
+    @Override
     public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
         var definitions = new HashMap<String, Structure<?>>();
         return codecInterpreter.interpret(keyStructure).flatMap(keyCodec -> {
@@ -329,11 +349,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         return Holder.unbox(box).definition;
     }
 
-    public <T> DataResult<JsonObject> nestedSchema(Structure<T> structure) {
-        return structure.interpret(this).map(JsonSchemaInterpreter::schemaValue);
-    }
-
-    public <T> DataResult<JsonObject> rootSchema(Structure<T> structure) {
+    public <T> DataResult<JsonObject> interpret(Structure<T> structure) {
         return structure.interpret(this).flatMap(holder -> {
             var object = copy(schemaValue(holder));
             var definitions = definitions(holder);

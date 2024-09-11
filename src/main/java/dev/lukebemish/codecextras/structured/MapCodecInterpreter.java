@@ -10,6 +10,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.KeyDispatchCodec;
+import dev.lukebemish.codecextras.XorMapCodec;
 import dev.lukebemish.codecextras.comments.CommentMapCodec;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.List;
@@ -20,6 +21,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+/**
+ * Interprets a {@link Structure} into a {@link MapCodec} for the same type.
+ * @see #interpret(Structure)
+ */
 public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodecInterpreter.Holder.Mu, MapCodecInterpreter> {
     public MapCodecInterpreter(
         Keys<Holder.Mu, Object> keys,
@@ -130,6 +135,13 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
         var leftCodec = unbox(left);
         var rightCodec = unbox(right);
         return DataResult.success(new Holder<>(Codec.mapEither(leftCodec, rightCodec)));
+    }
+
+    @Override
+    public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> xor(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
+        var leftCodec = unbox(left);
+        var rightCodec = unbox(right);
+        return DataResult.success(new Holder<>(XorMapCodec.of(leftCodec, rightCodec)));
     }
 
     @Override

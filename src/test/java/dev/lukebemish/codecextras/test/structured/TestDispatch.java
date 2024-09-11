@@ -173,6 +173,6 @@ public class TestDispatch {
 
     @Test
     void testJsonSchema() {
-        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().rootSchema(Dispatches.STRUCTURE).getOrThrow().toString());
+        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().interpret(Dispatches.STRUCTURE).getOrThrow().toString());
     }
 }

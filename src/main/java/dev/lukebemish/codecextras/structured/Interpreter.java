@@ -75,5 +75,7 @@ public interface Interpreter<Mu extends K1> {
 
     <L, R> DataResult<App<Mu, Either<L,R>>> either(App<Mu, L> left, App<Mu, R> right);
 
+    <L, R> DataResult<App<Mu, Either<L,R>>> xor(App<Mu, L> left, App<Mu, R> right);
+
     <K, V> DataResult<App<Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
 }

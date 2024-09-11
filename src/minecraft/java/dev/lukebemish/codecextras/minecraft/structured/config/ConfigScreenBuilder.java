@@ -14,6 +14,9 @@ import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Turns a list of {@link ConfigScreenEntry}s into a screen that can be opened by the user.
+ */
 public class ConfigScreenBuilder {
     private record SingleScreen<T>(ConfigScreenEntry<T> screenEntry, Consumer<T> onClose, Supplier<EntryCreationContext> context, Supplier<T> initialData) {}
 

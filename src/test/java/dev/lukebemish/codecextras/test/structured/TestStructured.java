@@ -76,6 +76,6 @@ class TestStructured {
 
     @Test
     void testJsonSchema() {
-        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().rootSchema(TestRecord.STRUCTURE).getOrThrow().toString());
+        CodecAssertions.assertJsonEquals(schema, new JsonSchemaInterpreter().interpret(TestRecord.STRUCTURE).getOrThrow().toString());
     }
 }

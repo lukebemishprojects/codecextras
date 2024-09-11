@@ -114,6 +114,11 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
         return DataResult.error(() -> "No default value available for an either");
     }
 
+    @Override
+    public <L, R> DataResult<App<Identity.Mu, Either<L, R>>> xor(App<Identity.Mu, L> left, App<Identity.Mu, R> right) {
+        return DataResult.error(() -> "No default value available for an xor");
+    }
+
     public <A> DataResult<A> interpret(Structure<A> structure) {
         return structure.interpret(this).map(i -> Identity.unbox(i).value());
     }

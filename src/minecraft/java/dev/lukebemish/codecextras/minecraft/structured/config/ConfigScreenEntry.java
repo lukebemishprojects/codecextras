@@ -10,6 +10,14 @@ import java.util.function.UnaryOperator;
 import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.Logger;
 
+/**
+ * Represents both a single level of a configuration screen, and the entry it would become when nested in another config
+ * screen. To turn into a screen, use {@link ConfigScreenBuilder}.
+ * @param layout prevides the layout used when this data is nested in another config screen
+ * @param screenEntryProvider provides the entries present on this screen
+ * @param entryCreationInfo the information needed to create this entry
+ * @param <T> the type of data this entry represents
+ */
 public record ConfigScreenEntry<T>(LayoutFactory<T> layout, ScreenEntryFactory<T> screenEntryProvider, EntryCreationInfo<T> entryCreationInfo) implements App<ConfigScreenEntry.Mu, T> {
 
     public static final class Mu implements K1 { private Mu() {} }
