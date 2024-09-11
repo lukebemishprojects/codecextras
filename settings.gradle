@@ -1,30 +1,30 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = "Luke's Maven"
-			url = 'https://maven.lukebemish.dev/releases'
-		}
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		maven {
-			name = 'NeoForged'
-			url = 'https://maven.neoforged.net/'
-		}
-		maven {
-			name = 'Architectury'
-			url "https://maven.architectury.dev/"
-		}
-		mavenCentral()
-		gradlePluginPortal()
-	}
+    repositories {
+        maven {
+            name = "Luke's Maven"
+            url = 'https://maven.lukebemish.dev/releases'
+        }
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/'
+        }
+        maven {
+            name = 'Architectury'
+            url "https://maven.architectury.dev/"
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
 plugins {
     id 'org.gradlex.extra-java-module-info' version '1.8' apply false
-	id 'dev.lukebemish.conventions' version '0.1.11'
-	id 'dev.lukebemish.multisource' version '0.1.8'
+    id 'dev.lukebemish.conventions' version '0.1.11'
+    id 'dev.lukebemish.multisource' version '0.1.8'
 }
 
 gradle.beforeProject {
@@ -46,11 +46,11 @@ multisource.of(':') {
             }
         }
     }
-	configureEach {
-		minecraft.add project.libs.minecraft
-		mappings.add loom.officialMojangMappings()
-	}
-	common('minecraft', []) {}
+    configureEach {
+        minecraft.add project.libs.minecraft
+        mappings.add loom.officialMojangMappings()
+    }
+    common('minecraft', []) {}
     fabric('minecraftFabric', ['minecraft']) {}
     neoforge('minecraftNeoforge', ['minecraft']) {
         neoForge.add project.libs.neoforge
@@ -60,9 +60,9 @@ multisource.of(':') {
         neoForge.add project.libs.neoforge
     }
     fabric('testFabric', ['testCommon']) {}
-	repositories {
-		it.removeIf { it.name == 'Forge' }
-	}
+    repositories {
+        it.removeIf { it.name == 'Forge' }
+    }
 }
 
 rootProject.name = 'codecextras'

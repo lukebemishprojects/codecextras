@@ -1,94 +1,94 @@
 import dev.lukebemish.codecextras.gradle.FormatJmhOutput
 
 plugins {
-	alias cLibs.plugins.conventions.java
-	alias cLibs.plugins.managedversioning
+    alias cLibs.plugins.conventions.java
+    alias cLibs.plugins.managedversioning
 }
 
 group = 'dev.lukebemish'
 
 managedVersioning {
-	versionFile.set project.file('version.properties')
-	versionPRs()
-	versionSnapshots()
+    versionFile.set project.file('version.properties')
+    versionPRs()
+    versionSnapshots()
 
-	gitHubActions {
-		snapshot {
-			prettyName.set 'Snapshot'
-			workflowDispatch.set(true)
-			onBranches.add 'main'
-			gradleJob {
-				buildCache()
-				cacheReadOnly.set false
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'Build', 'build'
-				gradlew 'Publish', 'publish'
-				mavenSnapshot('github')
-			}
-		}
-		benchmark {
-			prettyName.set 'Benchmark'
-			workflowDispatch.set(true)
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'JMH', 'jmhResults'
-				step {
-					name.set 'Record JMH Output'
-					run.set 'cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
-				}
-			}
-		}
-		release {
-			prettyName.set 'Release'
-			workflowDispatch.set(true)
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'build'
-				step {
-					setupGitUser()
-				}
-				readOnly.set false
-				gradlew 'Tag Release', 'tagRelease'
-				gradlew 'Build', 'build'
-				step {
-					run.set 'git push && git push --tags'
-				}
-				recordVersion 'Record Version', 'version'
-			}
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'publish'
-				needs.add('build')
-				tag.set('${{needs.build.outputs.version}}')
-				gradlew 'Publish', 'publish'
-				mavenRelease('github')
-			}
-		}
-		build_pr {
-			prettyName.set 'Build PR'
-			pullRequest.set(true)
-			gradleJob {
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'Build', 'build'
-				gradlew 'Publish', 'publish'
-				pullRequestArtifact()
-			}
-		}
-		publish_pr {
-			prettyName.set 'Publish PR'
-			publishPullRequestAction(
-				'github',
-				"${project.group.replace('.', '/')}/${project.name}",
-				'Build PR'
-			)
-		}
-	}
+    gitHubActions {
+        snapshot {
+            prettyName.set 'Snapshot'
+            workflowDispatch.set(true)
+            onBranches.add 'main'
+            gradleJob {
+                buildCache()
+                cacheReadOnly.set false
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                mavenSnapshot('github')
+            }
+        }
+        benchmark {
+            prettyName.set 'Benchmark'
+            workflowDispatch.set(true)
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'JMH', 'jmhResults'
+                step {
+                    name.set 'Record JMH Output'
+                    run.set 'cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
+                }
+            }
+        }
+        release {
+            prettyName.set 'Release'
+            workflowDispatch.set(true)
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'build'
+                step {
+                    setupGitUser()
+                }
+                readOnly.set false
+                gradlew 'Tag Release', 'tagRelease'
+                gradlew 'Build', 'build'
+                step {
+                    run.set 'git push && git push --tags'
+                }
+                recordVersion 'Record Version', 'version'
+            }
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'publish'
+                needs.add('build')
+                tag.set('${{needs.build.outputs.version}}')
+                gradlew 'Publish', 'publish'
+                mavenRelease('github')
+            }
+        }
+        build_pr {
+            prettyName.set 'Build PR'
+            pullRequest.set(true)
+            gradleJob {
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                pullRequestArtifact()
+            }
+        }
+        publish_pr {
+            prettyName.set 'Publish PR'
+            publishPullRequestAction(
+                'github',
+                "${project.group.replace('.', '/')}/${project.name}",
+                'Build PR'
+            )
+        }
+    }
 }
 
 managedVersioning.apply()
@@ -98,7 +98,7 @@ println "Building: $version"
 sourceSets {
     minecraft {}
     minecraftFabric {}
-	jmh {}
+    jmh {}
 }
 
 configurations {
@@ -128,18 +128,18 @@ artifacts {
 }
 
 java {
-	toolchain.languageVersion.set(JavaLanguageVersion.of(21))
-	withSourcesJar()
-	withJavadocJar()
-	registerFeature("minecraft") {
-		usingSourceSet sourceSets.minecraft
-		withSourcesJar()
-		withJavadocJar()
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    withSourcesJar()
+    withJavadocJar()
+    registerFeature("minecraft") {
+        usingSourceSet sourceSets.minecraft
+        withSourcesJar()
+        withJavadocJar()
         capability(project.group as String, "$project.name-minecraft", project.version as String)
         capability(project.group as String, "$project.name-minecraft-common", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
-	}
+    }
     registerFeature("minecraftFabric") {
         usingSourceSet sourceSets.minecraftFabric
         capability(project.group as String, "$project.name-minecraft", project.version as String)
@@ -158,44 +158,44 @@ java {
 }
 
 repositories {
-	mavenCentral()
-	maven {
-		name = 'Minecraft Libraries'
-		url = 'https://libraries.minecraft.net/'
-	}
+    mavenCentral()
+    maven {
+        name = 'Minecraft Libraries'
+        url = 'https://libraries.minecraft.net/'
+    }
 }
 
 dependencies {
-	api 'com.mojang:datafixerupper:8.0.16'
-	api 'org.slf4j:slf4j-api:2.0.1'
+    api 'com.mojang:datafixerupper:8.0.16'
+    api 'org.slf4j:slf4j-api:2.0.1'
 
-	jmhCompileOnly cLibs.bundles.compileonly
-	jmhImplementation project(':')
-	jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
-	jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
+    jmhCompileOnly cLibs.bundles.compileonly
+    jmhImplementation project(':')
+    jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
+    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 
-	jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
+    jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
 
-	testCompileOnly cLibs.bundles.compileonly
+    testCompileOnly cLibs.bundles.compileonly
 
-	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-params:5.9.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-params:5.9.2'
 
-	compileOnly 'com.electronwill.night-config:core:3.6.4'
-	compileOnly 'com.electronwill.night-config:toml:3.6.4'
-	compileOnly 'blue.endless:jankson:1.2.2'
-	compileOnly 'org.ow2.asm:asm:9.5'
+    compileOnly 'com.electronwill.night-config:core:3.6.4'
+    compileOnly 'com.electronwill.night-config:toml:3.6.4'
+    compileOnly 'blue.endless:jankson:1.2.2'
+    compileOnly 'org.ow2.asm:asm:9.5'
 
-	testImplementation 'com.electronwill.night-config:core:3.6.4'
-	testImplementation 'com.electronwill.night-config:toml:3.6.4'
-	testImplementation 'blue.endless:jankson:1.2.2'
-	testImplementation 'org.ow2.asm:asm:9.5'
+    testImplementation 'com.electronwill.night-config:core:3.6.4'
+    testImplementation 'com.electronwill.night-config:toml:3.6.4'
+    testImplementation 'blue.endless:jankson:1.2.2'
+    testImplementation 'org.ow2.asm:asm:9.5'
 
-	annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
-	compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+    annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
+    compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
 
-	minecraftApi project(':')
+    minecraftApi project(':')
     minecraftCompileOnly cLibs.bundles.compileonly
     minecraftAnnotationProcessor cLibs.bundles.annotationprocessor
     minecraftFabricCompileOnly cLibs.bundles.compileonly
@@ -258,24 +258,24 @@ tasks.named('jar', Jar) {
 }
 
 tasks.register('jmh', JavaExec) {
-	group = 'benchmark'
-	dependsOn sourceSets.jmh.output
-	mainClass = 'org.openjdk.jmh.Main'
-	systemProperty 'jmh.executor', 'VIRTUAL'
-	systemProperty 'jmh.blackhole.mode', 'COMPILER'
-	args '-rf', 'json', '-rff', 'build/reports/jmh/results.json'
-	classpath = sourceSets.jmh.runtimeClasspath
-	doFirst {
-		mkdir('build/reports/jmh')
-	}
-	outputs.file('build/reports/jmh/results.json')
+    group = 'benchmark'
+    dependsOn sourceSets.jmh.output
+    mainClass = 'org.openjdk.jmh.Main'
+    systemProperty 'jmh.executor', 'VIRTUAL'
+    systemProperty 'jmh.blackhole.mode', 'COMPILER'
+    args '-rf', 'json', '-rff', 'build/reports/jmh/results.json'
+    classpath = sourceSets.jmh.runtimeClasspath
+    doFirst {
+        mkdir('build/reports/jmh')
+    }
+    outputs.file('build/reports/jmh/results.json')
 }
 
 tasks.register('jmhResults', FormatJmhOutput) {
-	group = 'benchmark'
-	dependsOn tasks.jmh
-	jmhResults.set project.file('build/reports/jmh/results.json')
-	formattedResults.set project.file('build/reports/jmh/results.md')
+    group = 'benchmark'
+    dependsOn tasks.jmh
+    jmhResults.set project.file('build/reports/jmh/results.json')
+    formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
 tasks.named('remapMinecraftFabricJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
@@ -287,10 +287,10 @@ tasks.named('minecraftNeoforgeJar', Jar) { task ->
 }
 
 tasks.compileJava {
-	options.compilerArgs += [
-		'-Aautoextension.name=CodecExtras',
-		"-Aautoextension.version=${version}".toString()
-	]
+    options.compilerArgs += [
+        '-Aautoextension.name=CodecExtras',
+        "-Aautoextension.version=${version}".toString()
+    ]
 }
 
 ['processResources', 'processMinecraftResources', 'processMinecraftFabricResources', 'processMinecraftNeoforgeResources'].each {
@@ -311,20 +311,20 @@ tasks.compileJava {
 }
 
 test {
-	useJUnitPlatform()
-	testLogging {
-		showStandardStreams = true
-		exceptionFormat = 'full'
-		events = ['passed', 'failed', 'skipped']
-	}
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+        events = ['passed', 'failed', 'skipped']
+    }
 }
 
 publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			from components.java
-		}
-	}
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 managedVersioning.publishing.mavenRelease(publishing)
