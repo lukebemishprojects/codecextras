@@ -108,7 +108,7 @@ public interface Structure<A> {
     }
 
     /**
-     * {@return a structure representing key-value pairs of the provided types, with no bounds on the possible key values)
+     * {@return a structure representing key-value pairs of the provided types, with no bounds on the possible key values}
      * Unlike a structure created with {@link #record(RecordStructure.Builder)}, there is no set of potential keys known
      * ahead of time. Analogous to {@link Codec#unboundedMap(Codec, Codec)}.
      * @param key the structure representing the key type
