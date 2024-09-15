@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.companion;
 
+import com.google.common.collect.MapMaker;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Decoder;
@@ -9,10 +10,12 @@ import com.mojang.serialization.ListBuilder;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -26,31 +29,98 @@ public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
     @Nullable protected final AccompaniedOps<T> accompanied;
     public DelegatingOps(DynamicOps<T> delegate) {
         this.delegate = delegate;
-        if (delegate instanceof AccompaniedOps<T> accompaniedOps) {
-            this.accompanied = accompaniedOps;
-        } else {
-            this.accompanied = null;
-        }
+        this.accompanied = AccompaniedOps.find(delegate).orElse(null);
     }
 
-    public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> of(Q token, Companion<T, Q> companion, DynamicOps<T> delegate) {
-        if (delegate instanceof MapDelegatingOps<T> mapOps) {
-            Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
-            map.put(token, Optional.of(companion));
-            return new MapDelegatingOps<>(delegate, map);
+    public static <T, Q extends Companion.CompanionToken> DynamicOps<T> of(Q token, Companion<T, Q> companion, DynamicOps<T> delegate) {
+        var possibleParent = retrieveMapOps(delegate);
+        if (possibleParent != null) {
+            if (possibleParent.getSecond() instanceof MapDelegatingOps<T> mapOps) {
+                Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
+                map.put(token, Optional.of(companion));
+                return possibleParent.getFirst().delegate(delegate, new MapDelegatingOps<>(delegate, map));
+            }
+            return possibleParent.getFirst().delegate(delegate, new MapDelegatingOps<>(delegate, Map.of(token, Optional.of(companion))));
         } else {
             return new MapDelegatingOps<>(delegate, Map.of(token, Optional.of(companion)));
         }
     }
 
-    public static <T, Q extends Companion.CompanionToken> AccompaniedOps<T> without(Q token, DynamicOps<T> delegate) {
-        if (delegate instanceof MapDelegatingOps<T> mapOps) {
-            Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
-            map.put(token, Optional.empty());
-            return new MapDelegatingOps<>(delegate, map);
+    public static <T, Q extends Companion.CompanionToken> DynamicOps<T> without(Q token, DynamicOps<T> delegate) {
+        var possibleParent = retrieveMapOps(delegate);
+        if (possibleParent != null) {
+            if (possibleParent.getSecond() instanceof MapDelegatingOps<T> mapOps) {
+                Map<Companion.CompanionToken, Optional<Companion<T, ? extends Companion.CompanionToken>>> map = new HashMap<>(mapOps.companions);
+                map.put(token, Optional.empty());
+                return possibleParent.getFirst().delegate(delegate, new MapDelegatingOps<>(delegate, map));
+            }
+            return possibleParent.getFirst().delegate(delegate, new MapDelegatingOps<>(delegate, Map.of(token, Optional.empty())));
         } else {
             return new MapDelegatingOps<>(delegate, Map.of(token, Optional.empty()));
         }
+    }
+
+    private static final List<AlternateCompanionRetriever> ALTERNATE_COMPANION_RETRIEVERS;
+    private static final Map<ModuleLayer, List<AlternateCompanionRetriever>> RETRIEVERS = new MapMaker().weakKeys().weakValues().makeMap();
+
+    static {
+        List<AlternateCompanionRetriever> retrievers = new ArrayList<>();
+        retrievers.add(new AlternateCompanionRetriever() {
+            @Override
+            public <A> Optional<AccompaniedOps<A>> locateCompanionDelegate(DynamicOps<A> ops) {
+                if (ops instanceof MapDelegatingOps<A> mapOps) {
+                    return Optional.of(mapOps);
+                }
+                return Optional.empty();
+            }
+
+            @Override
+            public <A> AccompaniedOps<A> delegate(DynamicOps<A> ops, AccompaniedOps<A> delegate) {
+                return delegate;
+            }
+        });
+        retrievers.addAll(ServiceLoader.load(AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
+        ALTERNATE_COMPANION_RETRIEVERS = List.copyOf(retrievers);
+    }
+
+    static List<AlternateCompanionRetriever> forOps(DynamicOps<?> ops) {
+        var clazz = ops.getClass();
+        var layer = clazz.getModule().getLayer();
+        if (layer == null) {
+            return ALTERNATE_COMPANION_RETRIEVERS;
+        }
+        return RETRIEVERS.computeIfAbsent(layer, k -> {
+            List<AlternateCompanionRetriever> retrievers = new ArrayList<>();
+            retrievers.add(new AlternateCompanionRetriever() {
+                @Override
+                public <A> Optional<AccompaniedOps<A>> locateCompanionDelegate(DynamicOps<A> ops) {
+                    if (ops instanceof MapDelegatingOps<A> mapOps) {
+                        return Optional.of(mapOps);
+                    }
+                    return Optional.empty();
+                }
+
+                @Override
+                public <A> AccompaniedOps<A> delegate(DynamicOps<A> ops, AccompaniedOps<A> delegate) {
+                    return delegate;
+                }
+            });
+            retrievers.addAll(ServiceLoader.load(layer, AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
+            if (layer != DelegatingOps.class.getModule().getLayer()) {
+                retrievers.addAll(ServiceLoader.load(AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
+            }
+            return List.copyOf(retrievers);
+        });
+    }
+
+    private static <T> @Nullable Pair<AlternateCompanionRetriever, AccompaniedOps<T>> retrieveMapOps(DynamicOps<T> ops) {
+        for (AlternateCompanionRetriever retriever : forOps(ops)) {
+            Optional<AccompaniedOps<T>> companionDelegate = retriever.locateCompanionDelegate(ops);
+            if (companionDelegate.isPresent()) {
+                return Pair.of(retriever, companionDelegate.get());
+            }
+        }
+        return null;
     }
 
     @Override

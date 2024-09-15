@@ -1,0 +1,31 @@
+configurations {
+    normalRuntimeModClasses
+    runsImplementation.extendsFrom normalRuntimeModClasses
+    minecraftRuntimeModClasses
+    runsImplementation.extendsFrom minecraftRuntimeModClasses
+}
+
+loom {
+    runs {
+        configureEach {
+            runDir "runs/${it.name}"
+        }
+    }
+
+    mods.register("codecextras_minecraft") {
+        configuration configurations.minecraftRuntimeModClasses
+    }
+
+    mods.register("codecextras") {
+        configuration configurations.normalRuntimeModClasses
+    }
+}
+
+dependencies {
+    normalRuntimeModClasses(project(path: ':', configuration: 'runtimeModClasses')) {
+        transitive = false
+    }
+    minecraftRuntimeModClasses(project(path: ':', configuration: 'minecraftNeoforgeRuntimeModClasses')) {
+        transitive = false
+    }
+}

@@ -38,9 +38,9 @@ public class LargeRecordsEncode {
         }
 
         @Benchmark
-        public void extendedRecordCodecBuilder(Blackhole blackhole) {
+        public void curriedRecordCodecBuilder(Blackhole blackhole) {
             TestRecord record = TestRecord.makeRecord(counter++);
-            var result = TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
+            var result = TestRecord.CRCB.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
 
@@ -64,7 +64,7 @@ public class LargeRecordsEncode {
             record = TestRecord.makeRecord(0);
             TestRecord.RCB.encodeStart(JsonOps.INSTANCE, record);
             TestRecord.KRCB.encodeStart(JsonOps.INSTANCE, record);
-            TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
+            TestRecord.CRCB.encodeStart(JsonOps.INSTANCE, record);
         }
 
         @Benchmark
@@ -80,8 +80,8 @@ public class LargeRecordsEncode {
         }
 
         @Benchmark
-        public void extendedRecordCodecBuilder(Blackhole blackhole) {
-            var result = TestRecord.ERCB.encodeStart(JsonOps.INSTANCE, record);
+        public void curriedRecordCodecBuilder(Blackhole blackhole) {
+            var result = TestRecord.CRCB.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
 

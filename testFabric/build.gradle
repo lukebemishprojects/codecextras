@@ -1,0 +1,22 @@
+configurations {
+    normalRuntimeModClasses
+    runsImplementation.extendsFrom normalRuntimeModClasses
+}
+
+loom {
+    runs {
+        configureEach {
+            runDir "runs/${it.name}"
+        }
+    }
+
+    mods.register("codecextras") {
+        configuration configurations.normalRuntimeModClasses
+    }
+}
+
+dependencies {
+    normalRuntimeModClasses(project(path: ':', configuration: 'minecraftFabricRuntimeModClasses')) {
+        transitive = false
+    }
+}
