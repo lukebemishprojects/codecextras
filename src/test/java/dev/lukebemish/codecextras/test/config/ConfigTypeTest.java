@@ -92,9 +92,9 @@ public class ConfigTypeTest {
                             var a = dynamic.get("e").asInt(TestRecord.DEFAULT.a());
                             var b = dynamic.get("f").asInt(TestRecord.DEFAULT.b());
                             var c = dynamic.get("g").asFloat(TestRecord.DEFAULT.c());
-                            dynamic.remove("e");
-                            dynamic.remove("f");
-                            dynamic.remove("g");
+                            dynamic = dynamic.remove("e");
+                            dynamic = dynamic.remove("f");
+                            dynamic = dynamic.remove("g");
                             return dynamic
                                 .set("a", dynamic.createInt(a))
                                 .set("b", dynamic.createInt(b))
