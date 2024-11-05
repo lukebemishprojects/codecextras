@@ -188,7 +188,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             if (result.error().isPresent()) {
                 return DataResult.error(result.error().get().messageSupplier());
             }
-            schema = schemaValue(result.result().orElseThrow());
+            schema = copy(schemaValue(result.result().orElseThrow()));
             definitions = new HashMap<>(definitions(result.result().orElseThrow()));
         }
 
