@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.DataResult;
@@ -19,6 +20,7 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
+import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
@@ -69,6 +71,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             }))
             .build()
         ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder()
+            .add(Interpreter.INT_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.BYTE_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.SHORT_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.LONG_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.FLOAT_IN_RANGE, numberInRange(NUMBER))
+            .add(Interpreter.DOUBLE_IN_RANGE, numberInRange(NUMBER))
             .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
                 @Override
                 public <T> App<Holder.Mu, App<Identity.Mu, T>> convert(App<StringRepresentation.Mu, T> parameter) {
@@ -88,6 +96,19 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         ));
         this.codecInterpreter = codecInterpreter;
         this.ops = ops;
+    }
+
+    private static <N extends Number & Comparable<N>> ParametricKeyedValue<JsonSchemaInterpreter.Holder.Mu, Const.Mu<Range<N>>, Const.Mu<N>> numberInRange(Supplier<JsonObject> base) {
+        return new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<Holder.Mu, App<Const.Mu<N>, T>> convert(App<Const.Mu<Range<N>>, T> parameter) {
+                final var range = Const.unbox(parameter);
+                final var result = base.get();
+                result.addProperty("minimum", range.min());
+                result.addProperty("maximum", range.max());
+                return new JsonSchemaInterpreter.Holder<>(result);
+            }
+        };
     }
 
     @Override
