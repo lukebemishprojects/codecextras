@@ -24,7 +24,6 @@ import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
