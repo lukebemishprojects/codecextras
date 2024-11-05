@@ -375,7 +375,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public <T> DataResult<JsonObject> interpret(Structure<T> structure) {
         return structure.interpret(this).flatMap(holder -> {
             var object = copy(schemaValue(holder));
-            var definitions = definitions(holder);
+            var definitions = new LinkedHashMap<>(definitions(holder));
             var defsObject = new JsonObject();
             while (true) {
                 final var entry = definitions.pollFirstEntry();
