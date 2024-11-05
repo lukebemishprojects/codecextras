@@ -390,6 +390,8 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
                 var schema = schemaValue(result.result().orElseThrow());
                 defsObject.add(entry.getKey(), schema);
                 definitions.putAll(definitions(result.result().orElseThrow()));
+                // Remove already interpreted definitions to prevent infinite re-interpretation
+                definitions.keySet().removeAll(defsObject.keySet());
             }
             if (!defsObject.isEmpty()) {
                 object.add("$defs", defsObject);
