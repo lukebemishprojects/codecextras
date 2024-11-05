@@ -15,4 +15,9 @@ public final class Key2<A, B> {
     public String name() {
         return name;
     }
+
+    @Override
+    public String toString() {
+        return "Key2[" + name + "]";
+    }
 }

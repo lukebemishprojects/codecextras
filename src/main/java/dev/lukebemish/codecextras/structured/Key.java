@@ -43,4 +43,9 @@ public final class Key<A> implements App<Key.Mu, A> {
     public String name() {
         return name;
     }
+
+    @Override
+    public String toString() {
+        return "Key[" + name + "]";
+    }
 }
