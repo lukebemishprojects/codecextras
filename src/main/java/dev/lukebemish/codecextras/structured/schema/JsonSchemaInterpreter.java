@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.DataResult;
@@ -19,12 +20,15 @@ import dev.lukebemish.codecextras.structured.KeyStoringInterpreter;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Keys2;
 import dev.lukebemish.codecextras.structured.ParametricKeyedValue;
+import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedMap;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -69,6 +73,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             }))
             .build()
         ), parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder()
+            .add(Interpreter.INT_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.BYTE_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.SHORT_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.LONG_IN_RANGE, numberInRange(INTEGER))
+            .add(Interpreter.FLOAT_IN_RANGE, numberInRange(NUMBER))
+            .add(Interpreter.DOUBLE_IN_RANGE, numberInRange(NUMBER))
             .add(Interpreter.STRING_REPRESENTABLE, new ParametricKeyedValue<>() {
                 @Override
                 public <T> App<Holder.Mu, App<Identity.Mu, T>> convert(App<StringRepresentation.Mu, T> parameter) {
@@ -88,6 +98,19 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         ));
         this.codecInterpreter = codecInterpreter;
         this.ops = ops;
+    }
+
+    private static <N extends Number & Comparable<N>> ParametricKeyedValue<JsonSchemaInterpreter.Holder.Mu, Const.Mu<Range<N>>, Const.Mu<N>> numberInRange(Supplier<JsonObject> base) {
+        return new ParametricKeyedValue<>() {
+            @Override
+            public <T> App<Holder.Mu, App<Const.Mu<N>, T>> convert(App<Const.Mu<Range<N>>, T> parameter) {
+                final var range = Const.unbox(parameter);
+                final var result = base.get();
+                result.addProperty("minimum", range.min());
+                result.addProperty("maximum", range.max());
+                return new JsonSchemaInterpreter.Holder<>(result);
+            }
+        };
     }
 
     @Override
@@ -120,7 +143,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         var object = OBJECT.get();
         var properties = new JsonObject();
         var required = new JsonArray();
-        Map<String, Structure<?>> definitions = new HashMap<>();
+        var definitions = new LinkedHashMap<String, Structure<?>>();
         for (RecordStructure.Field<A, ?> field : fields) {
             Supplier<String> error = singleField(field, properties, required, definitions);
             if (error != null) {
@@ -175,21 +198,21 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     @Override
     public <A> DataResult<App<Holder.Mu, A>> annotate(Structure<A> input, Keys<Identity.Mu, Object> annotations) {
         JsonObject schema;
-        Map<String, Structure<?>> definitions;
+        SequencedMap<String, Structure<?>> definitions;
         var refName = Annotation.get(annotations, SchemaAnnotations.REUSE_KEY);
         if (refName.isPresent()) {
             schema = new JsonObject();
             var ref = refName.get();
             schema.addProperty("$ref", "#/$defs/"+ref);
-            definitions = new HashMap<>();
+            definitions = new LinkedHashMap<>();
             definitions.put(ref, input);
         } else {
             var result = input.interpret(this);
             if (result.error().isPresent()) {
                 return DataResult.error(result.error().get().messageSupplier());
             }
-            schema = schemaValue(result.result().orElseThrow());
-            definitions = new HashMap<>(definitions(result.result().orElseThrow()));
+            schema = copy(schemaValue(result.result().orElseThrow()));
+            definitions = new LinkedHashMap<>(definitions(result.result().orElseThrow()));
         }
 
         Annotation.get(annotations, Annotation.PATTERN).ifPresent(pattern -> {
@@ -207,7 +230,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     @Override
     public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keySchemaApp -> {
-            var definitions = new HashMap<>(definitions(keySchemaApp));
+            var definitions = new LinkedHashMap<>(definitions(keySchemaApp));
             var keySchema = schemaValue(keySchemaApp);
             JsonObject out = new JsonObject();
             JsonObject properties = new JsonObject();
@@ -275,7 +298,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     @Override
     public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> unboundedMap(App<Holder.Mu, K> key, App<Holder.Mu, V> value) {
         var schema = OBJECT.get();
-        var definitions = new HashMap<String, Structure<?>>();
+        var definitions = new LinkedHashMap<String, Structure<?>>();
         var keyJson = schemaValue(key);
         if (keyJson.has("pattern") && keyJson.get("pattern").isJsonPrimitive()) {
             // if the key has a pattern, we use "patternProperties"
@@ -294,7 +317,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> either(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
         var schema = new JsonObject();
         var anyOf = new JsonArray();
-        var definitions = new HashMap<String, Structure<?>>();
+        var definitions = new LinkedHashMap<String, Structure<?>>();
         var leftSchema = schemaValue(left);
         var rightSchema = schemaValue(right);
         definitions.putAll(definitions(left));
@@ -309,7 +332,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     public <L, R> DataResult<App<Holder.Mu, Either<L, R>>> xor(App<Holder.Mu, L> left, App<Holder.Mu, R> right) {
         var schema = new JsonObject();
         var oneOf = new JsonArray();
-        var definitions = new HashMap<String, Structure<?>>();
+        var definitions = new LinkedHashMap<String, Structure<?>>();
         var leftSchema = schemaValue(left);
         var rightSchema = schemaValue(right);
         definitions.putAll(definitions(left));
@@ -322,7 +345,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
 
     @Override
     public <K, V> DataResult<App<Holder.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
-        var definitions = new HashMap<String, Structure<?>>();
+        var definitions = new LinkedHashMap<String, Structure<?>>();
         return codecInterpreter.interpret(keyStructure).flatMap(keyCodec -> {
             var schema = OBJECT.get();
             for (var key : keys.get()) {
@@ -345,30 +368,30 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         return Holder.unbox(box).jsonObject;
     }
 
-    private static Map<String, Structure<?>> definitions(App<Holder.Mu, ?> box) {
+    private static SequencedMap<String, Structure<?>> definitions(App<Holder.Mu, ?> box) {
         return Holder.unbox(box).definition;
     }
 
     public <T> DataResult<JsonObject> interpret(Structure<T> structure) {
         return structure.interpret(this).flatMap(holder -> {
             var object = copy(schemaValue(holder));
-            var definitions = definitions(holder);
+            var definitions = new LinkedHashMap<>(definitions(holder));
             var defsObject = new JsonObject();
-            while (!definitions.isEmpty()) {
-                var newDefs = new HashMap<String, Structure<?>>();
-                for (Map.Entry<String, Structure<?>> entry : definitions.entrySet()) {
-                    if (defsObject.has(entry.getKey())) {
-                        continue;
-                    }
-                    var result = entry.getValue().interpret(this);
-                    if (result.error().isPresent()) {
-                        return DataResult.error(result.error().get().messageSupplier());
-                    }
-                    var schema = schemaValue(result.result().orElseThrow());
-                    defsObject.add(entry.getKey(), schema);
-                    newDefs.putAll(definitions(result.result().orElseThrow()));
+            while (true) {
+                final var entry = definitions.pollFirstEntry();
+                if (entry == null) break;
+                if (defsObject.has(entry.getKey())) {
+                    continue;
                 }
-                definitions = newDefs;
+                var result = entry.getValue().interpret(this);
+                if (result.error().isPresent()) {
+                    return DataResult.error(result.error().get().messageSupplier());
+                }
+                var schema = schemaValue(result.result().orElseThrow());
+                defsObject.add(entry.getKey(), schema);
+                definitions.putAll(definitions(result.result().orElseThrow()));
+                // Remove already interpreted definitions to prevent infinite re-interpretation
+                definitions.keySet().removeAll(defsObject.keySet());
             }
             if (!defsObject.isEmpty()) {
                 object.add("$defs", defsObject);
@@ -396,9 +419,11 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
         );
     }
 
-    public record Holder<T>(JsonObject jsonObject, Map<String, Structure<?>> definition) implements App<Holder.Mu, T> {
+    public record Holder<T>(JsonObject jsonObject, SequencedMap<String, Structure<?>> definition) implements App<Holder.Mu, T> {
+        private static final SequencedMap<String, Structure<?>> NO_DEFINITIONS = Collections.unmodifiableSequencedMap(new LinkedHashMap<>());
+
         public Holder(JsonObject object) {
-            this(object, Map.of());
+            this(object, NO_DEFINITIONS);
         }
 
         public Holder(Supplier<JsonObject> objectCreator) {
