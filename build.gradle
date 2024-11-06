@@ -1,8 +1,8 @@
 import dev.lukebemish.codecextras.gradle.FormatJmhOutput
 
 plugins {
-	alias cLibs.plugins.conventions.java
-	alias cLibs.plugins.managedversioning
+    alias cLibs.plugins.conventions.java
+    id 'dev.lukebemish.managedversioning'
 }
 
 group = 'dev.lukebemish'
