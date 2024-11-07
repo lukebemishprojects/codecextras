@@ -15,6 +15,6 @@ public interface OpsIo<T> {
     void write(T value, OutputStream output) throws IOException;
 
     default <Q extends Companion.CompanionToken> OpsIo<T> accompanied(Q token, Companion<T, Q> companion) {
-        return new SpecializedOpsIo(this, DelegatingOps.of(token, companion, ops()));
+        return new SpecializedOpsIo<>(this, DelegatingOps.of(token, companion, ops()));
     }
 }

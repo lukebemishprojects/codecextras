@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "codecextras_testmod",
+  "version": "1.0.0",
+  "name": "CodecExtras Test Mod",
+  "entrypoints": {
+    "modmenu": [
+      "dev.lukebemish.codecextras.test.fabric.CodecExtrasModMenu"
+    ]
+  }
+}

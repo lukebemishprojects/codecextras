@@ -1,0 +1,17 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="LGPL-3.0-only"
+authors="Luke Bemish"
+
+[[mods]]
+modId="codecextras_minecraft"
+version="${version}"
+displayName="CodecExtras - Minecraft Adapters"
+description="Minecraft-specific adapters for CodecExtras"
+
+[[dependencies.codecextras_minecraft]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version},)"
+ordering="NONE"
+side="BOTH"
