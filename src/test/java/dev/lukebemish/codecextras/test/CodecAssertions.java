@@ -23,6 +23,18 @@ public final class CodecAssertions {
         Assertions.assertEquals(expected, dataResult.result().get());
     }
 
+    public static <O> void assertDecodesOrPartial(DynamicOps<JsonElement> jsonOps, String json, O expected, Codec<O> codec) {
+        Gson gson = new GsonBuilder().create();
+        JsonElement jsonElement = gson.fromJson(json, JsonElement.class);
+        assertDecodesOrPartial(jsonOps, jsonElement, expected, codec);
+    }
+
+    public static <O, T> void assertDecodesOrPartial(DynamicOps<T> ops, T data, O expected, Codec<O> codec) {
+        DataResult<O> dataResult = codec.parse(ops, data);
+        Assertions.assertTrue(dataResult.resultOrPartial().isPresent(), () -> dataResult.error().orElseThrow().message());
+        Assertions.assertEquals(expected, dataResult.resultOrPartial().get());
+    }
+
     public static <O> void assertEncodes(DynamicOps<JsonElement> jsonOps, O value, String json, Codec<O> codec) {
         Gson gson = new GsonBuilder().create();
         JsonElement jsonElement = gson.fromJson(json, JsonElement.class);

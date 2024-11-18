@@ -5,6 +5,7 @@ import com.mojang.datafixers.kinds.K1;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.Lifecycle;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
@@ -13,11 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 
 class StructuredMapCodec<A> extends MapCodec<A> {
-    private record Field<A, T>(MapCodec<T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}
+    private record Field<A, T>(String name, MapCodec<T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}
 
     private final List<Field<A, ?>> fields;
     private final Function<RecordStructure.Container, A> creator;
@@ -50,7 +52,7 @@ class StructuredMapCodec<A> extends MapCodec<A> {
         MapCodec<F> fieldMapCodec = Annotation.get(field.structure().annotations(), Annotation.COMMENT)
             .map(comment -> CommentMapCodec.of(makeFieldCodec(fieldCodec, field, lenient), comment))
             .orElseGet(() -> makeFieldCodec(fieldCodec, field, lenient));
-        mapCodecFields.add(new StructuredMapCodec.Field<>(fieldMapCodec, field.key(), field.getter()));
+        mapCodecFields.add(new StructuredMapCodec.Field<>(field.name(), fieldMapCodec, field.key(), field.getter()));
         return null;
     }
 
@@ -69,22 +71,45 @@ class StructuredMapCodec<A> extends MapCodec<A> {
     @Override
     public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
         var builder = RecordStructure.Container.builder();
+        boolean isPartial = false;
+        boolean isError = false;
+        Lifecycle errorLifecycle = Lifecycle.stable();
+        Supplier<String> errorMessage = null;
         for (var field : fields) {
-            DataResult<A> result = singleField(ops, input, field, builder);
-            if (result != null) return result;
+            DataResult<?> result = singleField(ops, input, field, builder);
+            if (result.isError()) {
+                if (result.hasResultOrPartial()) {
+                    isPartial = true;
+                }
+                isError = true;
+                errorLifecycle = errorLifecycle.add(result.lifecycle());
+                if (errorMessage == null) {
+                    errorMessage = result.error().orElseThrow().messageSupplier();
+                } else {
+                    var oldMessage = errorMessage;
+                    errorMessage = () -> oldMessage.get() + ": " + result.error().orElseThrow().messageSupplier().get();
+                }
+            }
         }
-        return DataResult.success(creator.apply(builder.build()));
+        if (isError) {
+            if (isPartial) {
+                return DataResult.error(errorMessage, creator.apply(builder.build()), errorLifecycle);
+            } else {
+                return DataResult.error(errorMessage, errorLifecycle);
+            }
+        } else {
+            return DataResult.success(creator.apply(builder.build()));
+        }
     }
 
-    private static <A, T, F> @Nullable DataResult<A> singleField(DynamicOps<T> ops, MapLike<T> input, Field<A, F> field, RecordStructure.Container.Builder builder) {
+    private static <A, T, F> DataResult<F> singleField(DynamicOps<T> ops, MapLike<T> input, Field<A, F> field, RecordStructure.Container.Builder builder) {
         var key = field.key();
         var codec = field.codec();
         var result = codec.decode(ops, input);
-        if (result.error().isPresent()) {
-            return DataResult.error(result.error().orElseThrow().messageSupplier());
+        if (result.hasResultOrPartial()) {
+            builder.add(key, result.resultOrPartial().orElseThrow());
         }
-        builder.add(key, result.result().orElseThrow());
-        return null;
+        return result;
     }
 
     @Override
@@ -99,5 +124,11 @@ class StructuredMapCodec<A> extends MapCodec<A> {
         var codec = field.codec();
         var value = field.getter().apply(input);
         return codec.encode(value, ops, prefix);
+    }
+
+    @Override
+    public String toString() {
+        var fields = this.fields.stream().map(f -> f.codec().toString()).reduce((a, b) -> a + ", " + b).orElse("");
+        return "StructuredMapCodec[" + fields + "]";
     }
 }
