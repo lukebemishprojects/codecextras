@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.LogUtils;
 import java.util.Locale;
 import java.util.function.Consumer;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -86,7 +85,7 @@ class ColorPickScreen extends Screen {
     public void renderBackground(GuiGraphics guiGraphics, int i, int j, float f) {
         this.backgroundScreen.render(guiGraphics, -1, -1, f);
         guiGraphics.flush();
-        RenderSystem.clear(256, Minecraft.ON_OSX);
+        RenderSystem.clear(256);
         this.renderTransparentBackground(guiGraphics);
     }
 
