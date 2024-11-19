@@ -1,6 +1,6 @@
 # CodecExtras
 
-[![Version](https://img.shields.io/badge/dynamic/xml?style=for-the-badge&color=blue&label=Latest%20Version&prefix=v&query=metadata%2F%2Flatest&url=https%3A%2F%2Fmaven.lukebemish.dev%2Freleases%2Fdev%2Flukebemish%2Fcodecextras%2Fmaven-metadata.xml)](https://maven.lukebemish.dev/releases/dev/lukebemish/codecextras/)
+[![Version](https://img.shields.io/maven-central/last-update/dev.lukebemish/codecextras?style=for-the-badge&color=blue&label=Latest%20Version&prefix=v)](https://maven.lukebemish.dev/releases/dev/lukebemish/codecextras/)
 
 Various extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/DataFixerUpper), including:
 - Codecs with comments
@@ -8,12 +8,10 @@ Various extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/D
 - Codecs which decode to a different type than they encode from
 - Codecs representing changes to mutable data
 
-Artifacts are available on my maven:
+Artifacts are available on maven central (as of v3; for instructions for older versions, check the README on the appropriate branch):
 ```gradle
 repositories {
-    maven {
-        url = 'https://maven.lukebemish.dev/releases'
-    }
+    mavenCentral()
 }
 ```
 
@@ -24,12 +22,12 @@ dependencies {
 }
 ```
 
-For utilities supporting `StreamCodec`s, you will want to depend on the relevant artifact by capability:
+For utilities supporting `StreamCodec`s and other MC-specific features, you will want to depend on the relevant artifact by capability. If using neoforge:
 ```gradle
 dependencies {
     implementation('dev.lukebemish:codecextras:<version>') {
         capabilities {
-            requireCapability('dev.lukebemish:codecextras-stream')
+            requireFeature('minecraft-neoforge')
         }
     }
 }
@@ -40,7 +38,18 @@ Or if using fabric:
 dependencies {
     modImplementation('dev.lukebemish:codecextras:<version>') {
         capabilities {
-            requireCapability('dev.lukebemish:codecextras-stream-intermediary')
+            requireFeature('minecraft-fabric')
+        }
+    }
+}
+```
+
+And if you need a platform-agnostic API for multiloader:
+```gradle
+dependencies {
+    implementation('dev.lukebemish:codecextras:<version>') {
+        capabilities {
+            requireFeature('minecraft-common')
         }
     }
 }
