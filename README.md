@@ -1,6 +1,6 @@
 # CodecExtras
 
-[![Version](https://img.shields.io/maven-central/last-update/dev.lukebemish/codecextras?style=for-the-badge&color=blue&label=Latest%20Version&prefix=v)](https://central.sonatype.com/artifact/dev.lukebemish/codecextras)
+[![Version](https://img.shields.io/maven-central/v/dev.lukebemish/codecextras?style=for-the-badge&color=blue&label=Latest%20Version&prefix=v)](https://central.sonatype.com/artifact/dev.lukebemish/codecextras)
 
 Various extensions to the codecs from Mojang's [DFU](https://github.com/Mojang/DataFixerUpper), including:
 - Codecs with comments
