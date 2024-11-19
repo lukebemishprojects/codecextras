@@ -67,7 +67,7 @@ public final class MinecraftStructures {
 
     private static final Structure<Map<DataComponentType<?>, Object>> DATA_COMPONENT_VALUE_MAP_FALLBACK = resourceKey(Registries.DATA_COMPONENT_TYPE)
         .<DataComponentType<?>>flatXmap(key -> {
-            var type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(key);
+            var type = BuiltInRegistries.DATA_COMPONENT_TYPE.getValue(key);
             if (type == null) {
                 return DataResult.error(() -> "Unknown data component type: " + key);
             }
@@ -109,7 +109,7 @@ public final class MinecraftStructures {
                 boolean removes = string.startsWith("!");
                 string = removes ? string.substring(1) : string;
                 return ResourceLocation.read(string).flatMap(rl -> {
-                    var type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(rl);
+                    var type = BuiltInRegistries.DATA_COMPONENT_TYPE.getValue(rl);
                     if (type == null) {
                         return DataResult.error(() -> "Unknown data component type: " + rl);
                     }
@@ -158,28 +158,44 @@ public final class MinecraftStructures {
     );
 
     @SuppressWarnings("deprecation")
-    public static final Structure<Holder<Item>> ITEM_NON_AIR = Structure.keyed(
-        MinecraftKeys.ITEM_NON_AIR,
+    public static final Structure<Holder<Item>> ITEM = Structure.keyed(
+        MinecraftKeys.ITEM,
         Keys.<Flip.Mu<Holder<Item>>, K1>builder()
-            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.ITEM_NON_AIR_CODEC)))
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(Item.CODEC)))
             .build(),
         registryOrderedHolder(BuiltInRegistries.ITEM)
             .validate(holder -> holder.is(Items.AIR.builtInRegistryHolder()) ? DataResult.error(() -> "Item must not be minecraft:air") : DataResult.success(holder))
     );
 
-    public static final Structure<ItemStack> NON_EMPTY_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
-        MinecraftKeys.NON_EMPTY_ITEM_STACK,
+    public static final Structure<ItemStack> ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.ITEM_STACK,
         Keys.<Flip.Mu<ItemStack>, K1>builder()
             .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.CODEC)))
             .add(StreamCodecInterpreter.REGISTRY_FRIENDLY_BYTE_BUF_KEY, new Flip<>(new StreamCodecInterpreter.Holder<>(ItemStack.STREAM_CODEC)))
             .build(),
         Structure.record(builder -> {
-            var item = builder.add("id", ITEM_NON_AIR, ItemStack::getItemHolder);
+            var item = builder.add("id", ITEM, ItemStack::getItemHolder);
             var count = builder.addOptional("count", Structure.intInRange(1, 99), ItemStack::getCount, () -> 1);
             var patch = builder.addOptional("components", DATA_COMPONENT_PATCH, ItemStack::getComponentsPatch, () -> DataComponentPatch.EMPTY);
             return container -> new ItemStack(
                 item.apply(container),
                 count.apply(container),
+                patch.apply(container)
+            );
+        })
+    ));
+
+    public static final Structure<ItemStack> SINGLE_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.SINGLE_ITEM_STACK,
+        Keys.<Flip.Mu<ItemStack>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.SINGLE_ITEM_CODEC)))
+            .build(),
+        Structure.record(builder -> {
+            var item = builder.add("id", ITEM, ItemStack::getItemHolder);
+            var patch = builder.addOptional("components", DATA_COMPONENT_PATCH, ItemStack::getComponentsPatch, () -> DataComponentPatch.EMPTY);
+            return container -> new ItemStack(
+                item.apply(container),
+                1,
                 patch.apply(container)
             );
         })
@@ -193,24 +209,32 @@ public final class MinecraftStructures {
             .build(),
         Structure.either(
             Structure.EMPTY_MAP,
-                NON_EMPTY_ITEM_STACK
+                ITEM_STACK
             )
             .xmap(e -> e.map(u -> ItemStack.EMPTY, Function.identity()), itemStack -> itemStack.isEmpty() ? Either.left(Unit.INSTANCE) : Either.right(itemStack))
     ));
 
-    public static final Structure<ItemStack> STRICT_NON_EMPTY_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
-        MinecraftKeys.STRICT_NON_EMPTY_ITEM_STACK,
+    public static final Structure<ItemStack> STRICT_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.STRICT_ITEM_STACK,
         Keys.<Flip.Mu<ItemStack>, K1>builder()
             .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.STRICT_CODEC)))
             .build(),
-        NON_EMPTY_ITEM_STACK.validate(MinecraftStructures::validateItemStackStrict)
+        ITEM_STACK.validate(MinecraftStructures::validateItemStackStrict)
+    ));
+
+    public static final Structure<ItemStack> STRICT_SINGLE_ITEM_STACK = Structure.lazyInitialized(() -> Structure.keyed(
+        MinecraftKeys.STRICT_SINGLE_ITEM_STACK,
+        Keys.<Flip.Mu<ItemStack>, K1>builder()
+            .add(CodecInterpreter.KEY, new Flip<>(new CodecInterpreter.Holder<>(ItemStack.STRICT_SINGLE_ITEM_CODEC)))
+            .build(),
+        SINGLE_ITEM_STACK.validate(MinecraftStructures::validateItemStackStrict)
     ));
 
     private static DataResult<ItemStack> validateItemStackStrict(ItemStack itemStack) {
         return ItemStack.validateComponents(itemStack.getComponents())
             .flatMap(
                 u -> itemStack.getCount() > itemStack.getMaxStackSize() ?
-                    DataResult.error(() -> "Item stack with stack size of " + itemStack.getCount() + " was larger than maximum: " + itemStack.getMaxStackSize()) :
+                    DataResult.error(() -> "Item stack with stack size of " + itemStack.getCount() + " was larger than maximum: " + itemStack.getMaxStackSize(), itemStack) :
                     DataResult.success(itemStack)
             );
     }
@@ -260,7 +284,7 @@ public final class MinecraftStructures {
                 .build(),
             resourceKey(registry.key())
                 .bounded(registry::registryKeySet)
-                .flatXmap(key -> registry.getHolder(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
+                .flatXmap(key -> registry.get(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
                     keyForEntry(holder, registry).map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + holder)))
                 .xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
         ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
@@ -282,7 +306,7 @@ public final class MinecraftStructures {
                     StreamCodecInterpreter.FRIENDLY_BYTE_BUF_KEY,
                     new Flip<>(new StreamCodecInterpreter.Holder<>(
                         ResourceLocation.STREAM_CODEC.<Holder<T>>map(
-                            rl -> registry.getHolder(rl).orElseThrow(() -> new DecoderException("Unknown registry entry: " + rl)),
+                            rl -> registry.get(rl).orElseThrow(() -> new DecoderException("Unknown registry entry: " + rl)),
                             holder -> keyForEntry(holder, registry).orElseThrow(() -> new EncoderException("Unknown registry entry: " + holder)).location()
                         ).<FriendlyByteBuf>cast().map(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
                     ))
@@ -290,7 +314,7 @@ public final class MinecraftStructures {
                 .build(),
             resourceKey(registry.key())
                 .bounded(registry::registryKeySet)
-                .flatXmap(key -> registry.getHolder(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
+                .flatXmap(key -> registry.get(key).<DataResult<Holder<T>>>map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + key)), holder ->
                     keyForEntry(holder, registry).map(DataResult::success).orElse(DataResult.error(() -> "Unknown registry entry: " + holder)))
                 .xmap(MinecraftKeys.HolderHolder::new, MinecraftKeys.HolderHolder::value)
         ).xmap(MinecraftKeys.HolderHolder::value, MinecraftKeys.HolderHolder::new);
@@ -345,7 +369,7 @@ public final class MinecraftStructures {
     public static <T> Structure<T> registryDispatch(String keyField, Function<T, DataResult<ResourceKey<Structure<? extends T>>>> structureFunction, Registry<Structure<? extends T>> registry) {
         var keyStructure = resourceKey(registry.key());
         return keyStructure.dispatch(keyField, structureFunction, registry::registryKeySet, k ->
-                DataResult.success(registry.getOrThrow(k).annotate(SchemaAnnotations.REUSE_KEY, toDefsKey(k.registry()) + "::" + toDefsKey(k.location())))
+                DataResult.success(registry.getValueOrThrow(k).annotate(SchemaAnnotations.REUSE_KEY, toDefsKey(k.registry()) + "::" + toDefsKey(k.location())))
         );
     }
 
@@ -361,7 +385,7 @@ public final class MinecraftStructures {
         if (!CodecExtrasRegistries.REGISTRIES.dataComponentStructures().isReady()) {
             return DataResult.error(() -> "Data component structures registry is not frozen");
         }
-        var structure = CodecExtrasRegistries.REGISTRIES.dataComponentStructures().get().get(resourceKey.orElseThrow().location());
+        var structure = CodecExtrasRegistries.REGISTRIES.dataComponentStructures().get().getValue(resourceKey.orElseThrow().location());
         return fallbackDataComponentTypeStructure(type, structure);
     }
 

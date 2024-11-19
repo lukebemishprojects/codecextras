@@ -69,7 +69,7 @@ public final class MinecraftInterpreters {
     public static final Keys<JsonSchemaInterpreter.Holder.Mu, Object> JSON_SCHEMA_KEYS = Keys.<JsonSchemaInterpreter.Holder.Mu, Object>builder()
         .build();
 
-    // TODO: Add regex fo schemas
+    // TODO: Add regex for schemas
     public static final Keys2<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1> JSON_SCHEMA_PARAMETRIC_KEYS = Keys2.<ParametricKeyedValue.Mu<JsonSchemaInterpreter.Holder.Mu>, K1, K1>builder()
         .build();
 }

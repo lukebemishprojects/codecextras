@@ -41,7 +41,7 @@ public class CodecExtrasRegistries {
 
             @SuppressWarnings("unchecked")
             public final Preparable<Registry<Structure<? extends DataComponentType<?>>>> dataComponentStructures = Preparable.memoize(() ->
-                (Registry<Structure<? extends DataComponentType<?>>>) Objects.requireNonNull(BuiltInRegistries.REGISTRY.get(CodecExtrasRegistries.DATA_COMPONENT_STRUCTURES.location()), "Registry does not exist"));
+                (Registry<Structure<? extends DataComponentType<?>>>) Objects.requireNonNull(BuiltInRegistries.REGISTRY.getValue(CodecExtrasRegistries.DATA_COMPONENT_STRUCTURES.location()), "Registry does not exist"));
         }
 
         void setup(RegistriesImpl registries);

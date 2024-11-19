@@ -6,7 +6,6 @@ import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Key2;
 import dev.lukebemish.codecextras.types.Identity;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
@@ -20,7 +19,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public final class MinecraftKeys {
-    private static final Map<ResourceKey<DataComponentType<?>>, Key<?>> DATA_COMPONENT_TYPE_KEYS = new ConcurrentHashMap<>();
     public static Key<Map<DataComponentType<?>, Object>> VALUE_MAP = Key.create("value_map");
     public static Key<DataComponentMap> DATA_COMPONENT_MAP = Key.create("data_component_map");
     public static Key<DataComponentPatch> DATA_COMPONENT_PATCH = Key.create("data_component_patch");
@@ -33,10 +31,12 @@ public final class MinecraftKeys {
     public static final Key<Integer> ARGB_COLOR = Key.create("argb_color");
     public static final Key<Integer> RGB_COLOR = Key.create("rgb_color");
 
-    public static final Key<Holder<Item>> ITEM_NON_AIR = Key.create("item_non_air");
+    public static final Key<Holder<Item>> ITEM = Key.create("item_non_air");
     public static final Key<ItemStack> OPTIONAL_ITEM_STACK = Key.create("optional_item_stack");
-    public static final Key<ItemStack> NON_EMPTY_ITEM_STACK = Key.create("non_empty_item_stack");
-    public static final Key<ItemStack> STRICT_NON_EMPTY_ITEM_STACK = Key.create("strict_non_empty_item_stack");
+    public static final Key<ItemStack> ITEM_STACK = Key.create("item_stack");
+    public static final Key<ItemStack> STRICT_ITEM_STACK = Key.create("strict_item_stack");
+    public static final Key<ItemStack> SINGLE_ITEM_STACK = Key.create("single_item_item_stack");
+    public static final Key<ItemStack> STRICT_SINGLE_ITEM_STACK = Key.create("strict_single_item_item_stack");
 
     public record DataComponentTypeHolder<T>(DataComponentType<T> value) implements App<DataComponentTypeHolder.Mu, T> {
         public static final class Mu implements K1 {

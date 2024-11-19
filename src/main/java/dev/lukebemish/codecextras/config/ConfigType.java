@@ -154,6 +154,15 @@ public abstract class ConfigType<O> {
             try (var is = Files.newInputStream(location)) {
                 var out = decode(location.toString(), opsIo.ops(), opsIo.read(is), logger);
                 if (out.error().isPresent()) {
+                    if (out.hasResultOrPartial()) {
+                        var orPartial = out.resultOrPartial().orElseThrow();
+                        var reEncoded = codec().encodeStart(opsIo.ops(), orPartial).flatMap(t -> codec().decode(opsIo.ops(), t));
+                        if (reEncoded.isSuccess()) {
+                            logger.warn("Could not load config {}; attempting to fix by writing partial config. Error was {}", location, out.error().get().message());
+                            save(location, opsIo, logger, out.resultOrPartial().orElseThrow());
+                            return orPartial;
+                        }
+                    }
                     logger.error("Could not load config {}; attempting to fix by writing default config. Error was {}", location, out.error().get().message());
                     save(location, opsIo, logger, defaultConfig());
                     return defaultConfig();

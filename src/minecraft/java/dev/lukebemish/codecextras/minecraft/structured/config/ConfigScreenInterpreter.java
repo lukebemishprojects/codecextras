@@ -36,19 +36,6 @@ import dev.lukebemish.codecextras.structured.Range;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.types.Identity;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -66,9 +53,23 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Interprets a {@link Structure} into a {@link ConfigScreenEntry} for the same type. Note that interpreting a structure
@@ -173,9 +174,9 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                     Widgets.wrapWithOptionalHandling(ConfigScreenInterpreter::byJson),
                     new EntryCreationInfo<>(Codec.PASSTHROUGH, ComponentInfo.empty())
                 ))
-                .add(MinecraftKeys.ITEM_NON_AIR, ConfigScreenEntry.single(
+                .add(MinecraftKeys.ITEM, ConfigScreenEntry.single(
                     Widgets.pickWidget(new StringRepresentation<>(
-                        () -> BuiltInRegistries.ITEM.holders().<Holder<Item>>map(Function.identity()).toList(),
+                        () -> BuiltInRegistries.ITEM.listElements().filter(e -> e.value() != Items.AIR).<Holder<Item>>map(Function.identity()).toList(),
                         holder -> {
                             if (holder instanceof Holder.Reference<Item> reference) {
                                 return reference.key().location().toString();
@@ -190,11 +191,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                 return null;
                             }
                             var key = rlResult.getOrThrow();
-                            return BuiltInRegistries.ITEM.getHolder(key).orElse(null);
+                            return BuiltInRegistries.ITEM.get(key).orElse(null);
                         },
                         false
                     )),
-                    new EntryCreationInfo<>(ItemStack.ITEM_NON_AIR_CODEC, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Item.CODEC, ComponentInfo.empty())
                 ))
                 .add(MinecraftKeys.RESOURCE_LOCATION, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(Widgets.text(ResourceLocation::read, rl -> DataResult.success(rl.toString()), string -> string.matches("^([a-z0-9._-]+:)?[a-z0-9/._-]*$"), false)),
@@ -436,7 +437,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         var holderCodec = codec.<App<MinecraftKeys.ResourceKeyHolder.Mu, T>>xmap(MinecraftKeys.ResourceKeyHolder::new, app -> MinecraftKeys.ResourceKeyHolder.unbox(app).value());
                         return ConfigScreenEntry.single(
                             (parent, width, context, original, update, creationInfo, handleOptional) -> {
-                                var registry = context.registryAccess().registry(registryKey);
+                                var registry = context.registryAccess().lookup(registryKey);
                                 LayoutFactory<ResourceKey<T>> wrapped;
                                 Function<ResourceKey<T>, String> mapper = key -> key.location().toString();
                                 if (registry.isPresent()) {
@@ -521,7 +522,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 ComponentInfo.empty()
             );
             final EntryCreationInfo<Number> numberInfo = new EntryCreationInfo<>(
-                BIG_DECIMAL_CODEC.<Number>xmap(Function.identity(), number -> number instanceof BigDecimal bigDecimal ? bigDecimal : new BigDecimal(number.toString())),
+                BIG_DECIMAL_CODEC.xmap(Function.identity(), number -> number instanceof BigDecimal bigDecimal ? bigDecimal : new BigDecimal(number.toString())),
                 ComponentInfo.empty()
             );
             final EntryCreationInfo<Boolean> booleanInfo = new EntryCreationInfo<>(
@@ -644,7 +645,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         };
                         private final EntryCreationContext.ProblemMarker[] problems = new EntryCreationContext.ProblemMarker[1];
                         private final Consumer<JsonElement> checkedUpdate = newJsonValue -> creationInfo.codec().parse(context.ops(), newJsonValue).ifError(error -> {
-                            problems[0] = context.problem(problems[0], "Coult not encode: "+error.message());
+                            problems[0] = context.problem(problems[0], "Could not encode: "+error.message());
                         }).ifSuccess(json -> {
                             context.resolve(problems[0]);
                             update.accept(json);
@@ -661,14 +662,14 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         private final Map<JsonType, LayoutElement> layouts = new EnumMap<>(JsonType.class);
 
                         {
-                            layouts.put(JsonType.OBJECT, Button.builder(Component.translatable("codecextras.config.configurerecord"), b -> {
+                            layouts.put(JsonType.OBJECT, VisibilityWrapperElement.ofDirect(Button.builder(Component.translatable("codecextras.config.configurerecord"), b -> {
                                 Minecraft.getInstance().setScreen(ScreenEntryProvider.create(
                                     new UnboundedMapScreenEntryProvider<>(stringEntry, jsonEntry, context, elements.get(JsonType.OBJECT), newJsonValue -> {
                                         elements.put(JsonType.OBJECT, newJsonValue);
                                         checkedUpdate.accept(newJsonValue);
                                     }), parent, context, creationInfo.componentInfo()
                                 ));
-                            }).width(remainingWidth).build());
+                            }).width(remainingWidth).build()));
                             layouts.put(JsonType.ARRAY, Button.builder(Component.translatable("codecextras.config.configurelist"), b -> {
                                 Minecraft.getInstance().setScreen(ScreenEntryProvider.create(
                                     new ListScreenEntryProvider<>(jsonEntry, context, elements.get(JsonType.ARRAY), newJsonValue -> {
@@ -680,19 +681,19 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             layouts.put(JsonType.STRING, stringEntry.layout().create(parent, remainingWidth, context, elements.get(JsonType.STRING), newJsonValue -> {
                                 elements.put(JsonType.STRING, newJsonValue);
                                 checkedUpdate.accept(newJsonValue);
-                            }, outerEntryHolder.stringInfo, handleOptional));
+                            }, outerEntryHolder.stringInfo, false));
                             layouts.put(JsonType.NUMBER, numberEntry.layout().create(parent, remainingWidth, context, elements.get(JsonType.NUMBER), newJsonValue -> {
                                 elements.put(JsonType.NUMBER, newJsonValue);
                                 checkedUpdate.accept(newJsonValue);
-                            }, outerEntryHolder.numberInfo, handleOptional));
+                            }, outerEntryHolder.numberInfo, false));
                             layouts.put(JsonType.BOOLEAN, booleanEntry.layout().create(parent, remainingWidth, context, elements.get(JsonType.BOOLEAN), newJsonValue -> {
                                 elements.put(JsonType.BOOLEAN, newJsonValue);
                                 checkedUpdate.accept(newJsonValue);
-                            }, outerEntryHolder.booleanInfo, handleOptional));
+                            }, outerEntryHolder.booleanInfo, false));
                             layouts.put(JsonType.RAW, outerEntryHolder.rawJsonEntry.layout().create(parent, remainingWidth, context, elements.get(JsonType.RAW), newJsonValue -> {
                                 elements.put(JsonType.RAW, newJsonValue);
                                 checkedUpdate.accept(newJsonValue);
-                            }, outerEntryHolder.jsonInfo, handleOptional));
+                            }, outerEntryHolder.jsonInfo, false));
                             onTypeUpdate.run();
                         }
                     };

@@ -28,6 +28,7 @@ import net.minecraft.client.gui.layouts.EqualSpacingLayout;
 import net.minecraft.client.gui.layouts.FrameLayout;
 import net.minecraft.client.gui.layouts.LayoutSettings;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.slf4j.Logger;
@@ -250,7 +251,7 @@ public final class Widgets {
                     int endY = getY() + getHeight()/2 + rectangleHeight/2;
                     int endX = getX() + getWidth() - (startX - getX());
                     if (includeAlpha) {
-                        guiGraphics.blitSprite(TRANSPARENT, startX, startY, endX - startX, endY - startY);
+                        guiGraphics.blitSprite(RenderType::guiTextured, TRANSPARENT, startX, startY, endX - startX, endY - startY);
                     }
                     guiGraphics.fill(startX, startY, endX, endY, includeAlpha ? value[0] : value[0] | 0xFF000000);
                 }
@@ -468,15 +469,6 @@ public final class Widgets {
             w.setMessage(creationInfo.componentInfo().title());
             return w;
         };
-        return (parent, width, context, original, update, entry, handleOptional) -> {
-            if (handleOptional) {
-                return widget.create(parent, width, context, original, update, entry, true);
-            }
-            var button = Button.builder(Component.translatable("codecextras.config.unit"), b -> {})
-                .width(width)
-                .build();
-            button.active = false;
-            return VisibilityWrapperElement.ofInactive(button);
-        };
+        return wrapWithOptionalHandling(widget);
     }
 }

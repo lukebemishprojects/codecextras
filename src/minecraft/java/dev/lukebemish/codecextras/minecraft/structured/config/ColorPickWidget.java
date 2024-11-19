@@ -138,12 +138,13 @@ class ColorPickWidget extends AbstractWidget {
             guiGraphics.renderOutline(getX() + 128 + 8 * 3 + 2 * 2, getY(), 8 + 2, 128 + 2, BORDER_COLOR);
         }
         Matrix4f matrix4f = guiGraphics.pose().last().pose();
-        VertexConsumer vertexConsumer = guiGraphics.bufferSource().getBuffer(RenderType.gui());
-        vertexConsumer.addVertex(matrix4f, x1, y1, 0).setColor(0xFFFFFFFF);
-        vertexConsumer.addVertex(matrix4f, x1, y2, 0).setColor(0xFFFFFFFF);
-        vertexConsumer.addVertex(matrix4f, x2, y2, 0).setColor(fullySaturated);
-        vertexConsumer.addVertex(matrix4f, x2, y1, 0).setColor(fullySaturated);
-        guiGraphics.flush();
+        guiGraphics.drawSpecial(bufferSource -> {
+            VertexConsumer vertexConsumer = bufferSource.getBuffer(RenderType.gui());
+            vertexConsumer.addVertex(matrix4f, x1, y1, 0).setColor(0xFFFFFFFF);
+            vertexConsumer.addVertex(matrix4f, x1, y2, 0).setColor(0xFFFFFFFF);
+            vertexConsumer.addVertex(matrix4f, x2, y2, 0).setColor(fullySaturated);
+            vertexConsumer.addVertex(matrix4f, x2, y1, 0).setColor(fullySaturated);
+        });
         guiGraphics.fillGradient(x1, y1, x2, y2, 0, 0xFF000000);
 
         guiGraphics.enableScissor(x1, y1, x2, y2);
@@ -153,14 +154,14 @@ class ColorPickWidget extends AbstractWidget {
         guiGraphics.fill(xCenter, yCenter-2, xCenter+1, yCenter+3, inverted);
         guiGraphics.disableScissor();
 
-        guiGraphics.blitSprite(HUE, x1+128+8+2, y1, 8, 128);
+        guiGraphics.blitSprite(RenderType::guiTextured, HUE, x1+128+8+2, y1, 8, 128);
 
         guiGraphics.fill(x1+128+8+2, y1+(int)(hue*127), x1+128+8*2+2, y1+(int)(hue*127)+1, 0xFF000000);
 
         var ax1 = x1 + 128 + 8 * 3 + 2 * 2;
         var ax2 = ax1 + 8;
         if (this.hasAlpha) {
-            guiGraphics.blitSprite(TRANSPARENT, ax1, y1, 8, 128);
+            guiGraphics.blitSprite(RenderType::guiTextured, TRANSPARENT, ax1, y1, 8, 128);
 
             guiGraphics.fillGradient(ax1, y1, ax2, y2, 0x00000000, color | 0xFF000000);
 
