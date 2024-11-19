@@ -58,6 +58,7 @@ managedVersioning {
                     run.set 'git push && git push --tags'
                 }
                 recordVersion 'Record Version', 'version'
+                dependencySubmission()
             }
             gradleJob {
                 buildCache()
@@ -65,8 +66,10 @@ managedVersioning {
                 name.set 'publish'
                 needs.add('build')
                 tag.set('${{needs.build.outputs.version}}')
-                gradlew 'Publish', 'publish'
-                mavenRelease('github')
+                gradlew 'Publish', 'publish', 'closeAndReleaseSonatypeStagingRepository'
+                sign()
+                mavenCentral()
+                mavenStaging('github')
             }
         }
         build_pr {
@@ -139,6 +142,9 @@ java {
         capability(project.group as String, "$project.name-minecraft-common", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
     }
     registerFeature("minecraftFabric") {
         usingSourceSet sourceSets.minecraftFabric
@@ -147,6 +153,9 @@ java {
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
         capability(project.group as String, "$project.name-stream-intermediary", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
     }
     registerFeature("minecraftNeoforge") {
         usingSourceSet sourceSets.minecraftNeoforge
@@ -154,6 +163,9 @@ java {
         capability(project.group as String, "$project.name-minecraft-neoforge", project.version as String)
         // Old name
         capability(project.group as String, "$project.name-stream", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
     }
 }
 
@@ -278,14 +290,6 @@ tasks.register('jmhResults', FormatJmhOutput) {
     formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
-tasks.named('remapMinecraftFabricJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
-    task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-intermediary.jar")
-}
-
-tasks.named('minecraftNeoforgeJar', Jar) { task ->
-    task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-minecraft-neoforge.jar")
-}
-
 tasks.compileJava {
     options.compilerArgs += [
         '-Aautoextension.name=CodecExtras',
@@ -327,6 +331,7 @@ publishing {
     }
 }
 
-managedVersioning.publishing.mavenRelease(publishing)
+managedVersioning.publishing.mavenStaging(publishing)
+managedVersioning.publishing.mavenCentral()
 managedVersioning.publishing.mavenPullRequest(publishing)
 managedVersioning.publishing.mavenSnapshot(publishing)
