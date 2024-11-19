@@ -1,42 +1,71 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = "Luke's Maven"
-			url = 'https://maven.lukebemish.dev/releases'
-		}
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		maven {
-			name = 'NeoForged'
-			url = 'https://maven.neoforged.net/'
-		}
-		maven {
-			name = 'Architectury'
-			url "https://maven.architectury.dev/"
-		}
-		mavenCentral()
-		gradlePluginPortal()
-	}
+    repositories {
+        maven {
+            name = "Luke's Maven"
+            url = 'https://maven.lukebemish.dev/releases'
+        }
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/'
+        }
+        maven {
+            name = 'Architectury'
+            url "https://maven.architectury.dev/"
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
 }
 
 plugins {
-	id 'dev.lukebemish.managedversioning' version '1.2.25' apply false
-	id 'dev.lukebemish.conventions' version '0.1.11'
-	id 'dev.lukebemish.multisource' version '0.1.8'
+    id 'org.gradlex.extra-java-module-info' version '1.8' apply false
+    id 'dev.lukebemish.managedversioning' version '1.2.26' apply false
+    // TODO: switch this over to crochet as soon as possible
+    id 'dev.architectury.loom' version '1.7.414' apply false
+    id 'dev.lukebemish.conventions' version '0.1.11'
+    id 'dev.lukebemish.multisource' version '0.2.2'
+}
+
+gradle.beforeProject {
+    it.plugins.apply('org.gradlex.extra-java-module-info')
+    it.extraJavaModuleInfo {
+        failOnMissingModuleInfo.set(false)
+        automaticModule('dev.lukebemish.autoextension:autoextension', 'autoextension')
+        automaticModule('com.mojang:datafixerupper', 'datafixerupper')
+    }
 }
 
 multisource.of(':') {
-	configureEach {
-		minecraft.add 'com.mojang:minecraft:1.20.6'
-		mappings.add loom.officialMojangMappings()
-	}
-	common('stream', []) {}
-	fabric('streamIntermediary', ['stream']) {}
-	repositories {
-		it.removeIf { it.name == 'Forge' }
-	}
+    repositories {
+        maven {
+            name = "Terraformers"
+            url = "https://maven.terraformersmc.com/"
+            content {
+                includeModule 'com.terraformersmc', 'modmenu'
+            }
+        }
+    }
+    configureEach {
+        minecraft.add project.libs.minecraft
+        mappings.add loom.officialMojangMappings()
+    }
+    common('minecraft', []) {}
+    fabric('minecraftFabric', ['minecraft']) {}
+    neoforge('minecraftNeoforge', ['minecraft']) {
+        neoForge.add project.libs.neoforge
+    }
+    common('testCommon', []) {}
+    neoforge('testNeoforge', ['testCommon']) {
+        neoForge.add project.libs.neoforge
+    }
+    fabric('testFabric', ['testCommon']) {}
+    repositories {
+        it.removeIf { it.name == 'Forge' }
+    }
 }
 
 rootProject.name = 'codecextras'

@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "dev.lukebemish.codecextras.minecraft.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MappedRegistryMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

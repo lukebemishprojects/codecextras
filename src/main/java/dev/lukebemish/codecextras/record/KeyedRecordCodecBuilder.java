@@ -7,7 +7,6 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import dev.lukebemish.codecextras.ExtendedRecordCodecBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -16,8 +15,8 @@ import java.util.stream.Stream;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
- * Similar to {@link ExtendedRecordCodecBuilder}, an alternative to {@link RecordCodecBuilder} that allows for any
- * number of fields. Unlike {@link ExtendedRecordCodecBuilder}, this does not require massively curried lambdas and so
+ * Similar to {@link CurriedRecordCodecBuilder}, an alternative to {@link RecordCodecBuilder} that allows for any
+ * number of fields. Unlike {@link CurriedRecordCodecBuilder}, this does not require massively curried lambdas and so
  * is less likely to make IDEs cry, and may be slightly faster in some scenarios.
  */
 @ApiStatus.Experimental

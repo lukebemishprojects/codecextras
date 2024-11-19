@@ -8,87 +8,90 @@ plugins {
 group = 'dev.lukebemish'
 
 managedVersioning {
-	versionFile.set project.file('version.properties')
-	versionPRs()
-	versionSnapshots()
+    versionFile.set project.file('version.properties')
+    versionPRs()
+    versionSnapshots()
 
-	gitHubActions {
-		snapshot {
-			prettyName.set 'Snapshot'
-			workflowDispatch.set(true)
-			onBranches.add 'main'
-			gradleJob {
-				buildCache()
-				cacheReadOnly.set false
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'Build', 'build'
-				gradlew 'Publish', 'publish'
-				mavenSnapshot('github')
-			}
-		}
-		benchmark {
-			prettyName.set 'Benchmark'
-			workflowDispatch.set(true)
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'JMH', 'jmhResults'
-				step {
-					name.set 'Record JMH Output'
-					run.set 'cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
-				}
-			}
-		}
-		release {
-			prettyName.set 'Release'
-			workflowDispatch.set(true)
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'build'
-				step {
-					setupGitUser()
-				}
-				readOnly.set false
-				gradlew 'Tag Release', 'tagRelease'
-				gradlew 'Build', 'build'
-				step {
-					run.set 'git push && git push --tags'
-				}
-				recordVersion 'Record Version', 'version'
-			}
-			gradleJob {
-				buildCache()
-				javaVersion.set '21'
-				name.set 'publish'
-				needs.add('build')
-				tag.set('${{needs.build.outputs.version}}')
-				gradlew 'Publish', 'publish'
-				mavenRelease('github')
-			}
-		}
-		build_pr {
-			prettyName.set 'Build PR'
-			pullRequest.set(true)
-			gradleJob {
-				javaVersion.set '21'
-				name.set 'build'
-				gradlew 'Build', 'build'
-				gradlew 'Publish', 'publish'
-				pullRequestArtifact()
-			}
-		}
-		publish_pr {
-			prettyName.set 'Publish PR'
-			publishPullRequestAction(
-				'github',
-				"${project.group.replace('.', '/')}/${project.name}",
-				'Build PR'
-			)
-		}
-	}
+    gitHubActions {
+        snapshot {
+            prettyName.set 'Snapshot'
+            workflowDispatch.set(true)
+            onBranches.add 'main'
+            gradleJob {
+                buildCache()
+                cacheReadOnly.set false
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                mavenSnapshot('github')
+            }
+        }
+        benchmark {
+            prettyName.set 'Benchmark'
+            workflowDispatch.set(true)
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'JMH', 'jmhResults'
+                step {
+                    name.set 'Record JMH Output'
+                    run.set 'cat build/reports/jmh/results.md >> $GITHUB_STEP_SUMMARY'
+                }
+            }
+        }
+        release {
+            prettyName.set 'Release'
+            workflowDispatch.set(true)
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'build'
+                step {
+                    setupGitUser()
+                }
+                readOnly.set false
+                gradlew 'Tag Release', 'tagRelease'
+                gradlew 'Build', 'build'
+                step {
+                    run.set 'git push && git push --tags'
+                }
+                recordVersion 'Record Version', 'version'
+                dependencySubmission()
+            }
+            gradleJob {
+                buildCache()
+                javaVersion.set '21'
+                name.set 'publish'
+                needs.add('build')
+                tag.set('${{needs.build.outputs.version}}')
+                gradlew 'Publish', 'publish', 'closeAndReleaseSonatypeStagingRepository'
+                sign()
+                mavenCentral()
+                mavenStaging('github')
+            }
+        }
+        build_pr {
+            prettyName.set 'Build PR'
+            pullRequest.set(true)
+            gradleJob {
+                javaVersion.set '21'
+                name.set 'build'
+                gradlew 'Build', 'build'
+                gradlew 'Publish', 'publish'
+                pullRequestArtifact()
+            }
+        }
+        publish_pr {
+            prettyName.set 'Publish PR'
+            publishPullRequestAction(
+                'github',
+                "${project.group.replace('.', '/')}/${project.name}",
+                'Build PR'
+            )
+        }
+    }
 }
 
 managedVersioning.apply()
@@ -96,165 +99,239 @@ managedVersioning.apply()
 println "Building: $version"
 
 sourceSets {
-	stream {}
-	streamIntermediary {}
-	jmh {}
+    minecraft {}
+    minecraftFabric {}
+    jmh {}
+}
+
+configurations {
+    testNeoforgeRuntimeClasspath.extendsFrom minecraftRuntimeClasspath
+    testFabricRuntimeClasspath.extendsFrom minecraftFabricRuntimeClasspath
+    testFabricToRemapRuntimeClasspath.extendsFrom minecraftFabricToRemapRuntimeClasspath
+
+    testNeoforgeCompileClasspath.extendsFrom minecraftCompileClasspath
+    testFabricCompileClasspath.extendsFrom minecraftFabricCompileClasspath
+    testFabricToRemapCompileClasspath.extendsFrom minecraftFabricToRemapCompileClasspath
+
+    runtimeModClasses {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    sourceSets.main.output.classesDirs.each { file ->
+        add(configurations.runtimeModClasses.name, file) {
+            builtBy tasks.classes
+        }
+    }
+    add(configurations.runtimeModClasses.name, sourceSets.main.output.resourcesDir) {
+        builtBy tasks.processResources
+    }
 }
 
 java {
-	toolchain.languageVersion.set(JavaLanguageVersion.of(21))
-	withSourcesJar()
-	withJavadocJar()
-	registerFeature("stream") {
-		usingSourceSet sourceSets.stream
-		withSourcesJar()
-		withJavadocJar()
-	}
-	registerFeature("streamIntermediary") {
-		usingSourceSet sourceSets.streamIntermediary
-		capability(project.group as String, "$project.name-stream", project.version as String)
-		capability(project.group as String, "$project.name-stream-intermediary", project.version as String)
-	}
+    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+    withSourcesJar()
+    withJavadocJar()
+    registerFeature("minecraft") {
+        usingSourceSet sourceSets.minecraft
+        withSourcesJar()
+        withJavadocJar()
+        capability(project.group as String, "$project.name-minecraft", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-common", project.version as String)
+        // Old name
+        capability(project.group as String, "$project.name-stream", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
+    }
+    registerFeature("minecraftFabric") {
+        usingSourceSet sourceSets.minecraftFabric
+        capability(project.group as String, "$project.name-minecraft", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-fabric", project.version as String)
+        // Old name
+        capability(project.group as String, "$project.name-stream", project.version as String)
+        capability(project.group as String, "$project.name-stream-intermediary", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
+    }
+    registerFeature("minecraftNeoforge") {
+        usingSourceSet sourceSets.minecraftNeoforge
+        capability(project.group as String, "$project.name-minecraft", project.version as String)
+        capability(project.group as String, "$project.name-minecraft-neoforge", project.version as String)
+        // Old name
+        capability(project.group as String, "$project.name-stream", project.version as String)
+
+        withJavadocJar()
+        withSourcesJar()
+    }
 }
 
 repositories {
-	mavenCentral()
-	maven {
-		name = 'Minecraft Libraries'
-		url = 'https://libraries.minecraft.net/'
-	}
+    mavenCentral()
+    maven {
+        name = 'Minecraft Libraries'
+        url = 'https://libraries.minecraft.net/'
+    }
 }
 
 dependencies {
-	api 'com.mojang:datafixerupper:7.0.14'
-	api 'org.slf4j:slf4j-api:2.0.1'
+    api 'com.mojang:datafixerupper:8.0.16'
+    api 'org.slf4j:slf4j-api:2.0.1'
 
-	jmhCompileOnly cLibs.bundles.compileonly
-	jmhImplementation project(':')
-	jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
-	jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
+    jmhCompileOnly cLibs.bundles.compileonly
+    jmhImplementation project(':')
+    jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
+    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 
-	jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
+    jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
 
-	testCompileOnly cLibs.bundles.compileonly
+    testCompileOnly cLibs.bundles.compileonly
 
-	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
-	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-params:5.9.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-params:5.9.2'
 
-	compileOnly 'com.electronwill.night-config:core:3.6.4'
-	compileOnly 'com.electronwill.night-config:toml:3.6.4'
-	compileOnly 'blue.endless:jankson:1.2.2'
-	compileOnly 'org.ow2.asm:asm:9.5'
+    compileOnly 'com.electronwill.night-config:core:3.6.4'
+    compileOnly 'com.electronwill.night-config:toml:3.6.4'
+    compileOnly 'blue.endless:jankson:1.2.2'
+    compileOnly 'org.ow2.asm:asm:9.5'
 
-	testImplementation 'com.electronwill.night-config:core:3.6.4'
-	testImplementation 'com.electronwill.night-config:toml:3.6.4'
-	testImplementation 'blue.endless:jankson:1.2.2'
-	testImplementation 'org.ow2.asm:asm:9.5'
+    testImplementation 'com.electronwill.night-config:core:3.6.4'
+    testImplementation 'com.electronwill.night-config:toml:3.6.4'
+    testImplementation 'blue.endless:jankson:1.2.2'
+    testImplementation 'org.ow2.asm:asm:9.5'
 
-	annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
-	compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
+    annotationProcessor 'dev.lukebemish.autoextension:autoextension:0.1.1'
+    compileOnly 'dev.lukebemish.autoextension:autoextension:0.1.1'
 
-	streamApi project(':')
-	streamCompileOnly cLibs.bundles.compileonly
-	streamAnnotationProcessor cLibs.bundles.annotationprocessor
-	streamIntermediaryApi project(':')
-	testImplementation sourceSets.stream.output
+    minecraftApi project(':')
+    minecraftCompileOnly cLibs.bundles.compileonly
+    minecraftAnnotationProcessor cLibs.bundles.annotationprocessor
+    minecraftFabricCompileOnly cLibs.bundles.compileonly
+    minecraftFabricAnnotationProcessor cLibs.bundles.annotationprocessor
+    minecraftNeoforgeCompileOnly cLibs.bundles.compileonly
+    minecraftNeoforgeAnnotationProcessor cLibs.bundles.annotationprocessor
+    minecraftFabricApi project(':')
+    minecraftNeoforgeApi project(':')
+
+    testNeoforgeCompileOnly sourceSets.minecraftNeoforge.output
+    testNeoforgeCompileOnly sourceSets.minecraft.output
+    testFabricCompileOnly sourceSets.minecraftFabric.output
+    testFabricCompileOnly sourceSets.minecraft.output
+    testCommonCompileOnly(project(':')) {
+        capabilities {
+            requireCapability 'dev.lukebemish:codecextras-minecraft-common'
+        }
+    }
+
+    modTestFabricImplementation libs.fabric.loader
+    modTestFabricLocalImplementation libs.fabric.api
+    modTestFabricLocalImplementation libs.modmenu
+
+    modMinecraftFabricImplementation libs.fabric.loader
+    modMinecraftFabricImplementation libs.fabric.api
+    modMinecraftFabricLocalImplementation libs.modmenu
 }
 
-['streamJar', 'streamIntermediaryJar', 'jar'].each {
-	tasks.named(it, Jar) {
-		manifest {
-			attributes(
-				'Specification-Version'     : project.version,
-				'Implementation-Version'    : project.version,
-				'Implementation-Commit-Time': managedVersioning.timestamp.get(),
-				'Implementation-Commit'     : managedVersioning.hash.get()
-			)
-		}
-	}
+['minecraftJar', 'minecraftFabricJar', 'minecraftNeoforgeJar', 'jar'].each {
+    tasks.named(it, Jar) {
+        manifest {
+            attributes(
+                'Specification-Version'     : project.version,
+                'Implementation-Version'    : project.version,
+                'Implementation-Commit-Time': managedVersioning.timestamp.get(),
+                'Implementation-Commit'     : managedVersioning.hash.get()
+            )
+        }
+    }
+}
+
+tasks.named('jar', Jar) {
+    manifest {
+        attributes(
+            'Automatic-Module-Name': project.group + '.' + project.name,
+            'FMLModType'           : 'LIBRARY'
+        )
+    }
+}
+
+['minecraftJar', 'minecraftFabricJar', 'minecraftNeoforgeJar'].each {
+    tasks.named(it, Jar) {
+        manifest {
+            attributes(
+                'Automatic-Module-Name'            : project.group + '.' + project.name + '.minecraft',
+                'Implementation-Minecraft-Version' : libs.versions.minecraft.get()
+            )
+        }
+    }
 }
 
 tasks.register('jmh', JavaExec) {
-	group = 'benchmark'
-	dependsOn sourceSets.jmh.output
-	mainClass = 'org.openjdk.jmh.Main'
-	systemProperty 'jmh.executor', 'VIRTUAL'
-	systemProperty 'jmh.blackhole.mode', 'COMPILER'
-	args '-rf', 'json', '-rff', 'build/reports/jmh/results.json'
-	classpath = sourceSets.jmh.runtimeClasspath
-	doFirst {
-		mkdir('build/reports/jmh')
-	}
-	outputs.file('build/reports/jmh/results.json')
+    group = 'benchmark'
+    dependsOn sourceSets.jmh.output
+    mainClass = 'org.openjdk.jmh.Main'
+    systemProperty 'jmh.executor', 'VIRTUAL'
+    systemProperty 'jmh.blackhole.mode', 'COMPILER'
+    args '-rf', 'json', '-rff', 'build/reports/jmh/results.json'
+    classpath = sourceSets.jmh.runtimeClasspath
+    doFirst {
+        mkdir('build/reports/jmh')
+    }
+    outputs.file('build/reports/jmh/results.json')
 }
 
 tasks.register('jmhResults', FormatJmhOutput) {
-	group = 'benchmark'
-	dependsOn tasks.jmh
-	jmhResults.set project.file('build/reports/jmh/results.json')
-	formattedResults.set project.file('build/reports/jmh/results.md')
-}
-
-streamJar {
-	manifest.attributes('FMLModType': 'GAMELIBRARY')
-}
-
-streamIntermediaryJar {
-	manifest.attributes('FMLModType': 'GAMELIBRARY')
-}
-
-tasks.named('remapStreamIntermediaryJar', dev.lukebemish.multisource.CopyArchiveFileTask) { task ->
-	task.archiveFile.set project.layout.buildDirectory.file("libs/${project.name}-${project.version}-stream-intermediary.jar")
-}
-
-jar {
-	manifest.attributes('FMLModType': 'LIBRARY')
+    group = 'benchmark'
+    dependsOn tasks.jmh
+    jmhResults.set project.file('build/reports/jmh/results.json')
+    formattedResults.set project.file('build/reports/jmh/results.md')
 }
 
 tasks.compileJava {
-	options.compilerArgs += [
-		'-Aautoextension.name=CodecExtras',
-		"-Aautoextension.version=${version}".toString()
-	]
-	javaCompiler = javaToolchains.compilerFor {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+    options.compilerArgs += [
+        '-Aautoextension.name=CodecExtras',
+        "-Aautoextension.version=${version}".toString()
+    ]
 }
 
-processStreamIntermediaryResources {
-	inputs.property "version", project.version.toString()
+['processResources', 'processMinecraftResources', 'processMinecraftFabricResources', 'processMinecraftNeoforgeResources'].each {
+    tasks.named(it, ProcessResources) {
+        var version = project.version.toString()
+        var minecraftVersion = libs.versions.minecraft.get()
 
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version.toString()
-	}
-}
+        inputs.property "version", version
+        inputs.property "minecraft_version", minecraftVersion
 
-processResources {
-	inputs.property "version", project.version.toString()
-
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version.toString()
-	}
+        filesMatching(["fabric.mod.json", "META-INF/neoforge.mods.toml"]) {
+            expand([
+                "version": version,
+                "minecraft_version": minecraftVersion
+            ])
+        }
+    }
 }
 
 test {
-	useJUnitPlatform()
-	testLogging {
-		showStandardStreams = true
-		exceptionFormat = 'full'
-		events = ['passed', 'failed', 'skipped']
-	}
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+        events = ['passed', 'failed', 'skipped']
+    }
 }
 
 publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			from components.java
-		}
-	}
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
-managedVersioning.publishing.mavenRelease(publishing)
+managedVersioning.publishing.mavenStaging(publishing)
+managedVersioning.publishing.mavenCentral()
 managedVersioning.publishing.mavenPullRequest(publishing)
 managedVersioning.publishing.mavenSnapshot(publishing)

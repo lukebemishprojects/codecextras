@@ -2,5 +2,6 @@
 	"schemaVersion": 1,
 	"id": "dev_lukebemish_codecextras",
 	"version": "${version}",
-	"name": "CodecExtras"
+	"name": "CodecExtras",
+  "license": "LGPL-3.0-only"
 }

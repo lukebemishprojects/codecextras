@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "codecextras_minecraft",
+	"version": "${version}",
+	"name": "CodecExtras - Minecraft Adapters",
+  "license": "LGPL-3.0-only",
+  "description": "Minecraft-specific adapters for CodecExtras",
+  "authors": [
+    "Luke Bemish"
+  ],
+  "depends": {
+    "minecraft": ">=${minecraft_version}"
+  },
+  "mixins": [
+    "codecextras.minecraft.mixin.json"
+  ]
+}

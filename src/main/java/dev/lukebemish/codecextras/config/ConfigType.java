@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -44,7 +45,7 @@ public abstract class ConfigType<O> {
             if (!touched[0]) {
                 return null;
             }
-            return dataFixerBuilder.buildUnoptimized();
+            return dataFixerBuilder.build().fixer();
         });
     }
 
@@ -72,13 +73,24 @@ public abstract class ConfigType<O> {
             }
         }
         return new ConfigHandle<>() {
+            private volatile @Nullable O loaded;
+
             @Override
-            public O load() {
-                return ConfigType.this.load(location, withLogging, logger);
+            public synchronized O load() {
+                var value = ConfigType.this.load(location, withLogging, logger);
+                this.loaded = value;
+                return value;
             }
 
             @Override
-            public void save(O config) {
+            public O get() {
+                var value = this.loaded;
+                return Objects.requireNonNullElseGet(value, this::load);
+            }
+
+            @Override
+            public synchronized void save(O config) {
+                this.loaded = config;
                 ConfigType.this.save(location, withLogging, logger, config);
             }
         };
@@ -86,6 +98,7 @@ public abstract class ConfigType<O> {
 
     public interface ConfigHandle<O> {
         O load();
+        O get();
         void save(O config);
     }
 
@@ -141,6 +154,15 @@ public abstract class ConfigType<O> {
             try (var is = Files.newInputStream(location)) {
                 var out = decode(location.toString(), opsIo.ops(), opsIo.read(is), logger);
                 if (out.error().isPresent()) {
+                    if (out.hasResultOrPartial()) {
+                        var orPartial = out.resultOrPartial().orElseThrow();
+                        var reEncoded = codec().encodeStart(opsIo.ops(), orPartial).flatMap(t -> codec().decode(opsIo.ops(), t));
+                        if (reEncoded.isSuccess()) {
+                            logger.warn("Could not load config {}; attempting to fix by writing partial config. Error was {}", location, out.error().get().message());
+                            save(location, opsIo, logger, out.resultOrPartial().orElseThrow());
+                            return orPartial;
+                        }
+                    }
                     logger.error("Could not load config {}; attempting to fix by writing default config. Error was {}", location, out.error().get().message());
                     save(location, opsIo, logger, defaultConfig());
                     return defaultConfig();

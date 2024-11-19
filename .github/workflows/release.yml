@@ -22,7 +22,7 @@
                 },
                 {
                     "name": "Validate Gradle Wrapper",
-                    "uses": "gradle/actions/wrapper-validation@v3"
+                    "uses": "gradle/actions/wrapper-validation@v4"
                 },
                 {
                     "with": {
@@ -38,7 +38,7 @@
                         "gradle-home-cache-cleanup": true
                     },
                     "name": "Setup Gradle",
-                    "uses": "gradle/actions/setup-gradle@v3"
+                    "uses": "gradle/actions/setup-gradle@v4"
                 },
                 {
                     "uses": "fregante/setup-git-user@v2"
@@ -80,6 +80,15 @@
                     "name": "Capture Recorded Version",
                     "run": "echo version=$(cat build/recordVersion.txt) >> \"$GITHUB_OUTPUT\"",
                     "id": "record_version_capture_version"
+                },
+                {
+                    "name": "Submit Dependencies",
+                    "uses": "gradle/actions/dependency-submission@v4",
+                    "env": {
+                        "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
+                        "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
+                        "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}"
+                    }
                 }
             ]
         },
@@ -104,7 +113,7 @@
                 },
                 {
                     "name": "Validate Gradle Wrapper",
-                    "uses": "gradle/actions/wrapper-validation@v3"
+                    "uses": "gradle/actions/wrapper-validation@v4"
                 },
                 {
                     "with": {
@@ -121,19 +130,23 @@
                         "gradle-home-cache-cleanup": true
                     },
                     "name": "Setup Gradle",
-                    "uses": "gradle/actions/setup-gradle@v3"
+                    "uses": "gradle/actions/setup-gradle@v4"
                 },
                 {
                     "name": "Publish",
-                    "run": "./gradlew publish",
+                    "run": "./gradlew publish closeAndReleaseSonatypeStagingRepository",
                     "id": "publish",
                     "env": {
                         "BUILD_CACHE_PASSWORD": "${{ secrets.BUILD_CACHE_PASSWORD }}",
                         "BUILD_CACHE_USER": "${{ secrets.BUILD_CACHE_USER }}",
                         "BUILD_CACHE_URL": "${{ secrets.BUILD_CACHE_URL }}",
-                        "RELEASE_MAVEN_PASSWORD": "${{ secrets.RELEASE_MAVEN_PASSWORD }}",
-                        "RELEASE_MAVEN_USER": "github",
-                        "RELEASE_MAVEN_URL": "https://maven.lukebemish.dev/releases/"
+                        "GPG_KEY": "${{ secrets.GPG_KEY }}",
+                        "GPG_PASSWORD": "${{ secrets.GPG_PASSWORD }}",
+                        "SONATYPE_PASSWORD": "${{ secrets.SONATYPE_PASSWORD }}",
+                        "SONATYPE_USER": "${{ secrets.SONATYPE_USER }}",
+                        "STAGING_MAVEN_PASSWORD": "${{ secrets.STAGING_MAVEN_PASSWORD }}",
+                        "STAGING_MAVEN_USER": "github",
+                        "STAGING_MAVEN_URL": "https://maven.lukebemish.dev/staging/"
                     }
                 }
             ]
