@@ -2,6 +2,7 @@ import dev.lukebemish.codecextras.gradle.FormatJmhOutput
 
 plugins {
     alias cLibs.plugins.conventions.java
+    id 'signing'
     id 'dev.lukebemish.managedversioning'
 }
 
@@ -326,6 +327,13 @@ test {
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            managedVersioning.publishing.sign(signing, it)
+            managedVersioning.publishing.pom(it, 'codecextras', 'LGPL-3.0-only')
+            pom {
+                name = 'codecextras'
+                description = 'Various extensions and utilities for Mojang\'s DFU library'
+            }
+
             from components.java
         }
     }
