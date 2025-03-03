@@ -11,7 +11,7 @@ import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreat
 
 import java.lang.invoke.MethodHandles;
 
-record TestRecord(
+public record TestRecord(
     int a, int b, int c, int d,
     int e, int f, int g, int h,
     int i, int j, int k, int l,
