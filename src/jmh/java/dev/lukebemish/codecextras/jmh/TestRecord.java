@@ -8,7 +8,6 @@ import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
-
 import java.lang.invoke.MethodHandles;
 
 public record TestRecord(

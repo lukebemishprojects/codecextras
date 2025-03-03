@@ -1,7 +1,6 @@
 package dev.lukebemish.codecextras.structured.reflective;
 
 import dev.lukebemish.codecextras.structured.Structure;
-
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;

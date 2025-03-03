@@ -9,13 +9,6 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
-import org.jetbrains.annotations.ApiStatus;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.ConstantDynamic;
-import org.objectweb.asm.Handle;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -35,6 +28,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.ApiStatus;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.ConstantDynamic;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 @ApiStatus.Internal
 @AutoService(ReflectiveStructureCreator.class)
