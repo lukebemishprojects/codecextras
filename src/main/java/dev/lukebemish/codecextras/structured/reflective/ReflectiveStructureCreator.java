@@ -6,8 +6,10 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedMap;
 import java.util.ServiceLoader;
 import java.util.function.Function;
 
@@ -40,17 +42,23 @@ public interface ReflectiveStructureCreator {
 
     @SuppressWarnings("unchecked")
     static <T> Structure<T> create(Class<T> clazz) {
-        List<ReflectiveStructureCreator> services = new ArrayList<>();
-        ServiceLoader.load(ReflectiveStructureCreator.class).forEach(services::add);
+        SequencedMap<Class<?>, ReflectiveStructureCreator> services = new LinkedHashMap<>();
+        ServiceLoader.load(ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
         if (clazz.getModule().getLayer() == null) {
-            ServiceLoader.load(ReflectiveStructureCreator.class, clazz.getClassLoader()).forEach(services::add);
+            ServiceLoader.load(ReflectiveStructureCreator.class, clazz.getClassLoader()).forEach(s -> services.putIfAbsent(s.getClass(), s));
         } else {
-            ServiceLoader.load(clazz.getModule().getLayer(), ReflectiveStructureCreator.class).forEach(services::add);
+            ServiceLoader.load(clazz.getModule().getLayer(), ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
+        }
+        var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
+        if (caller.getModule().getLayer() == null) {
+            ServiceLoader.load(ReflectiveStructureCreator.class, caller.getClassLoader()).forEach(s -> services.putIfAbsent(s.getClass(), s));
+        } else {
+            ServiceLoader.load(caller.getModule().getLayer(), ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
         }
         Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
         Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
         List<FlexibleCreator> flexibleCreators = new ArrayList<>();
-        services.forEach(creator -> {
+        services.values().forEach(creator -> {
             creatorsMap.putAll(creator.creators());
             parameterizedCreatorsMap.putAll(creator.parameterizedCreators());
             flexibleCreators.addAll(creator.flexibleCreators());
