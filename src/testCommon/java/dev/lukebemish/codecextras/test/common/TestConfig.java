@@ -12,6 +12,10 @@ import dev.lukebemish.codecextras.structured.IdentityInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.references.Items;
@@ -20,11 +24,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public record TestConfig(
     int a, float b, boolean c,
