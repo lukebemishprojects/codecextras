@@ -1,5 +1,6 @@
 module dev.lukebemish.codecextras {
     uses dev.lukebemish.codecextras.companion.AlternateCompanionRetriever;
+    uses dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 
     requires static autoextension;
     requires static com.electronwill.nightconfig.core;
@@ -13,6 +14,7 @@ module dev.lukebemish.codecextras {
     requires static org.jspecify;
     requires static org.objectweb.asm;
     requires static org.slf4j;
+    requires com.google.auto.service;
 
     exports dev.lukebemish.codecextras;
     exports dev.lukebemish.codecextras.comments;

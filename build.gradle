@@ -182,6 +182,8 @@ dependencies {
     api 'com.mojang:datafixerupper:8.0.16'
     api 'org.slf4j:slf4j-api:2.0.1'
 
+    implementation 'org.ow2.asm:asm:9.5'
+
     jmhCompileOnly cLibs.bundles.compileonly
     jmhImplementation project(':')
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
@@ -198,7 +200,6 @@ dependencies {
     compileOnly 'com.electronwill.night-config:core:3.6.4'
     compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
-    compileOnly 'org.ow2.asm:asm:9.5'
 
     testImplementation 'com.electronwill.night-config:core:3.6.4'
     testImplementation 'com.electronwill.night-config:toml:3.6.4'

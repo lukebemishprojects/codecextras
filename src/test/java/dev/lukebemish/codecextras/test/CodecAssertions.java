@@ -20,7 +20,17 @@ public final class CodecAssertions {
     public static <O, T> void assertDecodes(DynamicOps<T> ops, T data, O expected, Codec<O> codec) {
         DataResult<O> dataResult = codec.parse(ops, data);
         Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
-        Assertions.assertEquals(expected, dataResult.result().get());
+        switch (expected) {
+            case boolean[] booleans -> Assertions.assertArrayEquals(booleans, (boolean[]) dataResult.result().get());
+            case byte[] bytes -> Assertions.assertArrayEquals(bytes, (byte[]) dataResult.result().get());
+            case int[] ints -> Assertions.assertArrayEquals(ints, (int[]) dataResult.result().get());
+            case long[] longs -> Assertions.assertArrayEquals(longs, (long[]) dataResult.result().get());
+            case float[] floats -> Assertions.assertArrayEquals(floats, (float[]) dataResult.result().get(), 0.0f);
+            case double[] doubles -> Assertions.assertArrayEquals(doubles, (double[]) dataResult.result().get(), 0.0);
+            case char[] chars -> Assertions.assertArrayEquals(chars, (char[]) dataResult.result().get());
+            case Object[] objects -> Assertions.assertArrayEquals(objects, (Object[]) dataResult.result().get());
+            default -> Assertions.assertEquals(expected, dataResult.result().get());
+        }
     }
 
     public static <O> void assertDecodesOrPartial(DynamicOps<JsonElement> jsonOps, String json, O expected, Codec<O> codec) {

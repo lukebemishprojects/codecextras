@@ -642,6 +642,17 @@ public interface Structure<A> {
     Structure<String> STRING = keyed(Interpreter.STRING);
 
     /**
+     * Represents a {@link Character} value.
+     */
+    Structure<Character> CHAR = keyed(Interpreter.CHAR, STRING.validate(s -> {
+        if (s.length() == 1) {
+            return DataResult.success(s);
+        } else {
+            return DataResult.error(() -> "String must be 1 character long, found '" + s + "'");
+        }
+    }).xmap(s -> s.charAt(0), String::valueOf));
+
+    /**
      * Represents a {@link Dynamic} value.
      */
     Structure<Dynamic<?>> PASSTHROUGH = keyed(

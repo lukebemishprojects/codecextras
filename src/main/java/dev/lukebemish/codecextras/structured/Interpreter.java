@@ -33,7 +33,7 @@ public interface Interpreter<Mu extends K1> {
         return Stream.of();
     }
 
-    public interface KeyConsumer<MuK extends K1, MuI extends K1> {
+    interface KeyConsumer<MuK extends K1, MuI extends K1> {
         Key<MuK> key();
         <T> App<MuI, T> convert(App<MuK, T> input);
     }
@@ -59,6 +59,7 @@ public interface Interpreter<Mu extends K1> {
     Key<Float> FLOAT = Key.create("FLOAT");
     Key<Double> DOUBLE = Key.create("DOUBLE");
     Key<String> STRING = Key.create("STRING");
+    Key<Character> CHAR = Key.create("CHAR");
     Key<Dynamic<?>> PASSTHROUGH = Key.create("PASSTHROUGH");
     Key<Unit> EMPTY_MAP = Key.create("EMPTY_MAP");
     Key<Unit> EMPTY_LIST = Key.create("EMPTY_LIST");
