@@ -10,18 +10,21 @@ import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
 import dev.lukebemish.codecextras.structured.Annotation;
 import dev.lukebemish.codecextras.structured.IdentityInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import dev.lukebemish.codecextras.structured.schema.SchemaAnnotations;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.references.Items;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public record TestConfig(
     int a, float b, boolean c,
@@ -30,7 +33,7 @@ public record TestConfig(
     int intInRange, float floatInRange, int argb,
     int rgb, ResourceKey<Item> item, Rarity rarity,
     Map<String, Integer> unbounded, Either<String, Integer> either, Map<String, Dispatches> dispatchedMap,
-    DataComponentPatch patch, ItemStack itemStack
+    DataComponentPatch patch, ItemStack itemStack, ReflectiveRecord reflectiveRecord
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
 
@@ -72,6 +75,10 @@ public record TestConfig(
         }
     }
 
+    public record ReflectiveRecord(String x, ResourceLocation y, int[] z) {
+        private static final Structure<ReflectiveRecord> STRUCTURE = ReflectiveStructureCreator.create(ReflectiveRecord.class);
+    }
+
     static {
         DISPATCHES.put("abc", Abc.STRUCTURE);
         DISPATCHES.put("xyz", Xyz.STRUCTURE);
@@ -98,6 +105,7 @@ public record TestConfig(
         var dispatchedMap = builder.addOptional("dispatchedMap", Structure.STRING.dispatchedMap(DISPATCHES::keySet, k -> DataResult.success(DISPATCHES.get(k))), TestConfig::dispatchedMap, Map::of);
         var patch = builder.addOptional("patch", MinecraftStructures.DATA_COMPONENT_PATCH, TestConfig::patch, () -> DataComponentPatch.EMPTY);
         var itemStack = builder.addOptional("itemStack", MinecraftStructures.OPTIONAL_ITEM_STACK, TestConfig::itemStack, () -> ItemStack.EMPTY);
+        var reflectiveRecord = builder.addOptional("reflectiveRecord", ReflectiveRecord.STRUCTURE, TestConfig::reflectiveRecord, () -> new ReflectiveRecord("test", ResourceLocation.fromNamespaceAndPath("test", "test"), new int[] {1, 2, 3}));
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
@@ -105,7 +113,7 @@ public record TestConfig(
             intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
             rgb.apply(container), item.apply(container), rarity.apply(container),
             unbounded.apply(container), either.apply(container), dispatchedMap.apply(container),
-            patch.apply(container), itemStack.apply(container)
+            patch.apply(container), itemStack.apply(container), reflectiveRecord.apply(container)
         );
     });
 

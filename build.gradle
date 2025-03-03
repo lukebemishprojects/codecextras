@@ -219,6 +219,13 @@ dependencies {
     minecraftFabricApi project(':')
     minecraftNeoforgeApi project(':')
 
+    testCommonCompileOnly cLibs.bundles.compileonly
+    testCommonAnnotationProcessor cLibs.bundles.annotationprocessor
+    testFabricCompileOnly cLibs.bundles.compileonly
+    testFabricAnnotationProcessor cLibs.bundles.annotationprocessor
+    testNeoforgeCompileOnly cLibs.bundles.compileonly
+    testNeoforgeAnnotationProcessor cLibs.bundles.annotationprocessor
+
     testNeoforgeCompileOnly sourceSets.minecraftNeoforge.output
     testNeoforgeCompileOnly sourceSets.minecraft.output
     testFabricCompileOnly sourceSets.minecraftFabric.output
