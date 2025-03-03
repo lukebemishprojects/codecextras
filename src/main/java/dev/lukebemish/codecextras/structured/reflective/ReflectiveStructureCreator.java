@@ -1,15 +1,13 @@
 package dev.lukebemish.codecextras.structured.reflective;
 
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.utility.LayeredServiceLoader;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SequencedMap;
-import java.util.ServiceLoader;
 import java.util.function.Function;
 
 public interface ReflectiveStructureCreator {
@@ -39,32 +37,75 @@ public interface ReflectiveStructureCreator {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    final class Instance {
+        private final Map<Class<?>, Creator> creators;
+        private final Map<Class<?>, ParameterizedCreator> parameterizedCreators;
+        private final List<FlexibleCreator> flexibleCreators;
+
+        private Instance(Map<Class<?>, Creator> creators, Map<Class<?>, ParameterizedCreator> parameterizedCreators, List<FlexibleCreator> flexibleCreators) {
+            this.creators = creators;
+            this.parameterizedCreators = parameterizedCreators;
+            this.flexibleCreators = flexibleCreators;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+            private final Map<Class<?>, Creator> creators = new IdentityHashMap<>();
+            private final Map<Class<?>, ParameterizedCreator> parameterizedCreators = new IdentityHashMap<>();
+            private final List<FlexibleCreator> flexibleCreators = new ArrayList<>();
+
+            private Builder() {}
+
+            public Builder withCreator(Class<?> clazz, Creator creator) {
+                creators.put(clazz, creator);
+                return this;
+            }
+
+            public Builder withParameterizedCreator(Class<?> clazz, ParameterizedCreator creator) {
+                parameterizedCreators.put(clazz, creator);
+                return this;
+            }
+
+            public Builder withFlexibleCreator(FlexibleCreator creator) {
+                flexibleCreators.add(creator);
+                return this;
+            }
+
+            public Instance build() {
+                return new Instance(creators, parameterizedCreators, flexibleCreators);
+            }
+        }
+
+        private static final LayeredServiceLoader<ReflectiveStructureCreator> SERVICE_LOADER = LayeredServiceLoader.of(ReflectiveStructureCreator.class);
+
+        @SuppressWarnings("unchecked")
+        public <T> Structure<T> create(Class<T> clazz) {
+            var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
+            List<ReflectiveStructureCreator> services = LayeredServiceLoader.unique(SERVICE_LOADER.at(ReflectiveStructureCreator.class), SERVICE_LOADER.at(clazz), SERVICE_LOADER.at(caller));
+            Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
+            Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
+            List<FlexibleCreator> flexibleCreatorsList = new ArrayList<>();
+            services.forEach(creator -> {
+                creatorsMap.putAll(creator.creators());
+                parameterizedCreatorsMap.putAll(creator.parameterizedCreators());
+                flexibleCreatorsList.addAll(creator.flexibleCreators());
+            });
+
+            creatorsMap.putAll(this.creators);
+            parameterizedCreatorsMap.putAll(this.parameterizedCreators);
+            flexibleCreatorsList.addAll(this.flexibleCreators);
+
+            flexibleCreatorsList.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
+            var creator = forType(clazz, creatorsMap, parameterizedCreatorsMap, flexibleCreatorsList);
+            return (Structure<T>) creator.create();
+        }
+    }
+
     static <T> Structure<T> create(Class<T> clazz) {
-        SequencedMap<Class<?>, ReflectiveStructureCreator> services = new LinkedHashMap<>();
-        ServiceLoader.load(ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
-        if (clazz.getModule().getLayer() == null) {
-            ServiceLoader.load(ReflectiveStructureCreator.class, clazz.getClassLoader()).forEach(s -> services.putIfAbsent(s.getClass(), s));
-        } else {
-            ServiceLoader.load(clazz.getModule().getLayer(), ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
-        }
-        var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
-        if (caller.getModule().getLayer() == null) {
-            ServiceLoader.load(ReflectiveStructureCreator.class, caller.getClassLoader()).forEach(s -> services.putIfAbsent(s.getClass(), s));
-        } else {
-            ServiceLoader.load(caller.getModule().getLayer(), ReflectiveStructureCreator.class).forEach(s -> services.putIfAbsent(s.getClass(), s));
-        }
-        Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
-        Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
-        List<FlexibleCreator> flexibleCreators = new ArrayList<>();
-        services.values().forEach(creator -> {
-            creatorsMap.putAll(creator.creators());
-            parameterizedCreatorsMap.putAll(creator.parameterizedCreators());
-            flexibleCreators.addAll(creator.flexibleCreators());
-        });
-        flexibleCreators.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
-        var creator = forType(clazz, creatorsMap, parameterizedCreatorsMap, flexibleCreators);
-        return (Structure<T>) creator.create();
+        return Instance.builder().build().create(clazz);
     }
 
     private static Creator forType(Type type, Map<Class<?>, Creator> creatorsMap, Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap, List<FlexibleCreator> flexibleCreators) {
