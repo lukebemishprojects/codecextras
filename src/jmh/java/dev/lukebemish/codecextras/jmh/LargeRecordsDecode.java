@@ -2,7 +2,6 @@ package dev.lukebemish.codecextras.jmh;
 
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -14,6 +13,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
+
+import java.util.concurrent.TimeUnit;
 
 public class LargeRecordsDecode {
     @Measurement(time = 2, iterations = 5)
@@ -49,6 +50,13 @@ public class LargeRecordsDecode {
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             JsonElement json = TestRecord.makeData(counter++);
             var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.RSC.decode(JsonOps.INSTANCE, json);
             blackhole.consume(result.result().orElseThrow());
         }
     }
@@ -89,6 +97,12 @@ public class LargeRecordsDecode {
         @Benchmark
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            var result = TestRecord.RSC.decode(JsonOps.INSTANCE, json);
             blackhole.consume(result.result().orElseThrow());
         }
     }

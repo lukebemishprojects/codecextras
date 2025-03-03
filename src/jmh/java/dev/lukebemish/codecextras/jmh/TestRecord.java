@@ -6,6 +6,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.record.CurriedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
+import dev.lukebemish.codecextras.structured.CodecInterpreter;
+import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
+
 import java.lang.invoke.MethodHandles;
 
 record TestRecord(
@@ -100,6 +103,8 @@ record TestRecord(
             container.get(m), container.get(n), container.get(o), container.get(p)
         );
     });
+
+    public static final Codec<TestRecord> RSC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestRecord.class)).getOrThrow();
 
     public static TestRecord makeRecord(int i) {
         return new TestRecord(

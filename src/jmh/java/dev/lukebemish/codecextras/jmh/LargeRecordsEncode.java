@@ -1,7 +1,6 @@
 package dev.lukebemish.codecextras.jmh;
 
 import com.mojang.serialization.JsonOps;
-import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -13,6 +12,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
+
+import java.util.concurrent.TimeUnit;
 
 public class LargeRecordsEncode {
     @Measurement(time = 2, iterations = 5)
@@ -48,6 +49,13 @@ public class LargeRecordsEncode {
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             TestRecord record = TestRecord.makeRecord(counter++);
             var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            TestRecord record = TestRecord.makeRecord(counter++);
+            var result = TestRecord.RSC.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
     }
@@ -88,6 +96,12 @@ public class LargeRecordsEncode {
         @Benchmark
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            var result = TestRecord.RSC.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
     }
