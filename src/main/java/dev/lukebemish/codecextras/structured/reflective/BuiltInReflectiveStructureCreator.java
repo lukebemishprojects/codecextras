@@ -321,10 +321,50 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 }
             })
             .add(new FlexibleCreator() {
+                private List<Constructor<?>> validCtors(Class<?> exact) {
+                    List<Constructor<?>> validCtors = new ArrayList<>();
+                    for (var ctor : exact.getConstructors()) {
+                        if (!ctor.accessFlags().contains(AccessFlag.PUBLIC)) {
+                            continue;
+                        }
+                        if (ctor.getParameterCount() == 0) {
+                            validCtors.add(ctor);
+                        } else {
+                            var hasSerializedProperties = true;
+                            for (var param : ctor.getParameters()) {
+                                if (!param.isAnnotationPresent(SerializedProperty.class)) {
+                                    hasSerializedProperties = false;
+                                    break;
+                                }
+                                var annotation = param.getAnnotation(SerializedProperty.class);
+                                try {
+                                    var field = exact.getField(annotation.property());
+                                    if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
+                                        continue;
+                                    }
+                                } catch (NoSuchFieldException ignored) {}
+
+                                try {
+                                    var getterMethod = exact.getMethod("get" + annotation.property().substring(0, 1).toUpperCase() + annotation.property().substring(1));
+                                    if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
+                                        continue;
+                                    }
+                                } catch (NoSuchMethodException ignored) {}
+                                hasSerializedProperties = false;
+                                break;
+                            }
+                            if (hasSerializedProperties) {
+                                validCtors.add(ctor);
+                            }
+                        }
+                    }
+                    return validCtors;
+                }
+
                 @Override
                 public Structure<?> create(Class<?> exact, Function<Type, Structure<?>> creator) {
                     return Structure.record(builder -> {
-                        Constructor<?> validCtor = null;
+                        Constructor<?> validCtor;
                         if (exact.isRecord()) {
                             Class<?>[] types = new Class<?>[exact.getRecordComponents().length];
                             for (int i = 0; i < types.length; i++) {
@@ -336,55 +376,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 throw new RuntimeException(e);
                             }
                         } else {
-                            for (var ctor : exact.getConstructors()) {
-                                if (!ctor.accessFlags().contains(AccessFlag.PUBLIC)) {
-                                    continue;
-                                }
-                                if (ctor.getParameterCount() == 0) {
-                                    validCtor = ctor;
-                                } else {
-                                    var hasSerializedProperties = true;
-                                    for (var param : ctor.getParameters()) {
-                                        if (!param.isAnnotationPresent(SerializedProperty.class)) {
-                                            hasSerializedProperties = false;
-                                            break;
-                                        }
-                                        var annotation = param.getAnnotation(SerializedProperty.class);
-                                        try {
-                                            var field = exact.getField(annotation.property());
-                                            if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
-                                                continue;
-                                            }
-                                        } catch (NoSuchFieldException ignored) {
-                                        }
-
-                                        var hasGetter = false;
-                                        var hasGetterAlt = false;
-                                        try {
-                                            var getterMethod = exact.getMethod("get" + annotation.property().substring(0, 1).toUpperCase() + annotation.property().substring(1));
-                                            if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
-                                                hasGetter = true;
-                                            }
-                                        } catch (NoSuchMethodException ignored) {
-                                        }
-                                        try {
-                                            var getterMethod = exact.getMethod(annotation.property());
-                                            if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
-                                                hasGetterAlt = true;
-                                            }
-                                        } catch (NoSuchMethodException ignored) {
-                                        }
-                                        if ((!hasGetter && !hasGetterAlt) || (hasGetter && hasGetterAlt)) {
-                                            hasSerializedProperties = false;
-                                            break;
-                                        }
-                                    }
-                                    if (hasSerializedProperties) {
-                                        validCtor = ctor;
-                                        break;
-                                    }
-                                }
-                            }
+                            var ctors = validCtors(exact);
+                            validCtor = ctors.getFirst();
                         }
 
                         Objects.requireNonNull(validCtor);
@@ -627,53 +620,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         return true;
                     }
 
-                    var validCtors = 0;
-                    for (var ctor : exact.getConstructors()) {
-                        if (!ctor.accessFlags().contains(AccessFlag.PUBLIC)) {
-                            continue;
-                        }
-                        if (ctor.getParameterCount() == 0) {
-                            validCtors++;
-                        } else {
-                            var hasSerializedProperties = true;
-                            for (var param : ctor.getParameters()) {
-                                if (!param.isAnnotationPresent(SerializedProperty.class)) {
-                                    hasSerializedProperties = false;
-                                    break;
-                                }
-                                var annotation = param.getAnnotation(SerializedProperty.class);
-                                try {
-                                    var field = exact.getField(annotation.property());
-                                    if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
-                                        continue;
-                                    }
-                                } catch (NoSuchFieldException ignored) {}
-
-                                var hasGetter = false;
-                                var hasGetterAlt = false;
-                                try {
-                                    var getterMethod = exact.getMethod("get" + annotation.property().substring(0, 1).toUpperCase() + annotation.property().substring(1));
-                                    if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
-                                        hasGetter = true;
-                                    }
-                                } catch (NoSuchMethodException ignored) {}
-                                try {
-                                    var getterMethod = exact.getMethod(annotation.property());
-                                    if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
-                                        hasGetterAlt = true;
-                                    }
-                                } catch (NoSuchMethodException ignored) {}
-                                if ((!hasGetter && !hasGetterAlt) || (hasGetter && hasGetterAlt)) {
-                                    hasSerializedProperties = false;
-                                    break;
-                                }
-                            }
-                            if (hasSerializedProperties) {
-                                validCtors++;
-                            }
-                        }
-                    }
-                    return validCtors == 1;
+                    return validCtors(exact).size() == 1;
                 }
             })
             .build();
