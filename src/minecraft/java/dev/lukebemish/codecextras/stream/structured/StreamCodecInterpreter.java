@@ -22,6 +22,13 @@ import dev.lukebemish.codecextras.types.Identity;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.EncoderException;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.VarInt;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -33,12 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.VarInt;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Interprets a {@link Structure} into a {@link StreamCodec} for the same type.
@@ -433,8 +434,29 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
 
     @Override
     public <A> DataResult<App<Holder.Mu<B>, A>> recursive(Function<Structure<A>, Structure<A>> function) {
-        // TODO: implement
-        return DataResult.error(() -> "Not yet implemented");
+        var key = Key.<A>create("recursive");
+        var keyed = Structure.keyed(key);
+        var complete = function.apply(keyed);
+        var codec = new StreamCodec<B, A>() {
+            private final Holder<B, A> holder = new Holder<>(this);
+            private final StreamCodecInterpreter<B> interpreterWithKeys = with(Keys.<Holder.Mu<B>, Object>builder().add(key, holder).build(), Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder().build());
+            private final Supplier<DataResult<StreamCodec<B, A>>> wrapped = Suppliers.memoize(() ->
+                complete.interpret(interpreterWithKeys).map(StreamCodecInterpreter::unbox)
+            );
+
+            @Override
+            public void encode(B object, A object2) {
+                var wrappedStreamCodec = wrapped.get().result().orElseThrow(() -> new EncoderException("Issue creating recursive codec: "+wrapped.get().error().orElseThrow().message()));
+                wrappedStreamCodec.encode(object, object2);
+            }
+
+            @Override
+            public A decode(B object) {
+                var wrappedStreamCodec = wrapped.get().result().orElseThrow(() -> new DecoderException("Issue creating recursive codec: "+wrapped.get().error().orElseThrow().message()));
+                return wrappedStreamCodec.decode(object);
+            }
+        };
+        return DataResult.success(new Holder<>(codec));
     }
 
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

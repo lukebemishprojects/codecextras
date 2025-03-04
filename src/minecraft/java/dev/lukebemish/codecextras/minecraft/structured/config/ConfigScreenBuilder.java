@@ -55,12 +55,12 @@ public class ConfigScreenBuilder {
                     @Override
                     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
                         for (var screen : screens) {
-                            var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, screen.screenEntry().entryCreationInfo().componentInfo().title(), Minecraft.getInstance().font).alignLeft();
+                            var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, screen.screenEntry().entryCreationInfo().componentInfo().get().title(), Minecraft.getInstance().font).alignLeft();
                             var button = Button.builder(Component.translatable("codecextras.config.configurerecord"), b -> {
                                 var newScreen = openSingleScreen(parent, screen);
                                 Minecraft.getInstance().setScreen(newScreen);
                             }).width(Button.DEFAULT_WIDTH).build();
-                            screen.screenEntry().entryCreationInfo().componentInfo().maybeDescription().ifPresent(description -> {
+                            screen.screenEntry().entryCreationInfo().componentInfo().get().maybeDescription().ifPresent(description -> {
                                 var tooltip = Tooltip.create(description);
                                 label.setTooltip(tooltip);
                                 button.setTooltip(tooltip);

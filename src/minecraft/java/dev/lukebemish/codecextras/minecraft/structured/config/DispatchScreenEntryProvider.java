@@ -76,7 +76,7 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
 
     @Override
     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
-        var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, keyEntry.entryCreationInfo().componentInfo().title(), Minecraft.getInstance().font).alignLeft();
+        var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, keyEntry.entryCreationInfo().componentInfo().get().title(), Minecraft.getInstance().font).alignLeft();
         var contents = keyEntry.layout().create(parent, Button.DEFAULT_WIDTH, context, keyValue, newKeyValue -> {
             if (!Objects.equals(newKeyValue, oldKeyValue)) {
                 keyValue = newKeyValue;
@@ -95,7 +95,7 @@ class DispatchScreenEntryProvider<K, T> implements ScreenEntryProvider {
                 }
             }
         }, keyEntry.entryCreationInfo(), false);
-        keyEntry.entryCreationInfo().componentInfo().maybeDescription().ifPresent(description -> {
+        keyEntry.entryCreationInfo().componentInfo().get().maybeDescription().ifPresent(description -> {
             var tooltip = Tooltip.create(description);
             label.setTooltip(tooltip);
         });

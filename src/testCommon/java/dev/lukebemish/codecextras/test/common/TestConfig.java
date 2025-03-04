@@ -32,9 +32,13 @@ public record TestConfig(
     int intInRange, float floatInRange, int argb,
     int rgb, ResourceKey<Item> item, Rarity rarity,
     Map<String, Integer> unbounded, Either<String, Integer> either, Map<String, Dispatches> dispatchedMap,
-    DataComponentPatch patch, ItemStack itemStack, ReflectiveRecord reflectiveRecord
+    DataComponentPatch patch, ItemStack itemStack, ReflectiveRecord reflectiveRecord, RecursiveRecord recursive
 ) {
     private static final Map<String, Structure<? extends Dispatches>> DISPATCHES = new HashMap<>();
+
+    public record RecursiveRecord(String name, List<RecursiveRecord> list) {
+        private static final Structure<RecursiveRecord> STRUCTURE = ReflectiveStructureCreator.create(RecursiveRecord.class);
+    }
 
     public interface Dispatches {
         Structure<Dispatches> STRUCTURE = Structure.STRING.dispatch(
@@ -105,6 +109,7 @@ public record TestConfig(
         var patch = builder.addOptional("patch", MinecraftStructures.DATA_COMPONENT_PATCH, TestConfig::patch, () -> DataComponentPatch.EMPTY);
         var itemStack = builder.addOptional("itemStack", MinecraftStructures.OPTIONAL_ITEM_STACK, TestConfig::itemStack, () -> ItemStack.EMPTY);
         var reflectiveRecord = builder.addOptional("reflectiveRecord", ReflectiveRecord.STRUCTURE, TestConfig::reflectiveRecord, () -> new ReflectiveRecord("test", ResourceLocation.fromNamespaceAndPath("test", "test"), new int[] {1, 2, 3}));
+        var testRecursive = builder.addOptional("recursive", RecursiveRecord.STRUCTURE, TestConfig::recursive, () -> new RecursiveRecord("test1", List.of(new RecursiveRecord("test2", List.of()), new RecursiveRecord("test3", List.of()))));
         return container -> new TestConfig(
             a.apply(container), b.apply(container), c.apply(container),
             d.apply(container), e.apply(container), f.apply(container),
@@ -112,7 +117,8 @@ public record TestConfig(
             intInRange.apply(container), floatInRange.apply(container), argb.apply(container),
             rgb.apply(container), item.apply(container), rarity.apply(container),
             unbounded.apply(container), either.apply(container), dispatchedMap.apply(container),
-            patch.apply(container), itemStack.apply(container), reflectiveRecord.apply(container)
+            patch.apply(container), itemStack.apply(container), reflectiveRecord.apply(container),
+            testRecursive.apply(container)
         );
     });
 

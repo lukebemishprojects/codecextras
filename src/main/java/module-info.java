@@ -35,4 +35,6 @@ module dev.lukebemish.codecextras {
     exports dev.lukebemish.codecextras.structured.schema;
 
     exports dev.lukebemish.codecextras.types;
+
+    exports dev.lukebemish.codecextras.utility to codecextras_minecraft, dev.lukebemish.codecextras.minecraft;
 }

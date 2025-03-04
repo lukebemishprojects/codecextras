@@ -65,6 +65,6 @@ public record ConfigScreenEntry<T>(LayoutFactory<T> layout, ScreenEntryFactory<T
                 onClose.accept(decoded.getOrThrow());
             }
         }, this.entryCreationInfo());
-        return ScreenEntryProvider.create(provider, parent, context, entryCreationInfo.componentInfo());
+        return ScreenEntryProvider.create(provider, parent, context, entryCreationInfo.componentInfo().get());
     }
 }
