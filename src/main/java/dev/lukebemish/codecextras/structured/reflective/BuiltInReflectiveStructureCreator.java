@@ -86,7 +86,7 @@ import org.objectweb.asm.Opcodes;
 @AutoService(ReflectiveStructureCreator.class)
 public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCreator {
     @Override
-    public Map<Class<?>, Creator> creators() {
+    public Map<Class<?>, Creator> creators(CreationOptions options) {
         return ImmutableMap.<Class<?>, Creator>builder()
             .put(Unit.class, () -> Structure.UNIT)
             .put(Boolean.class, () -> Structure.BOOL)
@@ -233,9 +233,9 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @Override
-    public Map<Class<?>, ParameterizedCreator> parameterizedCreators() {
+    public Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options) {
         return ImmutableMap.<Class<?>, ParameterizedCreator>builder()
-            .put(Either.class, parameters -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()))
+            .put(Either.class, (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()))
             // Collections
             .put(Collection.class, collectionMaker(ArrayList::new))
             .put(SequencedCollection.class, collectionMaker(ArrayList::new))
@@ -263,12 +263,12 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
     @SuppressWarnings({"rawtypes", "Convert2MethodRef", "unchecked"})
     private static <T extends Collection> ParameterizedCreator collectionMaker(Function<List<?>, T> function) {
-        return parameters -> parameters[0].create().listOf().xmap(function::apply, c -> new ArrayList<>(c));
+        return (parameters) -> parameters[0].create().listOf().xmap(function::apply, c -> new ArrayList<>(c));
     }
 
     @SuppressWarnings({"rawtypes", "Convert2MethodRef", "unchecked"})
     private static <T extends Map> ParameterizedCreator mapMaker(Function<Map<?, ?>, T> function) {
-        return parameters -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()).xmap(function::apply, c -> new LinkedHashMap<>(c));
+        return (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()).xmap(function::apply, c -> new LinkedHashMap<>(c));
     }
 
     private static ConstantDynamic conDyn(String descriptor, int i) {
@@ -335,7 +335,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public static Function<RecordStructure.Container, ?> add(RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator) {
+    public static Function<RecordStructure.Container, ?> add(CreationOptions options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator) {
+        // TODO: check annotations
         if (type instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
             if (rawType.equals(Optional.class)) {
                 var innerType = parameterizedType.getActualTypeArguments()[0];
@@ -350,12 +351,19 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 return builder.addOptionalLong(name, (Function) getter);
             }
         }
-        Function<RecordStructure.Container, Optional<?>> key = builder.addOptional(name, (Structure) creator.apply(type), (Function) getter.andThen(Optional::ofNullable));
-        return key.andThen(o -> o.orElse(null));
+        boolean isNotNull = options.hasOption(SimpleCreatorOption.NOT_NULL_BY_DEFAULT);
+        Function<RecordStructure.Container, ?> key;
+        if (isNotNull || (type instanceof Class<?> clazz && clazz.isPrimitive())) {
+            key = builder.add(name, (Structure) creator.apply(type), (Function) getter);
+        } else {
+            key = ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, (Structure) creator.apply(type), (Function) getter.andThen(Optional::ofNullable)))
+                .andThen(o -> o.orElse(null));
+        }
+        return key;
     }
 
     @Override
-    public List<FlexibleCreator> flexibleCreators() {
+    public List<FlexibleCreator> flexibleCreators(CreationOptions options) {
         return ImmutableList.<FlexibleCreator>builder()
             .add(new FlexibleCreator() {
                 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -672,7 +680,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         var keyList = new ArrayList<Function<RecordStructure.Container,  ?>>(propertyList.size());
                         for (var property : propertyList) {
                             var getter = getters.get(property);
-                            var key = add(builder, property, types.get(property), getter, creator);
+                            var key = add(options, builder, property, types.get(property), getter, creator);
                             keyList.add(key);
                         }
                         var cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);

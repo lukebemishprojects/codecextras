@@ -15,9 +15,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ReflectiveStructureCreator {
-    Map<Class<?>, Creator> creators();
-    Map<Class<?>, ParameterizedCreator> parameterizedCreators();
-    List<FlexibleCreator> flexibleCreators();
+    Map<Class<?>, Creator> creators(CreationOptions options);
+    Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options);
+    List<FlexibleCreator> flexibleCreators(CreationOptions options);
 
     interface TypedCreator {
         Structure<?> create();
@@ -52,10 +52,11 @@ public interface ReflectiveStructureCreator {
         private final Map<Class<?>, ParameterizedCreator> parameterizedCreators;
         private final List<FlexibleCreator> flexibleCreators;
 
-        private Instance(Map<Class<?>, Creator> creators, Map<Class<?>, ParameterizedCreator> parameterizedCreators, List<FlexibleCreator> flexibleCreators) {
+        private Instance(Map<Class<?>, Creator> creators, Map<Class<?>, ParameterizedCreator> parameterizedCreators, List<FlexibleCreator> flexibleCreators, CreationOptions options) {
             this.creators = creators;
             this.parameterizedCreators = parameterizedCreators;
             this.flexibleCreators = flexibleCreators;
+            this.options = options;
         }
 
         public static Builder builder() {
@@ -66,6 +67,7 @@ public interface ReflectiveStructureCreator {
             private final Map<Class<?>, Creator> creators = new IdentityHashMap<>();
             private final Map<Class<?>, ParameterizedCreator> parameterizedCreators = new IdentityHashMap<>();
             private final List<FlexibleCreator> flexibleCreators = new ArrayList<>();
+            private final List<CreationOption> options = new ArrayList<>();
 
             private Builder() {}
 
@@ -84,14 +86,21 @@ public interface ReflectiveStructureCreator {
                 return this;
             }
 
+            public Builder withOption(CreationOption option) {
+                options.add(option);
+                return this;
+            }
+
             public Instance build() {
-                return new Instance(creators, parameterizedCreators, flexibleCreators);
+                return new Instance(creators, parameterizedCreators, flexibleCreators, new CreationOptions(options));
             }
         }
 
         private static final LayeredServiceLoader<ReflectiveStructureCreator> SERVICE_LOADER = LayeredServiceLoader.of(ReflectiveStructureCreator.class);
 
-        private final Map<Type, Creator> cachedCreators = new HashMap<>();
+        private final Map<Type, Structure<?>> cachedCreators = new HashMap<>();
+
+        private final CreationOptions options;
 
         @SuppressWarnings("unchecked")
         public synchronized <T> Structure<T> create(Class<T> clazz) {
@@ -101,9 +110,9 @@ public interface ReflectiveStructureCreator {
             Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
             List<FlexibleCreator> flexibleCreatorsList = new ArrayList<>();
             services.forEach(creator -> {
-                creatorsMap.putAll(creator.creators());
-                parameterizedCreatorsMap.putAll(creator.parameterizedCreators());
-                flexibleCreatorsList.addAll(creator.flexibleCreators());
+                creatorsMap.putAll(creator.creators(options));
+                parameterizedCreatorsMap.putAll(creator.parameterizedCreators(options));
+                flexibleCreatorsList.addAll(creator.flexibleCreators(options));
             });
 
             creatorsMap.putAll(this.creators);
@@ -114,8 +123,7 @@ public interface ReflectiveStructureCreator {
 
             var recursionCache = new HashMap<Type, Structure<?>>();
 
-            var creator = forType(cachedCreators, recursionCache, clazz, creatorsMap, parameterizedCreatorsMap, flexibleCreatorsList);
-            return (Structure<T>) creator.create();
+            return (Structure<T>) forType(cachedCreators, recursionCache, clazz, creatorsMap, parameterizedCreatorsMap, flexibleCreatorsList);
         }
     }
 
@@ -123,13 +131,12 @@ public interface ReflectiveStructureCreator {
         return Instance.builder().build().create(clazz);
     }
 
-    private static Creator forType(Map<Type, Creator> cachedCreators, Map<Type, Structure<?>> recursionCache, Type type, Map<Class<?>, Creator> creatorsMap, Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap, List<FlexibleCreator> flexibleCreators) {
+    private static Structure<?> forType(Map<Type, Structure<?>> cachedCreators, Map<Type, Structure<?>> recursionCache, Type type, Map<Class<?>, Creator> creatorsMap, Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap, List<FlexibleCreator> flexibleCreators) {
         if (cachedCreators.containsKey(type)) {
             return cachedCreators.get(type);
         }
         if (recursionCache.containsKey(type)) {
-            var value = recursionCache.get(type);
-            return () -> value;
+            return recursionCache.get(type);
         }
         @SuppressWarnings({"rawtypes", "unchecked"}) Supplier<Structure<?>> full = Suppliers.memoize(() -> Structure.recursive((Function) (Function<Structure, Structure>) (Structure itself) -> {
             recursionCache.put(type, itself);
@@ -144,12 +151,12 @@ public interface ReflectiveStructureCreator {
                         parameterCreators = new TypedCreator[parameters.length];
                         if (parameterizedCreatorsMap.containsKey(clazz)) {
                             for (int i = 0; i < parameters.length; i++) {
-                                var creator = forType(cachedCreators, recursionCache, parameters[i], creatorsMap, parameterizedCreatorsMap, flexibleCreators);
+                                var structure = forType(cachedCreators, recursionCache, parameters[i], creatorsMap, parameterizedCreatorsMap, flexibleCreators);
                                 var parameterType = parameters[i];
                                 parameterCreators[i] = new TypedCreator() {
                                     @Override
                                     public Structure<?> create() {
-                                        return creator.create();
+                                        return structure;
                                     }
 
                                     @Override
@@ -185,7 +192,7 @@ public interface ReflectiveStructureCreator {
 
                 for (var flexibleCreator : flexibleCreators) {
                     if (flexibleCreator.supports(Objects.requireNonNull(rawType), parameterCreators)) {
-                        return flexibleCreator.creator(rawType, parameterCreators, type1 -> forType(cachedCreators, recursionCache, type1, creatorsMap, parameterizedCreatorsMap, flexibleCreators).create());
+                        return flexibleCreator.creator(rawType, parameterCreators, type1 -> forType(cachedCreators, recursionCache, type1, creatorsMap, parameterizedCreatorsMap, flexibleCreators));
                     }
                 }
                 throw new IllegalArgumentException("No creator found for type: " + type);
@@ -195,7 +202,7 @@ public interface ReflectiveStructureCreator {
             recursionCache.remove(type);
             return structure;
         }));
-        cachedCreators.put(type, full::get);
-        return full::get;
+        cachedCreators.put(type, full.get());
+        return full.get();
     }
 }

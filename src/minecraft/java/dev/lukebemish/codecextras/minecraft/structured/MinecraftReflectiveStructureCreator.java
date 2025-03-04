@@ -5,6 +5,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.reflective.CreationOptions;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
@@ -21,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 @AutoService(ReflectiveStructureCreator.class)
 public class MinecraftReflectiveStructureCreator implements ReflectiveStructureCreator {
     @Override
-    public Map<Class<?>, Creator> creators() {
+    public Map<Class<?>, Creator> creators(CreationOptions options) {
         return ImmutableMap.<Class<?>, Creator>builder()
             .put(ResourceLocation.class, () -> MinecraftStructures.RESOURCE_LOCATION)
             .put(DataComponentMap.class, () -> MinecraftStructures.DATA_COMPONENT_MAP)
@@ -31,13 +32,13 @@ public class MinecraftReflectiveStructureCreator implements ReflectiveStructureC
     }
 
     @Override
-    public Map<Class<?>, ParameterizedCreator> parameterizedCreators() {
+    public Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options) {
         return ImmutableMap.<Class<?>, ParameterizedCreator>builder()
             .build();
     }
 
     @Override
-    public List<FlexibleCreator> flexibleCreators() {
+    public List<FlexibleCreator> flexibleCreators(CreationOptions options) {
         return ImmutableList.<FlexibleCreator>builder()
             .add(new FlexibleCreator() {
                 @Override
