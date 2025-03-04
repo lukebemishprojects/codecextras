@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -185,6 +188,33 @@ public class RecordStructure<A> {
         ));
         fieldNames.add(name);
         return key;
+    }
+
+    public Function<Container, OptionalInt> addOptionalInt(String name, Function<A, OptionalInt> getter) {
+        return addOptional(name, Structure.INT, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsInt());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalInt::of).orElse(OptionalInt.empty()));
+    }
+
+    public Function<Container, OptionalDouble> addOptionalDouble(String name, Function<A, OptionalDouble> getter) {
+        return addOptional(name, Structure.DOUBLE, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsDouble());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalDouble::of).orElse(OptionalDouble.empty()));
+    }
+
+    public Function<Container, OptionalLong> addOptionalLong(String name, Function<A, OptionalLong> getter) {
+        return addOptional(name, Structure.LONG, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsLong());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalLong::of).orElse(OptionalLong.empty()));
     }
 
     /**

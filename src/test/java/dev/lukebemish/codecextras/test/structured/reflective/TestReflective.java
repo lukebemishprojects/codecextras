@@ -6,10 +6,16 @@ import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import dev.lukebemish.codecextras.test.CodecAssertions;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.SequencedSet;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 public class TestReflective {
-    public record TestRecord(int a, String b, TestEnum c) {
+    public record TestRecord(int a, String b, TestEnum c, OptionalInt d, Optional<String> e, @Nullable String f, SequencedSet<Integer> g) {
         private static final Structure<TestRecord> STRUCTURE = ReflectiveStructureCreator.create(TestRecord.class);
     }
 
@@ -28,7 +34,10 @@ public class TestReflective {
             {
                 "a": 1,
                 "b": "test",
-                "c": "A"
+                "c": "A",
+                "d": 2,
+                "e": "test",
+                "g": [1, 2, 3]
             }""";
 
     private final String arrayJson = """
@@ -36,14 +45,17 @@ public class TestReflective {
                 {
                     "a": 1,
                     "b": "test",
-                    "c": "A"
+                    "c": "A",
+                    "d": 2,
+                    "e": "test",
+                    "g": [1, 2, 3]
                 }
             ]""";
 
     private final String primitiveArrayJson = """
             [1, 2, 3]""";
 
-    private final TestRecord object = new TestRecord(1, "test", TestEnum.A);
+    private final TestRecord object = new TestRecord(1, "test", TestEnum.A, OptionalInt.of(2), Optional.of("test"), null, new LinkedHashSet<>(List.of(1, 2, 3)));
     private final TestRecord[] array = new TestRecord[] { object };
     private final int[] primitiveArray = new int[] { 1, 2, 3 };
 

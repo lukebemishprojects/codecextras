@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 public interface ReflectiveStructureCreator {
@@ -15,24 +16,30 @@ public interface ReflectiveStructureCreator {
     Map<Class<?>, ParameterizedCreator> parameterizedCreators();
     List<FlexibleCreator> flexibleCreators();
 
+    interface TypedCreator {
+        Structure<?> create();
+        Type type();
+        Class<?> rawType();
+    }
+
     interface Creator {
         Structure<?> create();
     }
 
     interface FlexibleCreator {
-        Structure<?> create(Class<?> exact, Function<Type, Structure<?>> creator);
-        boolean supports(Class<?> exact);
+        Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator);
+        boolean supports(Class<?> exact, TypedCreator[] parameters);
         default int priority() {
             return 0;
         }
-        default Creator creator(Class<?> exact, Function<Type, Structure<?>> creator) {
-            return () -> create(exact, creator);
+        default Creator creator(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
+            return () -> create(exact, parameters, creator);
         }
     }
 
     interface ParameterizedCreator {
-        Structure<?> create(Creator[] parameters);
-        default Creator creator(Creator[] parameters) {
+        Structure<?> create(TypedCreator[] parameters);
+        default Creator creator(TypedCreator[] parameters) {
             return () -> create(parameters);
         }
     }
@@ -109,26 +116,57 @@ public interface ReflectiveStructureCreator {
     }
 
     private static Creator forType(Type type, Map<Class<?>, Creator> creatorsMap, Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap, List<FlexibleCreator> flexibleCreators) {
+        Class<?> rawType = null;
+        TypedCreator[] parameterCreators = null;
         if (type instanceof ParameterizedType parameterizedType) {
-            var rawType = parameterizedType.getRawType();
-            if (rawType instanceof Class<?> clazz && parameterizedCreatorsMap.containsKey(clazz)) {
+            if (parameterizedType.getRawType() instanceof Class<?> clazz) {
+                rawType = clazz;
                 var parameters = parameterizedType.getActualTypeArguments();
-                Creator[] parameterCreators = new Creator[parameters.length];
-                for (int i = 0; i < parameters.length; i++) {
-                    parameterCreators[i] = forType(parameters[i], creatorsMap, parameterizedCreatorsMap, flexibleCreators);
+                parameterCreators = new TypedCreator[parameters.length];
+                if (parameterizedCreatorsMap.containsKey(clazz)) {
+                    for (int i = 0; i < parameters.length; i++) {
+                        var creator = forType(parameters[i], creatorsMap, parameterizedCreatorsMap, flexibleCreators);
+                        var parameterType = parameters[i];
+                        parameterCreators[i] = new TypedCreator() {
+                            @Override
+                            public Structure<?> create() {
+                                return creator.create();
+                            }
+
+                            @Override
+                            public Type type() {
+                                return parameterType;
+                            }
+
+                            @Override
+                            public Class<?> rawType() {
+                                if (parameterType instanceof Class<?> clazz) {
+                                    return clazz;
+                                } else if (parameterType instanceof ParameterizedType parameterizedType) {
+                                    return (Class<?>) parameterizedType.getRawType();
+                                } else {
+                                    throw new IllegalArgumentException("Unknown type: " + type);
+                                }
+                            }
+                        };
+                    }
+                    return parameterizedCreatorsMap.get(clazz).creator(parameterCreators);
                 }
-                return parameterizedCreatorsMap.get(clazz).creator(parameterCreators);
             }
-        }
-        if (type instanceof Class<?> clazz) {
+        } else if (type instanceof Class<?> clazz) {
+            rawType = clazz;
+            parameterCreators = new TypedCreator[0];
             var foundCreator = creatorsMap.get(clazz);
             if (foundCreator != null) {
                 return foundCreator;
             }
-            for (var flexibleCreator : flexibleCreators) {
-                if (flexibleCreator.supports(clazz)) {
-                    return flexibleCreator.creator(clazz, type1 -> forType(type1, creatorsMap, parameterizedCreatorsMap, flexibleCreators).create());
-                }
+        } else {
+            throw new IllegalArgumentException("Unknown type: " + type);
+        }
+
+        for (var flexibleCreator : flexibleCreators) {
+            if (flexibleCreator.supports(Objects.requireNonNull(rawType), parameterCreators)) {
+                return flexibleCreator.creator(rawType, parameterCreators, type1 -> forType(type1, creatorsMap, parameterizedCreatorsMap, flexibleCreators).create());
             }
         }
         throw new IllegalArgumentException("No creator found for type: " + type);

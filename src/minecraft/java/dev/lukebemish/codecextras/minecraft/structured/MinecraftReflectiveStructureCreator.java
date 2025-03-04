@@ -41,7 +41,7 @@ public class MinecraftReflectiveStructureCreator implements ReflectiveStructureC
         return ImmutableList.<FlexibleCreator>builder()
             .add(new FlexibleCreator() {
                 @Override
-                public Structure<?> create(Class<?> exact, Function<Type, Structure<?>> creator) {
+                public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
                     Supplier<Object[]> values = Suppliers.memoize(() -> {
                         try {
                             return (Object[]) exact.getMethod("values").invoke(null);
@@ -58,7 +58,7 @@ public class MinecraftReflectiveStructureCreator implements ReflectiveStructureC
                 }
 
                 @Override
-                public boolean supports(Class<?> exact) {
+                public boolean supports(Class<?> exact, TypedCreator[] parameters) {
                     return Enum.class.isAssignableFrom(exact) && StringRepresentable.class.isAssignableFrom(exact);
                 }
             })
