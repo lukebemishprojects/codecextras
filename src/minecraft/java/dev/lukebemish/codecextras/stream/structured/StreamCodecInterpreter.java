@@ -431,6 +431,12 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
         return either(left, right);
     }
 
+    @Override
+    public <A> DataResult<App<Holder.Mu<B>, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        // TODO: implement
+        return DataResult.error(() -> "Not yet implemented");
+    }
+
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {
         public static final class Mu<B extends ByteBuf> implements K1 {}
 

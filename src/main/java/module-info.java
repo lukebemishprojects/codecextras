@@ -31,6 +31,7 @@ module dev.lukebemish.codecextras {
     exports dev.lukebemish.codecextras.repair;
 
     exports dev.lukebemish.codecextras.structured;
+    exports dev.lukebemish.codecextras.structured.reflective;
     exports dev.lukebemish.codecextras.structured.schema;
 
     exports dev.lukebemish.codecextras.types;

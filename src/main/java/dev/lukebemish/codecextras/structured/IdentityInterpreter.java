@@ -100,6 +100,17 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
+    public <A> DataResult<App<Identity.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var recursion = new Structure<A>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return DataResult.error(() -> "Detected infinite recursion of default value");
+            }
+        };
+        return function.apply(recursion).interpret(this);
+    }
+
+    @Override
     public <K, V> DataResult<App<Identity.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
         return DataResult.error(() -> "No default value available for a dispatched map");
     }

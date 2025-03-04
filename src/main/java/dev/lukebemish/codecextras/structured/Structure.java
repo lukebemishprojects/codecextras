@@ -357,6 +357,15 @@ public interface Structure<A> {
         };
     }
 
+    static <A> Structure<A> recursive(Function<Structure<A>, Structure<A>> function) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.recursive(function);
+            }
+        };
+    }
+
     /**
      * Keys provide a way of representing the smallest building blocks of a structure. Interpreters are responsible for
      * finding a matching specific representation given a key when interpreting a structure.

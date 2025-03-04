@@ -1032,6 +1032,12 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
     }
 
     @Override
+    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        // TODO: implement
+        return DataResult.error(() -> "Not yet implemented");
+    }
+
+    @Override
     public <K, V> DataResult<App<ConfigScreenEntry.Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures) {
         var keyResult = interpret(keyStructure);
         if (keyResult.error().isPresent()) {

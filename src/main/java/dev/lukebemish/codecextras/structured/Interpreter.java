@@ -45,6 +45,8 @@ public interface Interpreter<Mu extends K1> {
 
     <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures);
 
+    <A> DataResult<App<Mu, A>> recursive(Function<Structure<A>, Structure<A>> function);
+
     default Stream<KeyConsumer<?, Mu>> keyConsumers() {
         return Stream.of();
     }
@@ -113,4 +115,6 @@ public interface Interpreter<Mu extends K1> {
     <L, R> DataResult<App<Mu, Either<L,R>>> xor(App<Mu, L> left, App<Mu, R> right);
 
     <K, V> DataResult<App<Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
+
+
 }

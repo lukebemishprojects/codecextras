@@ -25,10 +25,14 @@ public class TestReflective {
         C
     }
 
+    public record TestRecursive(String name, List<TestRecursive> list) {}
+
     private static final Codec<TestRecord> CODEC = CodecInterpreter.create().interpret(TestRecord.STRUCTURE).getOrThrow();
 
     private static final Codec<TestRecord[]> ARRAY_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestRecord[].class)).getOrThrow();
     private static final Codec<int[]> PRIMITIVE_ARRAY_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(int[].class)).getOrThrow();
+
+    private static final Codec<TestRecursive> RECURSIVE_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestRecursive.class)).getOrThrow();
 
     private final String json = """
             {
@@ -55,9 +59,25 @@ public class TestReflective {
     private final String primitiveArrayJson = """
             [1, 2, 3]""";
 
+    private final String recursiveJson = """
+            {
+                "name": "test1",
+                "list": [
+                    {
+                        "name": "test2",
+                        "list": []
+                    },
+                    {
+                        "name": "test3",
+                        "list": []
+                    }
+                ]
+            }""";
+
     private final TestRecord object = new TestRecord(1, "test", TestEnum.A, OptionalInt.of(2), Optional.of("test"), null, new LinkedHashSet<>(List.of(1, 2, 3)));
     private final TestRecord[] array = new TestRecord[] { object };
     private final int[] primitiveArray = new int[] { 1, 2, 3 };
+    private final TestRecursive recursive = new TestRecursive("test1", List.of(new TestRecursive("test2", List.of()), new TestRecursive("test3", List.of())));
 
     @Test
     void testDecoding() {
@@ -87,5 +107,15 @@ public class TestReflective {
     @Test
     void testEncodingPrimitiveArray() {
         CodecAssertions.assertEncodes(JsonOps.INSTANCE, primitiveArray, primitiveArrayJson, PRIMITIVE_ARRAY_CODEC);
+    }
+
+    @Test
+    void testDecodingRecursive() {
+        CodecAssertions.assertDecodes(JsonOps.INSTANCE, recursiveJson, recursive, RECURSIVE_CODEC);
+    }
+
+    @Test
+    void testEncodingRecursive() {
+        CodecAssertions.assertEncodes(JsonOps.INSTANCE, recursive, recursiveJson, RECURSIVE_CODEC);
     }
 }

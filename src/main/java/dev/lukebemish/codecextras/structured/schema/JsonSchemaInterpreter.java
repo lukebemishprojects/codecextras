@@ -228,6 +228,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
+    public <A> DataResult<App<Holder.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        // TODO: implement
+        return DataResult.error(() -> "Not yet implemented");
+    }
+
+    @Override
     public <E, A> DataResult<App<Holder.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return keyStructure.interpret(this).flatMap(keySchemaApp -> {
             var definitions = new LinkedHashMap<>(definitions(keySchemaApp));
