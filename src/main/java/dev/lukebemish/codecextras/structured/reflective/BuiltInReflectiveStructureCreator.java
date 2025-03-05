@@ -9,6 +9,8 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedProperty;
+import dev.lukebemish.codecextras.structured.reflective.annotations.Transient;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -362,6 +364,185 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return key;
     }
 
+    private Class<?> implementAnnotation(Class<?> annotationType) {
+        var cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        var name = BuiltInReflectiveStructureCreator.class.getName().replace('.', '/') + "$AnnotationProxy";
+        cw.visit(Opcodes.V21, Opcodes.ACC_FINAL, name, null, "java/lang/Object", new String[]{annotationType.getName().replace('.', '/')});
+        var entryTypes = new org.objectweb.asm.Type[annotationType.getDeclaredMethods().length];
+        var entryClasses = new Class<?>[annotationType.getDeclaredMethods().length];
+        var entryNames = new String[annotationType.getDeclaredMethods().length];
+        int index = 0;
+        for (var method : annotationType.getDeclaredMethods()) {
+            var descriptor = org.objectweb.asm.Type.getMethodDescriptor(method);
+            entryTypes[index] = org.objectweb.asm.Type.getReturnType(descriptor);
+            entryClasses[index] = method.getReturnType();
+            entryNames[index] = method.getName();
+            index++;
+        }
+
+        for (int i = 0; i < entryTypes.length; i++) {
+            cw.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, entryNames[i], entryTypes[i].getDescriptor(), null, null);
+        }
+
+        var ctorDescriptor = org.objectweb.asm.Type.getMethodDescriptor(org.objectweb.asm.Type.VOID_TYPE, entryTypes);
+        var mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", ctorDescriptor, null, null);
+        mv.visitAnnotableParameterCount(entryTypes.length, true);
+        for (int i = 0; i < entryTypes.length; i++) {
+            var av = mv.visitParameterAnnotation(i, SerializedProperty.class.descriptorString(), true);
+            av.visit("value", entryNames[i]);
+            av.visitEnd();
+        }
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        int j = 1;
+        for (int i = 0; i < entryTypes.length; i++) {
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitVarInsn(entryTypes[i].getOpcode(Opcodes.ILOAD), j);
+            mv.visitFieldInsn(Opcodes.PUTFIELD, name, entryNames[i], entryTypes[i].getDescriptor());
+            j += entryTypes[i].getSize();
+        }
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        // annotationType
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "annotationType", "()Ljava/lang/Class;", null, null);
+        mv.visitCode();
+        mv.visitLdcInsn(org.objectweb.asm.Type.getType(annotationType));
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        for (int i = 0; i < entryTypes.length; i++) {
+            mv = cw.visitMethod(Opcodes.ACC_PUBLIC, entryNames[i], org.objectweb.asm.Type.getMethodDescriptor(entryTypes[i]), null, null);
+            mv.visitCode();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, name, entryNames[i], entryTypes[i].getDescriptor());
+            mv.visitInsn(entryTypes[i].getOpcode(Opcodes.IRETURN));
+            mv.visitMaxs(0, 0);
+            mv.visitEnd();
+        }
+
+        // equals
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "equals", "(Ljava/lang/Object;)Z", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitTypeInsn(Opcodes.INSTANCEOF, annotationType.getName().replace('.', '/'));
+        var label = new org.objectweb.asm.Label();
+        mv.visitJumpInsn(Opcodes.IFEQ, label);
+
+        for (int i = 0; i < entryTypes.length; i++) {
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, name, entryNames[i], entryTypes[i].getDescriptor());
+            mv.visitVarInsn(Opcodes.ALOAD, 1);
+            mv.visitTypeInsn(Opcodes.CHECKCAST, annotationType.getName().replace('.', '/'));
+            mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, annotationType.getName().replace('.', '/'), entryNames[i], org.objectweb.asm.Type.getMethodDescriptor(entryTypes[i]), true);
+            var clazz = entryClasses[i];
+            if (clazz.isPrimitive()) {
+                switch (clazz.getName()) {
+                    case "double" -> {
+                        mv.visitMethodInsn(Opcodes.INVOKESTATIC, BuiltInReflectiveStructureCreator.class.getName().replace('.', '/'), "doubleEquals", "(DD)Z", false);
+                        mv.visitJumpInsn(Opcodes.IFEQ, label);
+                    }
+                    case "float" -> {
+                        mv.visitMethodInsn(Opcodes.INVOKESTATIC, BuiltInReflectiveStructureCreator.class.getName().replace('.', '/'), "floatEquals", "(FF)Z", false);
+                        mv.visitJumpInsn(Opcodes.IFEQ, label);
+                    }
+                    case "long" -> {
+                        mv.visitInsn(Opcodes.LCMP);
+                        mv.visitJumpInsn(Opcodes.IFNE, label);
+                    }
+                    default -> mv.visitJumpInsn(Opcodes.IF_ICMPNE, label);
+                }
+            } else if (clazz.isArray()) {
+                String arrayDescString;
+                if (clazz.componentType().isPrimitive()) {
+                    arrayDescString = clazz.descriptorString();
+                } else {
+                    arrayDescString = Object[].class.descriptorString();
+                }
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/util/Arrays", "equals", "("+arrayDescString+arrayDescString+")Z", false);
+                mv.visitJumpInsn(Opcodes.IFEQ, label);
+            } else {
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Object", "equals", "(Ljava/lang/Object;)Z", false);
+                mv.visitJumpInsn(Opcodes.IFEQ, label);
+            }
+        }
+
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+
+        mv.visitLabel(label);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "hashCode", "()I", null, null);
+        mv.visitCode();
+        mv.visitInsn(Opcodes.ICONST_0);
+        for (int i = 0; i < entryTypes.length; i++) {
+            mv.visitLdcInsn(entryNames[i]);
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Object", "hashCode", "()I", false);
+            mv.visitLdcInsn(127);
+            mv.visitInsn(Opcodes.IMUL);
+
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETFIELD, name, entryNames[i], entryTypes[i].getDescriptor());
+            var clazz = entryClasses[i];
+            if (clazz.isPrimitive()) {
+                var wrapper = switch (clazz.getName()) {
+                    case "int" -> Integer.class;
+                    case "long" -> Long.class;
+                    case "short" -> Short.class;
+                    case "byte" -> Byte.class;
+                    case "char" -> Character.class;
+                    case "float" -> Float.class;
+                    case "double" -> Double.class;
+                    case "boolean" -> Boolean.class;
+                    default -> throw new IllegalStateException("Unexpected value: " + clazz.getName());
+                };
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, wrapper.getName().replace('.', '/'), "valueOf", "("+clazz.descriptorString()+")L"+wrapper.getName().replace('.', '/')+";", false);
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Object", "hashCode", "()I", false);
+            } else if (clazz.isArray()) {
+                String arrayDescString;
+                if (clazz.componentType().isPrimitive()) {
+                    arrayDescString = clazz.descriptorString();
+                } else {
+                    arrayDescString = Object[].class.descriptorString();
+                }
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/util/Arrays", "hashCode", "("+arrayDescString+")I", false);
+            } else {
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Object", "hashCode", "()I", false);
+            }
+            mv.visitInsn(Opcodes.IXOR);
+
+            mv.visitInsn(Opcodes.IADD);
+        }
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        cw.visitEnd();
+
+        var bytes = cw.toByteArray();
+        try {
+            var lookup = MethodHandles.lookup().defineHiddenClassWithClassData(bytes, List.of(annotationType), true, MethodHandles.Lookup.ClassOption.NESTMATE);
+            return lookup.lookupClass();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static boolean doubleEquals(double a, double b) {
+        return Double.valueOf(a).equals(b);
+    }
+
+    private static boolean floatEquals(float a, float b) {
+        return Float.valueOf(a).equals(b);
+    }
+
     @Override
     public List<FlexibleCreator> flexibleCreators(CreationOptions options) {
         return ImmutableList.<FlexibleCreator>builder()
@@ -496,14 +677,14 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 }
                                 var annotation = param.getAnnotation(SerializedProperty.class);
                                 try {
-                                    var field = exact.getField(annotation.property());
+                                    var field = exact.getField(annotation.value());
                                     if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
                                         continue;
                                     }
                                 } catch (NoSuchFieldException ignored) {}
 
                                 try {
-                                    var getterMethod = exact.getMethod("get" + annotation.property().substring(0, 1).toUpperCase() + annotation.property().substring(1));
+                                    var getterMethod = exact.getMethod("get" + annotation.value().substring(0, 1).toUpperCase() + annotation.value().substring(1));
                                     if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
                                         continue;
                                     }
@@ -533,12 +714,22 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             } catch (NoSuchMethodException e) {
                                 throw new RuntimeException(e);
                             }
+                        } else if (exact.isAnnotation()) {
+                            var actualClass = implementAnnotation(exact);
+                            validCtor = actualClass.getConstructors()[0];
                         } else {
                             var ctors = validCtors(exact);
                             validCtor = ctors.getFirst();
                         }
 
                         Objects.requireNonNull(validCtor);
+                        MethodHandle validCtorHandle;
+                        try {
+                            validCtorHandle = MethodHandles.lookup().unreflectConstructor(validCtor);
+                            validCtorHandle = validCtorHandle.asType(MethodType.methodType(exact, validCtor.getParameterTypes()));
+                        } catch (IllegalAccessException e) {
+                            throw new RuntimeException(e);
+                        }
 
                         Map<String, Function<?, Object>> getters = new HashMap<>();
                         Map<String, MethodHandle> setters = new HashMap<>();
@@ -546,25 +737,67 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         String[] ctorSettersArray = new String[validCtor.getParameterCount()];
                         Map<String, Type> types = new HashMap<>();
                         Map<String, List<AnnotatedElement>> context = new HashMap<>();
-                        if (!exact.isRecord()) {
+                        if (exact.isRecord()) {
+                            for (int i = 0; i < exact.getRecordComponents().length; i++) {
+                                var component = exact.getRecordComponents()[i];
+
+                                var thisContext = context.computeIfAbsent(component.getName(), k -> new ArrayList<>());
+                                thisContext.add(component);
+
+                                ctorSetters.put(component.getName(), i);
+                                ctorSettersArray[i] = component.getName();
+                                types.put(component.getName(), component.getGenericType());
+
+                                try {
+                                    var getterMethod = exact.getMethod(component.getName());
+                                    var getter = functionWrapper(MethodHandles.lookup().unreflect(getterMethod));
+                                    thisContext.add(getterMethod);
+                                    getters.put(component.getName(), getter);
+                                } catch (NoSuchMethodException ignored) {
+                                } catch (IllegalAccessException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        } else if (exact.isAnnotation()) {
+                            for (int i = 0; i < validCtor.getParameterCount(); i++) {
+                                var parameter = validCtor.getParameters()[i];
+                                var annotation = parameter.getAnnotation(SerializedProperty.class);
+
+                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new ArrayList<>());
+                                thisContext.add(parameter);
+
+                                ctorSetters.put(annotation.value(), i);
+                                ctorSettersArray[i] = annotation.value();
+                                types.put(annotation.value(), parameter.getParameterizedType());
+
+                                try {
+                                    var getterMethod = exact.getMethod(annotation.value());
+                                    var getter = functionWrapper(MethodHandles.lookup().unreflect(getterMethod));
+                                    getters.put(annotation.value(), getter);
+                                    thisContext.add(getterMethod);
+                                } catch (NoSuchMethodException | IllegalAccessException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        } else {
                             for (int i = 0; i < validCtor.getParameterCount(); i++) {
                                 var param = validCtor.getParameters()[i];
                                 var annotation = param.getAnnotation(SerializedProperty.class);
 
-                                var thisContext = context.computeIfAbsent(annotation.property(), k -> new ArrayList<>());
+                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new ArrayList<>());
                                 thisContext.add(param);
 
-                                ctorSetters.put(annotation.property(), i);
-                                ctorSettersArray[i] = annotation.property();
-                                types.put(annotation.property(), param.getParameterizedType());
+                                ctorSetters.put(annotation.value(), i);
+                                ctorSettersArray[i] = annotation.value();
+                                types.put(annotation.value(), param.getParameterizedType());
 
                                 // Prefer the bean getter method, then the field
 
                                 try {
-                                    var getterMethod = exact.getMethod("get" + annotation.property().substring(0, 1).toUpperCase() + annotation.property().substring(1));
+                                    var getterMethod = exact.getMethod("get" + annotation.value().substring(0, 1).toUpperCase() + annotation.value().substring(1));
                                     if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
                                         var getter = functionWrapper(MethodHandles.lookup().unreflect(getterMethod));
-                                        getters.put(annotation.property(), getter);
+                                        getters.put(annotation.value(), getter);
                                         thisContext.add(getterMethod);
                                         continue;
                                     }
@@ -574,10 +807,10 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 }
 
                                 try {
-                                    var field = exact.getField(annotation.property());
+                                    var field = exact.getField(annotation.value());
                                     if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
                                         var getter = functionWrapper(MethodHandles.lookup().unreflectGetter(field));
-                                        getters.put(annotation.property(), getter);
+                                        getters.put(annotation.value(), getter);
                                         thisContext.add(field);
                                     }
                                 } catch (NoSuchFieldException ignored) {
@@ -587,16 +820,19 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             }
 
                             for (var method : exact.getMethods()) {
+                                if (method.getAnnotation(Transient.class) != null) {
+                                    continue;
+                                }
                                 if (method.accessFlags().contains(AccessFlag.PUBLIC) && !method.accessFlags().contains(AccessFlag.STATIC)) {
                                     var isGetter = method.getParameterCount() == 0 && (
-                                        method.getName().startsWith("get") ||
-                                            (method.getName().startsWith("is") && method.getGenericReturnType().equals(Boolean.TYPE))
+                                        (method.getName().startsWith("get") && method.getName().length() > 3) ||
+                                            (method.getName().startsWith("is") && method.getName().length() > 2 && method.getGenericReturnType().equals(Boolean.TYPE))
                                     );
-                                    var isSetter = method.getParameterCount() == 1 && method.getName().startsWith("set") && method.getGenericReturnType().equals(Void.TYPE);
+                                    var isSetter = method.getParameterCount() == 1 && method.getName().startsWith("set") && method.getName().length() > 3 && method.getGenericReturnType().equals(Void.TYPE);
                                     if (isGetter) {
                                         var property = method.getName().substring(method.getName().startsWith("is") ? 2 : 3);
                                         property = property.substring(0, 1).toLowerCase() + property.substring(1);
-                                        if (!types.containsKey(property) && method.getGenericReturnType().equals(types.get(property))) {
+                                        if (!types.containsKey(property) || method.getGenericReturnType().equals(types.get(property))) {
                                             types.put(property, method.getGenericReturnType());
                                             if (!getters.containsKey(property)) {
                                                 try {
@@ -608,11 +844,11 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                             }
                                             context.computeIfAbsent(property, k -> new ArrayList<>()).add(method);
                                         }
-                                    } else if (isSetter) {
+                                    } if (isSetter) {
                                         var property = method.getName().substring(3);
                                         property = property.substring(0, 1).toLowerCase() + property.substring(1);
-                                        if (!types.containsKey(property) && method.getParameterTypes()[0].equals(types.get(property))) {
-                                            types.put(property, method.getGenericReturnType());
+                                        if (!types.containsKey(property) || method.getParameterTypes()[0].equals(types.get(property))) {
+                                            types.put(property, method.getGenericParameterTypes()[0]);
                                             if (!setters.containsKey(property)) {
                                                 try {
                                                     var setter = MethodHandles.lookup().unreflect(method);
@@ -647,36 +883,18 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                     }
                                 }
                             }
-                        } else {
-                            for (int i = 0; i < exact.getRecordComponents().length; i++) {
-                                var component = exact.getRecordComponents()[i];
-
-                                var thisContext = context.computeIfAbsent(component.getName(), k -> new ArrayList<>());
-                                thisContext.add(component);
-
-                                ctorSetters.put(component.getName(), i);
-                                ctorSettersArray[i] = component.getName();
-                                types.put(component.getName(), component.getGenericType());
-
-                                try {
-                                    var getterMethod = exact.getMethod(component.getName());
-                                    var getter = functionWrapper(MethodHandles.lookup().unreflect(getterMethod));
-                                    thisContext.add(getterMethod);
-                                    getters.put(component.getName(), getter);
-                                } catch (NoSuchMethodException ignored) {
-                                } catch (IllegalAccessException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
                         }
 
                         var properties = new LinkedHashSet<String>();
                         for (var entry : types.keySet()) {
                             if (getters.containsKey(entry) && (setters.containsKey(entry) || ctorSetters.containsKey(entry))) {
                                 properties.add(entry);
+                            } else if (ctorSetters.containsKey(entry) && !getters.containsKey(entry)) {
+                                throw new IllegalStateException("Property " + entry + " of class " + exact + " is a constructor argument but has no getter");
                             }
                         }
                         var propertyList = new ArrayList<>(properties);
+
                         var keyList = new ArrayList<Function<RecordStructure.Container,  ?>>(propertyList.size());
                         for (var property : propertyList) {
                             var getter = getters.get(property);
@@ -696,29 +914,21 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "apply", "(Ljava/lang/Object;)Ljava/lang/Object;", null, null);
                         var classData = new ArrayList<>();
                         Map<String, Integer> offsetMap = new HashMap<>();
-                        String ctorDescriptor;
-                        try {
-                            var ctorHandle = MethodHandles.lookup().unreflectConstructor(validCtor);
-                            classData.add(ctorHandle);
-                            ctorDescriptor = ctorHandle.type().changeReturnType(Void.TYPE).descriptorString();
-                            var j = 1;
-                            for (int i = 0; i < propertyList.size(); i++) {
-                                var key = keyList.get(i);
-                                var property = propertyList.get(i);
-                                classData.add(key);
-                                offsetMap.put(property, j);
+                        classData.add(validCtorHandle);
+                        var j = 1;
+                        for (int i = 0; i < propertyList.size(); i++) {
+                            var key = keyList.get(i);
+                            var property = propertyList.get(i);
+                            classData.add(key);
+                            offsetMap.put(property, j);
+                            j++;
+                            if (!ctorSetters.containsKey(property)) {
+                                var setter = setters.get(property).asType(MethodType.methodType(Void.TYPE, Object.class, Object.class));
+                                classData.add(setter);
                                 j++;
-                                if (!ctorSetters.containsKey(property)) {
-                                    var setter = setters.get(property).asType(MethodType.methodType(Void.TYPE, Object.class, Object.class));
-                                    classData.add(setter);
-                                    j++;
-                                }
                             }
-                        } catch (IllegalAccessException e) {
-                            throw new RuntimeException(e);
                         }
-                        mv.visitTypeInsn(Opcodes.NEW, exact.getName().replace('.', '/'));
-                        mv.visitInsn(Opcodes.DUP);
+
                         for (int i = 0; i < ctorSettersArray.length; i++) {
                             // Load ctor args
                             var property = ctorSettersArray[i];
@@ -728,7 +938,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, org.objectweb.asm.Type.getInternalName(Function.class), "apply", MethodType.methodType(Object.class, Object.class).descriptorString(), true);
                             convertType(mv, validCtor.getParameters()[i].getType());
                         }
-                        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, exact.getName().replace('.', '/'), "<init>", ctorDescriptor, false);
+                        invokeAsCallSite(mv, validCtorHandle.type().descriptorString(), 0);
                         mv.visitVarInsn(Opcodes.ASTORE, 2);
                         for (var property : propertyList) {
                             if (!ctorSetters.containsKey(property)) {
@@ -747,6 +957,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         mv.visitEnd();
                         cw.visitEnd();
                         var bytes = cw.toByteArray();
+
                         try {
                             var lookup = MethodHandles.lookup().defineHiddenClassWithClassData(bytes, classData, true, MethodHandles.Lookup.ClassOption.NESTMATE);
                             @SuppressWarnings("unchecked") var instance = (Function<RecordStructure.Container, Object>) lookup.lookupClass().getConstructor().newInstance();
@@ -773,7 +984,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     // - constructing the object, with any properties that are present in that fashion
                     // - setting any properties that have setters present
                     // Properties are included if they have both a getter (method or public field) and setter (ctor argument, method, or public non-final field) present.
-                    if (exact.isRecord()) {
+                    if (exact.isRecord() || exact.isAnnotation()) {
                         return true;
                     }
 
