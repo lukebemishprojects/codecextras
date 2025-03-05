@@ -717,32 +717,31 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         } catch (IllegalAccessException e) {
                             throw new RuntimeException(e);
                         }
-                        mv.visitVarInsn(Opcodes.ALOAD, 1);
-                        mv.visitTypeInsn(Opcodes.CHECKCAST, RecordStructure.Container.class.getName().replace('.', '/'));
-                        mv.visitVarInsn(Opcodes.ASTORE, 2);
                         mv.visitTypeInsn(Opcodes.NEW, exact.getName().replace('.', '/'));
                         mv.visitInsn(Opcodes.DUP);
                         for (int i = 0; i < ctorSettersArray.length; i++) {
+                            // Load ctor args
                             var property = ctorSettersArray[i];
                             int keyOffset = offsetMap.get(property);
                             mv.visitLdcInsn(conDyn(org.objectweb.asm.Type.getDescriptor(Function.class), keyOffset));
-                            mv.visitVarInsn(Opcodes.ALOAD, 2);
+                            mv.visitVarInsn(Opcodes.ALOAD, 1);
                             mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, org.objectweb.asm.Type.getInternalName(Function.class), "apply", MethodType.methodType(Object.class, Object.class).descriptorString(), true);
                             convertType(mv, validCtor.getParameters()[i].getType());
                         }
                         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, exact.getName().replace('.', '/'), "<init>", ctorDescriptor, false);
-                        mv.visitVarInsn(Opcodes.ASTORE, 3);
+                        mv.visitVarInsn(Opcodes.ASTORE, 2);
                         for (var property : propertyList) {
                             if (!ctorSetters.containsKey(property)) {
-                                mv.visitVarInsn(Opcodes.ALOAD, 3);
+                                // Load the object, then load the value, then call the setter
+                                mv.visitVarInsn(Opcodes.ALOAD, 2);
                                 var keyOffset = offsetMap.get(property);
                                 mv.visitLdcInsn(conDyn(org.objectweb.asm.Type.getDescriptor(Function.class), keyOffset));
-                                mv.visitVarInsn(Opcodes.ALOAD, 2);
+                                mv.visitVarInsn(Opcodes.ALOAD, 1);
                                 mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, org.objectweb.asm.Type.getInternalName(Function.class), "apply", MethodType.methodType(Object.class, Object.class).descriptorString(), true);
                                 invokeAsCallSite(mv, "(Ljava/lang/Object;Ljava/lang/Object;)V", offsetMap.get(property)+1);
                             }
                         }
-                        mv.visitVarInsn(Opcodes.ALOAD, 3);
+                        mv.visitVarInsn(Opcodes.ALOAD, 2);
                         mv.visitInsn(Opcodes.ARETURN);
                         mv.visitMaxs(0, 0);
                         mv.visitEnd();
