@@ -190,8 +190,8 @@ public class RecordStructure<A> {
         return key;
     }
 
-    public Function<Container, OptionalInt> addOptionalInt(String name, Function<A, OptionalInt> getter) {
-        return addOptional(name, Structure.INT, getter.andThen(o -> {
+    public Function<Container, OptionalInt> addOptionalInt(String name, Structure<Integer> structure, Function<A, OptionalInt> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
             if (o.isPresent()) {
                 return Optional.of(o.getAsInt());
             }
@@ -199,8 +199,12 @@ public class RecordStructure<A> {
         })).andThen(o -> o.map(OptionalInt::of).orElse(OptionalInt.empty()));
     }
 
-    public Function<Container, OptionalDouble> addOptionalDouble(String name, Function<A, OptionalDouble> getter) {
-        return addOptional(name, Structure.DOUBLE, getter.andThen(o -> {
+    public Function<Container, OptionalInt> addOptionalInt(String name, Function<A, OptionalInt> getter) {
+        return addOptionalInt(name, Structure.INT, getter);
+    }
+
+    public Function<Container, OptionalDouble> addOptionalDouble(String name, Structure<Double> structure, Function<A, OptionalDouble> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
             if (o.isPresent()) {
                 return Optional.of(o.getAsDouble());
             }
@@ -208,13 +212,21 @@ public class RecordStructure<A> {
         })).andThen(o -> o.map(OptionalDouble::of).orElse(OptionalDouble.empty()));
     }
 
-    public Function<Container, OptionalLong> addOptionalLong(String name, Function<A, OptionalLong> getter) {
-        return addOptional(name, Structure.LONG, getter.andThen(o -> {
+    public Function<Container, OptionalDouble> addOptionalDouble(String name, Function<A, OptionalDouble> getter) {
+        return addOptionalDouble(name, Structure.DOUBLE, getter);
+    }
+
+    public Function<Container, OptionalLong> addOptionalLong(String name, Structure<Long> structure, Function<A, OptionalLong> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
             if (o.isPresent()) {
                 return Optional.of(o.getAsLong());
             }
             return Optional.empty();
         })).andThen(o -> o.map(OptionalLong::of).orElse(OptionalLong.empty()));
+    }
+
+    public Function<Container, OptionalLong> addOptionalLong(String name, Function<A, OptionalLong> getter) {
+        return addOptionalLong(name, Structure.LONG, getter);
     }
 
     /**

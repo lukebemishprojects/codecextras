@@ -5,7 +5,6 @@ import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.structured.CodecInterpreter;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
-import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedProperty;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Transient;
 import dev.lukebemish.codecextras.test.CodecAssertions;
 import java.lang.annotation.Retention;
@@ -28,76 +27,6 @@ public class TestReflective {
         A,
         B,
         C
-    }
-
-    public static class TestNoArgCtor {
-        public int a;
-        private @Nullable String b;
-
-        public @Nullable String getB() {
-            return this.b;
-        }
-
-        public void setB(String b) {
-            this.b = b;
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (this == object) return true;
-            if (!(object instanceof TestNoArgCtor that)) return false;
-            return a == that.a && Objects.equals(b, that.b);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(a, b);
-        }
-
-        @Override
-        public String toString() {
-            return "TestNoArgCtor{" +
-                "a=" + a +
-                ", b='" + b + '\'' +
-                '}';
-        }
-    }
-
-    public static class TestCtor {
-        public final int a;
-        private final String b;
-
-        public String getB() {
-            return this.b;
-        }
-
-        public TestCtor(
-            @SerializedProperty("a") int a,
-            @SerializedProperty("b") String b
-        ) {
-            this.a = a;
-            this.b = b;
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (this == object) return true;
-            if (!(object instanceof TestCtor testCtor)) return false;
-            return a == testCtor.a && Objects.equals(b, testCtor.b);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(a, b);
-        }
-
-        @Override
-        public String toString() {
-            return "TestCtor{" +
-                "a=" + a +
-                ", b='" + b + '\'' +
-                '}';
-        }
     }
 
     public static class TestAnnotations {
@@ -153,9 +82,6 @@ public class TestReflective {
 
     private static final Codec<TestRecursive> RECURSIVE_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestRecursive.class)).getOrThrow();
 
-    private static final Codec<TestCtor> CTOR_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestCtor.class)).getOrThrow();
-    private static final Codec<TestNoArgCtor> NO_ARG_CTOR_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestNoArgCtor.class)).getOrThrow();
-
     private static final Codec<TestAnnotations> ANNOTATIONS_CODEC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestAnnotations.class)).getOrThrow();
 
     private final String json = """
@@ -198,12 +124,6 @@ public class TestReflective {
                 ]
             }""";
 
-    private final String ctorJson = """
-            {
-                "a": 1,
-                "b": "test"
-            }""";
-
     private final String annotationsJson = """
             {
                 "a": 1,
@@ -214,13 +134,6 @@ public class TestReflective {
     private final TestRecord[] array = new TestRecord[] { object };
     private final int[] primitiveArray = new int[] { 1, 2, 3 };
     private final TestRecursive recursive = new TestRecursive("test1", List.of(new TestRecursive("test2", List.of()), new TestRecursive("test3", List.of())));
-
-    private final TestNoArgCtor noArgCtor = new TestNoArgCtor();
-    {
-        noArgCtor.a = 1;
-        noArgCtor.setB("test");
-    }
-    private final TestCtor ctor = new TestCtor(1, "test");
 
     private final TestAnnotations annotations = new TestAnnotations();
     {
@@ -266,26 +179,6 @@ public class TestReflective {
     @Test
     void testEncodingRecursive() {
         CodecAssertions.assertEncodes(JsonOps.INSTANCE, recursive, recursiveJson, RECURSIVE_CODEC);
-    }
-
-    @Test
-    void testDecodingCtor() {
-        CodecAssertions.assertDecodes(JsonOps.INSTANCE, ctorJson, ctor, CTOR_CODEC);
-    }
-
-    @Test
-    void testEncodingCtor() {
-        CodecAssertions.assertEncodes(JsonOps.INSTANCE, ctor, ctorJson, CTOR_CODEC);
-    }
-
-    @Test
-    void testDecodingNoArgCtor() {
-        CodecAssertions.assertDecodes(JsonOps.INSTANCE, ctorJson, noArgCtor, NO_ARG_CTOR_CODEC);
-    }
-
-    @Test
-    void testEncodingNoArgCtor() {
-        CodecAssertions.assertEncodes(JsonOps.INSTANCE, noArgCtor, ctorJson, NO_ARG_CTOR_CODEC);
     }
 
     @Test

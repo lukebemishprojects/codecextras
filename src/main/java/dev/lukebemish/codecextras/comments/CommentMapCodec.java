@@ -47,67 +47,76 @@ public final class CommentMapCodec<A> extends MapCodec<A> {
 
     @Override
     public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
-        final RecordBuilder<T> builder = delegate.encode(input, ops, prefix);
-
-        return new RecordBuilder<>() {
-            RecordBuilder<T> mutableBuilder = builder;
-
-            @Override
-            public DynamicOps<T> ops() {
-                return builder.ops();
+        prefix = delegate.encode(input, ops, prefix);
+        if (prefix instanceof CommentRecordBuilder<T> commentRecordBuilder) {
+            for (Map.Entry<String, String> entry : comments.entrySet()) {
+                prefix = commentRecordBuilder.comment(ops.createString(entry.getKey()), ops.createString(entry.getValue()));
             }
+            return prefix;
+        } else {
+            // Best-attempt -- anything that fails to pass the builder downstream will cause this to fail
+            var builder = prefix;
+            return new RecordBuilder<>() {
+                RecordBuilder<T> mutableBuilder = builder;
 
-            @Override
-            public RecordBuilder<T> add(T key, T value) {
-                mutableBuilder = mutableBuilder.add(key, value);
-                return this;
-            }
+                @Override
+                public DynamicOps<T> ops() {
+                    return builder.ops();
+                }
 
-            @Override
-            public RecordBuilder<T> add(T key, DataResult<T> value) {
-                mutableBuilder = mutableBuilder.add(key, value);
-                return this;
-            }
+                @Override
+                public RecordBuilder<T> add(T key, T value) {
+                    mutableBuilder = mutableBuilder.add(key, value);
+                    return this;
+                }
 
-            @Override
-            public RecordBuilder<T> add(DataResult<T> key, DataResult<T> value) {
-                mutableBuilder = mutableBuilder.add(key, value);
-                return this;
-            }
+                @Override
+                public RecordBuilder<T> add(T key, DataResult<T> value) {
+                    mutableBuilder = mutableBuilder.add(key, value);
+                    return this;
+                }
 
-            @Override
-            public RecordBuilder<T> withErrorsFrom(DataResult<?> result) {
-                mutableBuilder = mutableBuilder.withErrorsFrom(result);
-                return this;
-            }
+                @Override
+                public RecordBuilder<T> add(DataResult<T> key, DataResult<T> value) {
+                    mutableBuilder = mutableBuilder.add(key, value);
+                    return this;
+                }
 
-            @Override
-            public RecordBuilder<T> setLifecycle(Lifecycle lifecycle) {
-                mutableBuilder = mutableBuilder.setLifecycle(lifecycle);
-                return this;
-            }
+                @Override
+                public RecordBuilder<T> withErrorsFrom(DataResult<?> result) {
+                    mutableBuilder = mutableBuilder.withErrorsFrom(result);
+                    return this;
+                }
 
-            @Override
-            public RecordBuilder<T> mapError(UnaryOperator<String> onError) {
-                mutableBuilder = mutableBuilder.mapError(onError);
-                return this;
-            }
+                @Override
+                public RecordBuilder<T> setLifecycle(Lifecycle lifecycle) {
+                    mutableBuilder = mutableBuilder.setLifecycle(lifecycle);
+                    return this;
+                }
 
-            @Override
-            public DataResult<T> build(T prefix) {
-                DataResult<T> built = builder.build(prefix);
-                return AccompaniedOps.find(this.ops()).map(accompaniedOps -> {
-                    Optional<CommentOps<T>> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
-                    if (commentOps.isPresent()) {
-                        return built.flatMap(t ->
-                            commentOps.get().commentToMap(t, comments.entrySet().stream().collect(Collectors.toMap(e ->
-                                ops.createString(e.getKey()), e -> ops.createString(e.getValue()))))
-                        );
-                    }
-                    return built;
-                }).orElse(built);
-            }
-        };
+                @Override
+                public RecordBuilder<T> mapError(UnaryOperator<String> onError) {
+                    mutableBuilder = mutableBuilder.mapError(onError);
+                    return this;
+                }
+
+                @Override
+                public DataResult<T> build(T prefix) {
+                    // TODO: the RecordBuilder is now tossed out; fix this
+                    DataResult<T> built = builder.build(prefix);
+                    return AccompaniedOps.find(this.ops()).map(accompaniedOps -> {
+                        Optional<CommentOps<T>> commentOps = accompaniedOps.getCompanion(CommentOps.TOKEN);
+                        if (commentOps.isPresent()) {
+                            return built.flatMap(t ->
+                                commentOps.get().commentToMap(t, comments.entrySet().stream().collect(Collectors.toMap(e ->
+                                    ops.createString(e.getKey()), e -> ops.createString(e.getValue()))))
+                            );
+                        }
+                        return built;
+                    }).orElse(built);
+                }
+            };
+        }
     }
 
     @Override

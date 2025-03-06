@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 
 public final class CodecAssertions {
@@ -55,6 +56,12 @@ public final class CodecAssertions {
         DataResult<T> dataResult = codec.encodeStart(ops, value);
         Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
         Assertions.assertEquals(expected, dataResult.result().get());
+    }
+
+    public static <O, T> void assertEncodesString(DynamicOps<T> ops, O value, String expected, Function<T, String> converter, Codec<O> codec) {
+        DataResult<T> dataResult = codec.encodeStart(ops, value);
+        Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
+        Assertions.assertEquals(expected, converter.apply(dataResult.result().get()));
     }
 
     public static void assertJsonEquals(String expected, String actual) {

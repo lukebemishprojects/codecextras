@@ -1,8 +1,11 @@
 package dev.lukebemish.codecextras.structured.reflective;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
+import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.utility.LayeredServiceLoader;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -11,6 +14,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -18,6 +22,14 @@ public interface ReflectiveStructureCreator {
     Map<Class<?>, Creator> creators(CreationOptions options);
     Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options);
     List<FlexibleCreator> flexibleCreators(CreationOptions options);
+    default Map<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>> annotationParsers(Set<CreationOption> options) {
+        return Map.of();
+    }
+
+    interface AnnotationInfo<T> {
+        Key<T> key();
+        T value();
+    }
 
     interface TypedCreator {
         Structure<?> create();
@@ -48,14 +60,17 @@ public interface ReflectiveStructureCreator {
     }
 
     final class Instance {
-        private final Map<Class<?>, Creator> creators;
-        private final Map<Class<?>, ParameterizedCreator> parameterizedCreators;
-        private final List<FlexibleCreator> flexibleCreators;
+        private final Map<Class<?>, Function<CreationOptions, Creator>> creators;
+        private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators;
+        private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators;
+        private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers;
+        private final List<CreationOption> options;
 
-        private Instance(Map<Class<?>, Creator> creators, Map<Class<?>, ParameterizedCreator> parameterizedCreators, List<FlexibleCreator> flexibleCreators, CreationOptions options) {
+        private Instance(Map<Class<?>, Function<CreationOptions, Creator>> creators, Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators, List<Function<CreationOptions, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers, List<CreationOption> options) {
             this.creators = creators;
             this.parameterizedCreators = parameterizedCreators;
             this.flexibleCreators = flexibleCreators;
+            this.annotationParsers = annotationParsers;
             this.options = options;
         }
 
@@ -64,25 +79,26 @@ public interface ReflectiveStructureCreator {
         }
 
         public static final class Builder {
-            private final Map<Class<?>, Creator> creators = new IdentityHashMap<>();
-            private final Map<Class<?>, ParameterizedCreator> parameterizedCreators = new IdentityHashMap<>();
-            private final List<FlexibleCreator> flexibleCreators = new ArrayList<>();
+            private final Map<Class<?>, Function<CreationOptions, Creator>> creators = new IdentityHashMap<>();
+            private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators = new IdentityHashMap<>();
+            private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators = new ArrayList<>();
             private final List<CreationOption> options = new ArrayList<>();
+            private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers = new IdentityHashMap<>();
 
             private Builder() {}
 
             public Builder withCreator(Class<?> clazz, Creator creator) {
-                creators.put(clazz, creator);
+                creators.put(clazz, ignored -> creator);
                 return this;
             }
 
             public Builder withParameterizedCreator(Class<?> clazz, ParameterizedCreator creator) {
-                parameterizedCreators.put(clazz, creator);
+                parameterizedCreators.put(clazz, ignored -> creator);
                 return this;
             }
 
             public Builder withFlexibleCreator(FlexibleCreator creator) {
-                flexibleCreators.add(creator);
+                flexibleCreators.add(ignored -> creator);
                 return this;
             }
 
@@ -91,8 +107,13 @@ public interface ReflectiveStructureCreator {
                 return this;
             }
 
+            public <T extends Annotation> Builder withAnnotationParser(Class<T> annotation, Function<T, AnnotationInfo<?>> discoverer) {
+                annotationParsers.put(annotation, ignored -> discoverer);
+                return this;
+            }
+
             public Instance build() {
-                return new Instance(creators, parameterizedCreators, flexibleCreators, new CreationOptions(options));
+                return new Instance(creators, parameterizedCreators, flexibleCreators, annotationParsers, options);
             }
         }
 
@@ -100,12 +121,21 @@ public interface ReflectiveStructureCreator {
 
         private final Map<Type, Structure<?>> cachedCreators = new HashMap<>();
 
-        private final CreationOptions options;
-
         @SuppressWarnings("unchecked")
         public synchronized <T> Structure<T> create(Class<T> clazz) {
             var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
             List<ReflectiveStructureCreator> services = LayeredServiceLoader.unique(SERVICE_LOADER.at(ReflectiveStructureCreator.class), SERVICE_LOADER.at(clazz), SERVICE_LOADER.at(caller));
+
+            var creationOptions = ImmutableSet.copyOf(this.options);
+
+            Map<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>> annotationParsersMap = new IdentityHashMap<>();
+            services.forEach(creator -> annotationParsersMap.putAll(creator.annotationParsers(creationOptions)));
+            this.annotationParsers.forEach((key, function) -> {
+                annotationParsersMap.put(key, function.apply(creationOptions));
+            });
+
+            var options = new CreationOptions(this.options, annotationParsersMap);
+
             Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
             Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
             List<FlexibleCreator> flexibleCreatorsList = new ArrayList<>();
@@ -115,9 +145,15 @@ public interface ReflectiveStructureCreator {
                 flexibleCreatorsList.addAll(creator.flexibleCreators(options));
             });
 
-            creatorsMap.putAll(this.creators);
-            parameterizedCreatorsMap.putAll(this.parameterizedCreators);
-            flexibleCreatorsList.addAll(this.flexibleCreators);
+            this.creators.forEach((key, function) -> {
+                creatorsMap.put(key, function.apply(options));
+            });
+            this.parameterizedCreators.forEach((key, function) -> {
+                parameterizedCreatorsMap.put(key, function.apply(options));
+            });
+            this.flexibleCreators.forEach(function -> {
+                flexibleCreatorsList.add(function.apply(options));
+            });
 
             flexibleCreatorsList.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
 

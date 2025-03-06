@@ -37,7 +37,8 @@ public class Annotation {
      * @return the value of the annotation, if present
      * @param <A> the type of the annotation value
      */
-    public static <A> Optional<A> get(Keys<Identity.Mu, Object> keys, Key<A> key) {
+    public static <A> Optional<A> get(
+        Keys<Identity.Mu, Object> keys, Key<A> key) {
         return keys.get(key).map(app -> Identity.unbox(app).value());
     }
 
