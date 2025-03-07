@@ -12,7 +12,9 @@ import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
+import dev.lukebemish.codecextras.structured.reflective.annotations.Comment;
 import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedProperty;
+import dev.lukebemish.codecextras.structured.reflective.annotations.Structured;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Transient;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Value;
 import dev.lukebemish.codecextras.types.Identity;
@@ -268,8 +270,9 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
     @SuppressWarnings("rawtypes")
     @Override
-    public Map<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>> annotationParsers(Set<CreationOption> options) {
-        return ImmutableMap.<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>>builder()
+    public Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
+        var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>>builder();
+        return builder
             .put(Annotated.class, (Annotated annotation) -> {
                 Key<?> key = (Key<?>) parseValue(annotation.key());
                 Object value = null;
@@ -348,7 +351,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     throw new IllegalArgumentException("@Annotated must have exactly one value");
                 }
                 Object finalValue = value;
-                return new AnnotationInfo() {
+                List<AnnotationInfo<?>> list = List.of(new AnnotationInfo() {
                     @Override
                     public Key key() {
                         return key;
@@ -358,8 +361,20 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     public Object value() {
                         return finalValue;
                     }
-                };
+                });
+                return list;
             })
+            .put(Comment.class, (Comment annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo() {
+                @Override
+                public Key key() {
+                    return dev.lukebemish.codecextras.structured.Annotation.COMMENT;
+                }
+
+                @Override
+                public Object value() {
+                    return annotation.value();
+                }
+            }))
             .build();
     }
 
@@ -467,10 +482,9 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static Function<RecordStructure.Container, ?> add(CreationOptions options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<AnnotatedElement> annotated) {
-        var annotations = annotated.stream().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
+        var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
         var annotationInfo = annotations.stream()
-            .<AnnotationInfo<?>>map(options::parseAnnotation)
-            .filter(Objects::nonNull)
+            .flatMap(a -> options.parseAnnotation(a).stream())
             .toList();
 
         Function<Structure, Structure> structureUpdater = structure -> {
@@ -481,26 +495,47 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             return structure.annotate(keys.build());
         };
 
+        var structureInfos = annotations.stream()
+            .map(info -> {
+                if (info instanceof Structured structured) {
+                    return structured;
+                }
+                return null;
+            }).filter(Objects::nonNull).distinct().toList();
+
+        if (structureInfos.size() > 1) {
+            throw new IllegalArgumentException("Multiple @Structured annotations found");
+        }
+
+        Structure<?> explicitStructure = null;
+        if (!structureInfos.isEmpty()) {
+            explicitStructure = (Structure<?>) parseValue(structureInfos.getFirst().value());
+            if (structureInfos.getFirst().directOptional()) {
+                return ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, structureUpdater.apply(explicitStructure), (Function) getter.andThen(Optional::ofNullable)))
+                    .andThen(o -> o.orElse(null));
+            }
+        }
+
         if (type instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
             if (rawType.equals(Optional.class)) {
                 var innerType = parameterizedType.getActualTypeArguments()[0];
-                return builder.addOptional(name, structureUpdater.apply(creator.apply(innerType)), (Function) getter);
+                return builder.addOptional(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(innerType)), (Function) getter);
             }
         } else if (type instanceof Class<?> clazz) {
             if (clazz.equals(OptionalInt.class)) {
-                return builder.addOptionalInt(name, structureUpdater.apply(Structure.INT), (Function) getter);
+                return builder.addOptionalInt(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.INT), (Function) getter);
             } else if (clazz.equals(OptionalDouble.class)) {
-                return builder.addOptionalDouble(name, structureUpdater.apply(Structure.DOUBLE), (Function) getter);
+                return builder.addOptionalDouble(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.DOUBLE), (Function) getter);
             } else if (clazz.equals(OptionalLong.class)) {
-                return builder.addOptionalLong(name, structureUpdater.apply(Structure.LONG), (Function) getter);
+                return builder.addOptionalLong(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.LONG), (Function) getter);
             }
         }
         boolean isNotNull = options.hasOption(SimpleCreatorOption.NOT_NULL_BY_DEFAULT);
         Function<RecordStructure.Container, ?> key;
         if (isNotNull || (type instanceof Class<?> clazz && clazz.isPrimitive())) {
-            key = builder.add(name, structureUpdater.apply(creator.apply(type)), (Function) getter);
+            key = builder.add(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter);
         } else {
-            key = ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, structureUpdater.apply(creator.apply(type)), (Function) getter.andThen(Optional::ofNullable)))
+            key = ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter.andThen(Optional::ofNullable)))
                 .andThen(o -> o.orElse(null));
         }
         return key;

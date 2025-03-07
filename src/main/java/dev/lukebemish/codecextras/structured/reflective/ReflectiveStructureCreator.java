@@ -19,10 +19,16 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ReflectiveStructureCreator {
-    Map<Class<?>, Creator> creators(CreationOptions options);
-    Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options);
-    List<FlexibleCreator> flexibleCreators(CreationOptions options);
-    default Map<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>> annotationParsers(Set<CreationOption> options) {
+    default Map<Class<?>, Creator> creators(CreationOptions options) {
+        return Map.of();
+    }
+    default Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options) {
+        return Map.of();
+    }
+    default List<FlexibleCreator> flexibleCreators(CreationOptions options) {
+        return List.of();
+    }
+    default Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
         return Map.of();
     }
 
@@ -63,10 +69,10 @@ public interface ReflectiveStructureCreator {
         private final Map<Class<?>, Function<CreationOptions, Creator>> creators;
         private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators;
         private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators;
-        private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers;
+        private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers;
         private final List<CreationOption> options;
 
-        private Instance(Map<Class<?>, Function<CreationOptions, Creator>> creators, Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators, List<Function<CreationOptions, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers, List<CreationOption> options) {
+        private Instance(Map<Class<?>, Function<CreationOptions, Creator>> creators, Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators, List<Function<CreationOptions, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers, List<CreationOption> options) {
             this.creators = creators;
             this.parameterizedCreators = parameterizedCreators;
             this.flexibleCreators = flexibleCreators;
@@ -83,7 +89,7 @@ public interface ReflectiveStructureCreator {
             private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators = new IdentityHashMap<>();
             private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators = new ArrayList<>();
             private final List<CreationOption> options = new ArrayList<>();
-            private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, AnnotationInfo<?>>>> annotationParsers = new IdentityHashMap<>();
+            private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers = new IdentityHashMap<>();
 
             private Builder() {}
 
@@ -107,7 +113,7 @@ public interface ReflectiveStructureCreator {
                 return this;
             }
 
-            public <T extends Annotation> Builder withAnnotationParser(Class<T> annotation, Function<T, AnnotationInfo<?>> discoverer) {
+            public <T extends Annotation> Builder withAnnotationParser(Class<T> annotation, Function<T, List<AnnotationInfo<?>>> discoverer) {
                 annotationParsers.put(annotation, ignored -> discoverer);
                 return this;
             }
@@ -128,7 +134,7 @@ public interface ReflectiveStructureCreator {
 
             var creationOptions = ImmutableSet.copyOf(this.options);
 
-            Map<Class<? extends Annotation>, Function<?, AnnotationInfo<?>>> annotationParsersMap = new IdentityHashMap<>();
+            Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsersMap = new IdentityHashMap<>();
             services.forEach(creator -> annotationParsersMap.putAll(creator.annotationParsers(creationOptions)));
             this.annotationParsers.forEach((key, function) -> {
                 annotationParsersMap.put(key, function.apply(creationOptions));

@@ -91,6 +91,11 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToList(Object list, Object value) {
+        if (list == empty()) {
+            List<Object> out = new ArrayList<>();
+            out.add(value);
+            return DataResult.success(out);
+        }
         if (list instanceof List<?> list1) {
             List<Object> out = new ArrayList<>(list1);
             out.add(value);
@@ -101,6 +106,10 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToList(Object list, List<Object> values) {
+        if (list == empty()) {
+            List<Object> out = new ArrayList<>(values);
+            return DataResult.success(out);
+        }
         if (list instanceof List<?> list1) {
             List<Object> out = new ArrayList<>(list1);
             out.addAll(values);
