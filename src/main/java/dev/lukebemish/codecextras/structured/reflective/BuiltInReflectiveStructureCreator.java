@@ -4,6 +4,7 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.annotations.SerializedName;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Dynamic;
@@ -13,6 +14,7 @@ import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Comment;
+import dev.lukebemish.codecextras.structured.reflective.annotations.Lenient;
 import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedProperty;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Structured;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Transient;
@@ -83,6 +85,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.TransferQueue;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.ApiStatus;
@@ -96,7 +99,7 @@ import org.objectweb.asm.Opcodes;
 @AutoService(ReflectiveStructureCreator.class)
 public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCreator {
     @Override
-    public Map<Class<?>, Creator> creators(CreationOptions options) {
+    public Map<Class<?>, Creator> creators(CreationContext options) {
         return ImmutableMap.<Class<?>, Creator>builder()
             .put(Unit.class, () -> Structure.UNIT)
             .put(Boolean.class, () -> Structure.BOOL)
@@ -272,6 +275,10 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     @Override
     public Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
         var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>>builder();
+        var groovyIsolator = GroovyIsolator.getInstance();
+        if (groovyIsolator != null) {
+            groovyIsolator.collectAnnotationParsers(builder);
+        }
         return builder
             .put(Annotated.class, (Annotated annotation) -> {
                 Key<?> key = (Key<?>) parseValue(annotation.key());
@@ -351,7 +358,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     throw new IllegalArgumentException("@Annotated must have exactly one value");
                 }
                 Object finalValue = value;
-                List<AnnotationInfo<?>> list = List.of(new AnnotationInfo() {
+                List<AnnotationInfo<?>> list = List.<AnnotationInfo<?>>of(new AnnotationInfo() {
                     @Override
                     public Key key() {
                         return key;
@@ -364,22 +371,33 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 });
                 return list;
             })
-            .put(Comment.class, (Comment annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo() {
+            .put(Comment.class, (Comment annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo<String>() {
                 @Override
-                public Key key() {
+                public Key<String> key() {
                     return dev.lukebemish.codecextras.structured.Annotation.COMMENT;
                 }
 
                 @Override
-                public Object value() {
+                public String value() {
                     return annotation.value();
+                }
+            }))
+            .put(Lenient.class, (Lenient annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo<Unit>() {
+                @Override
+                public Key<Unit> key() {
+                    return dev.lukebemish.codecextras.structured.Annotation.LENIENT;
+                }
+
+                @Override
+                public Unit value() {
+                    return Unit.INSTANCE;
                 }
             }))
             .build();
     }
 
     @Override
-    public Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options) {
+    public Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
         return ImmutableMap.<Class<?>, ParameterizedCreator>builder()
             .put(Either.class, (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()))
             // Collections
@@ -480,20 +498,30 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return new ConstantCallSite(handle.asType(type));
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public static Function<RecordStructure.Container, ?> add(CreationOptions options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<AnnotatedElement> annotated) {
-        var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
-        var annotationInfo = annotations.stream()
-            .flatMap(a -> options.parseAnnotation(a).stream())
-            .toList();
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Override
+    public List<ContextualTransform> structureContextualTransforms(Set<CreationOption> options) {
+        return List.of(
+            (annotated, context) -> {
+                var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
+                var annotationInfo = annotations.stream()
+                    .flatMap(a -> context.parseAnnotation(a).stream())
+                    .toList();
 
-        Function<Structure, Structure> structureUpdater = structure -> {
-            Keys.Builder<Identity.Mu, Object> keys = Keys.builder();
-            for (var info : annotationInfo) {
-                keys.add((Key) info.key(), new Identity<>(info.value()));
+                return structure -> {
+                    Keys.Builder<Identity.Mu, Object> keys = Keys.builder();
+                    for (var info : annotationInfo) {
+                        keys.add((Key) info.key(), new Identity<>(info.value()));
+                    }
+                    return structure.annotate(keys.build());
+                };
             }
-            return structure.annotate(keys.build());
-        };
+        );
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static Function<RecordStructure.Container, ?> add(CreationContext options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<AnnotatedElement> annotated) {
+        var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
 
         var structureInfos = annotations.stream()
             .map(info -> {
@@ -507,36 +535,170 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             throw new IllegalArgumentException("Multiple @Structured annotations found");
         }
 
-        Structure<?> explicitStructure = null;
-        if (!structureInfos.isEmpty()) {
-            explicitStructure = (Structure<?>) parseValue(structureInfos.getFirst().value());
-            if (structureInfos.getFirst().directOptional()) {
-                return ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, structureUpdater.apply(explicitStructure), (Function) getter.andThen(Optional::ofNullable)))
-                    .andThen(o -> o.orElse(null));
+        Function<Structure, Structure> structureUpdater = (Function) options.contextualTransform(annotated);
+
+        var serializedName = name;
+        var serializedNameAnnotations = annotations.stream()
+            .map(info -> {
+                if (info instanceof SerializedName serializedNameAnnotation) {
+                    return serializedNameAnnotation;
+                }
+                return null;
+            }).filter(Objects::nonNull).distinct().toList();
+
+        if (serializedNameAnnotations.size() > 1) {
+            throw new IllegalArgumentException("Multiple @SerializedName annotations found");
+        }
+
+        String[] otherNames = new String[0];
+
+        if (!serializedNameAnnotations.isEmpty()) {
+            serializedName = serializedNameAnnotations.getFirst().value();
+            otherNames = serializedNameAnnotations.getFirst().alternate();
+        }
+
+        var namedCreator = structureByNameCreator(options, builder, type, getter, creator, structureInfos, structureUpdater);
+
+        if (otherNames.length > 0) {
+            var list = new ArrayList<String>();
+            list.add(serializedName);
+            list.addAll(Arrays.asList(otherNames));
+            return namedCreator.forNames(list);
+        } else {
+            return namedCreator.forName(serializedName);
+        }
+    }
+
+    private interface StructureNamedCreator<T> {
+        Function<RecordStructure.Container, T> forNames(List<String> names);
+        Function<RecordStructure.Container, T> forName(String name);
+
+        interface StructureMaker<T> {
+            Function<RecordStructure.Container, T> make(String name, boolean first);
+        }
+
+        record StructureData<T>(StructureMaker<T> creator, BiFunction<T, T, T> combiner) implements StructureNamedCreator<T> {
+            @Override
+            public Function<RecordStructure.Container, T> forNames(List<String> names) {
+                if (names.isEmpty()) {
+                    throw new IllegalArgumentException("No names provided");
+                }
+                var first = creator.make(names.getFirst(), true);
+                var rest = new ArrayList<Function<RecordStructure.Container, T>>();
+                for (int i = 1; i < names.size(); i++) {
+                    rest.add(creator.make(names.get(i), false));
+                }
+                if (rest.isEmpty()) {
+                    return first;
+                }
+                return container -> {
+                    var result = first.apply(container);
+                    for (var f : rest) {
+                        result = combiner.apply(result, f.apply(container));
+                    }
+                    return result;
+                };
+            }
+
+            @Override
+            public Function<RecordStructure.Container, T> forName(String name) {
+                return creator.make(name, true);
             }
         }
+
+
+        static <T> StructureData<Optional<T>> optional(StructureMaker<Optional<T>> creator) {
+            return new StructureData<>(creator, (a, b) -> a.or(() -> b));
+        }
+
+        static StructureNamedCreator<OptionalInt> optionalInt(StructureMaker<OptionalInt> creator) {
+            return new StructureData<>(creator, (a, b) -> a.isPresent() ? a : b);
+        }
+
+        static StructureNamedCreator<OptionalDouble> optionalDouble(StructureMaker<OptionalDouble> creator) {
+            return new StructureData<>(creator, (a, b) -> a.isPresent() ? a : b);
+        }
+
+        static StructureNamedCreator<OptionalLong> optionalLong(StructureMaker<OptionalLong> creator) {
+            return new StructureData<>(creator, (a, b) -> a.isPresent() ? a : b);
+        }
+
+        static <T> StructureNamedCreator<T> notOptional(StructureMaker<T> creator) {
+            return new StructureNamedCreator<>() {
+                @Override
+                public Function<RecordStructure.Container, T> forName(String name) {
+                    return creator.make(name, true);
+                }
+
+                @Override
+                public Function<RecordStructure.Container, T> forNames(List<String> names) {
+                    if (names.isEmpty()) {
+                        throw new IllegalArgumentException("No names provided");
+                    }
+
+                    if (names.size() == 1) {
+                        return creator.make(names.getFirst(), true);
+                    }
+
+                    var creators = new ArrayList<Function<RecordStructure.Container, T>>();
+                    creators.add(creator.make(names.getFirst(), true));
+                    for (int i = 1; i < names.size(); i++) {
+                        creators.add(creator.make(names.get(i), false));
+                    }
+
+                    return container -> {
+                        T result = null;
+                        for (var f : creators) {
+                            result = f.apply(container);
+                            if (result != null) {
+                                return result;
+                            }
+                        }
+                        return result;
+                    };
+                }
+            };
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static StructureNamedCreator<?> structureByNameCreator(CreationContext options, RecordStructure<?> builder, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<Structured> structureInfos, Function<Structure, Structure> structureUpdater) {
+        Structure<?> mutableExplicitStructure = null;
+        if (!structureInfos.isEmpty()) {
+            mutableExplicitStructure = (Structure<?>) parseValue(structureInfos.getFirst().value());
+            if (structureInfos.getFirst().directOptional()) {
+                final var explicitStructure = mutableExplicitStructure;
+                return StructureNamedCreator.notOptional((serializedName, first) -> ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure), first ? (Function) getter.andThen(Optional::ofNullable) : o -> Optional.empty()))
+                    .andThen(o -> o.orElse(null)));
+            }
+        }
+
+        final var explicitStructure = mutableExplicitStructure;
 
         if (type instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
             if (rawType.equals(Optional.class)) {
                 var innerType = parameterizedType.getActualTypeArguments()[0];
-                return builder.addOptional(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(innerType)), (Function) getter);
+                return StructureNamedCreator.optional((serializedName, first) -> builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(innerType)), first ? (Function) getter : o -> Optional.empty()));
             }
         } else if (type instanceof Class<?> clazz) {
             if (clazz.equals(OptionalInt.class)) {
-                return builder.addOptionalInt(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.INT), (Function) getter);
+                return StructureNamedCreator.optionalInt((serializedName, first) -> builder.addOptionalInt(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.INT), first ? (Function) getter : o -> OptionalInt.empty()));
             } else if (clazz.equals(OptionalDouble.class)) {
-                return builder.addOptionalDouble(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.DOUBLE), (Function) getter);
+                return StructureNamedCreator.optionalDouble((serializedName, first) -> builder.addOptionalDouble(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.DOUBLE), first ? (Function) getter : o -> OptionalDouble.empty()));
             } else if (clazz.equals(OptionalLong.class)) {
-                return builder.addOptionalLong(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.LONG), (Function) getter);
+                return StructureNamedCreator.optionalLong((serializedName, first) -> builder.addOptionalLong(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.LONG), first ? (Function) getter : o -> OptionalLong.empty()));
             }
         }
         boolean isNotNull = options.hasOption(SimpleCreatorOption.NOT_NULL_BY_DEFAULT);
-        Function<RecordStructure.Container, ?> key;
+        StructureNamedCreator<?> key;
         if (isNotNull || (type instanceof Class<?> clazz && clazz.isPrimitive())) {
-            key = builder.add(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter);
+            key = StructureNamedCreator.notOptional((serializedName, first) -> first ?
+                builder.add(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter) :
+                ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), o -> Optional.empty()))
+                    .andThen(o -> o.orElse(null)));
         } else {
-            key = ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(name, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter.andThen(Optional::ofNullable)))
-                .andThen(o -> o.orElse(null));
+            key = StructureNamedCreator.notOptional((serializedName, first) -> ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), first ? (Function) getter.andThen(Optional::ofNullable) : o -> Optional.empty()))
+                .andThen(o -> o.orElse(null)));
         }
         return key;
     }
@@ -721,7 +883,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @Override
-    public List<FlexibleCreator> flexibleCreators(CreationOptions options) {
+    public List<FlexibleCreator> flexibleCreators(CreationContext options) {
         return ImmutableList.<FlexibleCreator>builder()
             .add(new FlexibleCreator() {
                 @SuppressWarnings({"unchecked", "rawtypes"})

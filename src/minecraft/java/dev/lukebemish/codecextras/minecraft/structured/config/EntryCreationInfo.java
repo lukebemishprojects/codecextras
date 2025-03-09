@@ -1,7 +1,7 @@
 package dev.lukebemish.codecextras.minecraft.structured.config;
 
 import com.mojang.serialization.Codec;
-import dev.lukebemish.codecextras.utility.Lazy;
+import dev.lukebemish.codecextras.internal.Lazy;
 import java.util.function.UnaryOperator;
 
 public record EntryCreationInfo<T>(Codec<T> codec, Lazy<ComponentInfo> componentInfo) {

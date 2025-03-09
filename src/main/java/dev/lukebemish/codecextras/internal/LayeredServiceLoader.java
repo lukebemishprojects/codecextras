@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.utility;
+package dev.lukebemish.codecextras.internal;
 
 import java.lang.ref.WeakReference;
 import java.util.LinkedHashMap;

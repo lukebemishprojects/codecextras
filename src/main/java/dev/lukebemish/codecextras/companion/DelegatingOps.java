@@ -8,7 +8,7 @@ import com.mojang.serialization.Encoder;
 import com.mojang.serialization.ListBuilder;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
-import dev.lukebemish.codecextras.utility.LayeredServiceLoader;
+import dev.lukebemish.codecextras.internal.LayeredServiceLoader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;

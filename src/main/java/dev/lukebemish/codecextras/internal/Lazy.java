@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.utility;
+package dev.lukebemish.codecextras.internal;
 
 import com.google.common.base.Suppliers;
 import java.util.function.Function;

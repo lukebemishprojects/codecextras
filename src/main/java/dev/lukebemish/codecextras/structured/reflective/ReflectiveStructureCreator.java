@@ -2,10 +2,11 @@ package dev.lukebemish.codecextras.structured.reflective;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
+import dev.lukebemish.codecextras.internal.LayeredServiceLoader;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Structure;
-import dev.lukebemish.codecextras.utility.LayeredServiceLoader;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -19,17 +20,20 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ReflectiveStructureCreator {
-    default Map<Class<?>, Creator> creators(CreationOptions options) {
+    default Map<Class<?>, Creator> creators(CreationContext options) {
         return Map.of();
     }
-    default Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationOptions options) {
+    default Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
         return Map.of();
     }
-    default List<FlexibleCreator> flexibleCreators(CreationOptions options) {
+    default List<FlexibleCreator> flexibleCreators(CreationContext options) {
         return List.of();
     }
     default Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
         return Map.of();
+    }
+    default List<ContextualTransform> structureContextualTransforms(Set<CreationOption> options) {
+        return List.of();
     }
 
     interface AnnotationInfo<T> {
@@ -45,6 +49,13 @@ public interface ReflectiveStructureCreator {
 
     interface Creator {
         Structure<?> create();
+        default Creator andThen(Function<Structure<?>, Structure<?>> function) {
+            return () -> function.apply(create());
+        }
+    }
+
+    interface ContextualTransform {
+        Function<Structure<?>, Structure<?>> transform(List<AnnotatedElement> elements, CreationContext context);
     }
 
     interface FlexibleCreator {
@@ -66,17 +77,19 @@ public interface ReflectiveStructureCreator {
     }
 
     final class Instance {
-        private final Map<Class<?>, Function<CreationOptions, Creator>> creators;
-        private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators;
-        private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators;
+        private final Map<Class<?>, Function<CreationContext, Creator>> creators;
+        private final Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators;
+        private final List<Function<CreationContext, FlexibleCreator>> flexibleCreators;
         private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers;
+        private final List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms;
         private final List<CreationOption> options;
 
-        private Instance(Map<Class<?>, Function<CreationOptions, Creator>> creators, Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators, List<Function<CreationOptions, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers, List<CreationOption> options) {
+        private Instance(Map<Class<?>, Function<CreationContext, Creator>> creators, Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators, List<Function<CreationContext, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers, List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms, List<CreationOption> options) {
             this.creators = creators;
             this.parameterizedCreators = parameterizedCreators;
             this.flexibleCreators = flexibleCreators;
             this.annotationParsers = annotationParsers;
+            this.contextualTransforms = contextualTransforms;
             this.options = options;
         }
 
@@ -85,11 +98,12 @@ public interface ReflectiveStructureCreator {
         }
 
         public static final class Builder {
-            private final Map<Class<?>, Function<CreationOptions, Creator>> creators = new IdentityHashMap<>();
-            private final Map<Class<?>, Function<CreationOptions, ParameterizedCreator>> parameterizedCreators = new IdentityHashMap<>();
-            private final List<Function<CreationOptions, FlexibleCreator>> flexibleCreators = new ArrayList<>();
+            private final Map<Class<?>, Function<CreationContext, Creator>> creators = new IdentityHashMap<>();
+            private final Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators = new IdentityHashMap<>();
+            private final List<Function<CreationContext, FlexibleCreator>> flexibleCreators = new ArrayList<>();
             private final List<CreationOption> options = new ArrayList<>();
             private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers = new IdentityHashMap<>();
+            private final List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms = new ArrayList<>();
 
             private Builder() {}
 
@@ -118,8 +132,13 @@ public interface ReflectiveStructureCreator {
                 return this;
             }
 
+            public Builder withContextualTransform(Function<Set<CreationOption>, ContextualTransform> transform) {
+                contextualTransforms.add(transform);
+                return this;
+            }
+
             public Instance build() {
-                return new Instance(creators, parameterizedCreators, flexibleCreators, annotationParsers, options);
+                return new Instance(creators, parameterizedCreators, flexibleCreators, annotationParsers, contextualTransforms, options);
             }
         }
 
@@ -140,7 +159,13 @@ public interface ReflectiveStructureCreator {
                 annotationParsersMap.put(key, function.apply(creationOptions));
             });
 
-            var options = new CreationOptions(this.options, annotationParsersMap);
+            List<ContextualTransform> contextualTransformList = new ArrayList<>();
+            services.forEach(creator -> contextualTransformList.addAll(creator.structureContextualTransforms(creationOptions)));
+            this.contextualTransforms.forEach(function -> {
+                contextualTransformList.add(function.apply(creationOptions));
+            });
+
+            var options = new CreationContext(this.options, annotationParsersMap, contextualTransformList);
 
             Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
             Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();

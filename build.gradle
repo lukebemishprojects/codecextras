@@ -201,6 +201,8 @@ dependencies {
     compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
 
+    compileOnly 'org.apache.groovy:groovy:4.0.26'
+
     testImplementation 'com.electronwill.night-config:core:3.6.4'
     testImplementation 'com.electronwill.night-config:toml:3.6.4'
     testImplementation 'blue.endless:jankson:1.2.2'
