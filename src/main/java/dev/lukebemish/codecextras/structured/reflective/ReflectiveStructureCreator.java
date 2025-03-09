@@ -1,11 +1,17 @@
 package dev.lukebemish.codecextras.structured.reflective;
 
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.mojang.datafixers.kinds.App;
+import com.mojang.datafixers.kinds.K1;
 import dev.lukebemish.codecextras.internal.LayeredServiceLoader;
 import dev.lukebemish.codecextras.structured.Key;
+import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.Structure;
-import java.lang.annotation.Annotation;
+import dev.lukebemish.codecextras.structured.reflective.systems.Creators;
+import dev.lukebemish.codecextras.structured.reflective.systems.FlexibleCreators;
+import dev.lukebemish.codecextras.structured.reflective.systems.ParameterizedCreators;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -15,25 +21,88 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public interface ReflectiveStructureCreator {
-    default Map<Class<?>, Creator> creators(CreationContext options) {
-        return Map.of();
+    interface CreatorSystem<T, R, O extends CreatorSystem.Type<T, R, O>> extends App<CreatorSystem.Mu, O> {
+        final class Mu implements K1 { private Mu() {} }
+
+        O type();
+
+        interface Type<T, R, O extends Type<T, R, O>> {
+            R merge(R a, R b);
+            R empty();
+            Key<O> key();
+            T bake(R value, CreationContext context);
+        }
+
+        interface ListType<A, O extends ListType<A, O>> extends Type<List<A>, Function<CreationContext, List<A>>, O> {
+            @Override
+            default Function<CreationContext, List<A>> merge(Function<CreationContext, List<A>> a, Function<CreationContext, List<A>> b) {
+                return context -> {
+                    var out = a.apply(context);
+                    out.addAll(b.apply(context));
+                    return out;
+                };
+            }
+
+            @Override
+            default Function<CreationContext, List<A>> empty() {
+                return c -> new ArrayList<>();
+            }
+
+            @Override
+            default List<A> bake(Function<CreationContext, List<A>> value, CreationContext context) {
+                var out = ImmutableList.<A>builder();
+                out.addAll(value.apply(context));
+                return out.build();
+            }
+        }
+
+        interface MapType<A, B, O extends MapType<A, B, O>> extends Type<Map<A, B>, Function<CreationContext, Map<A, B>>, O> {
+            @Override
+            default Function<CreationContext, Map<A, B>> merge(Function<CreationContext, Map<A, B>> a, Function<CreationContext, Map<A, B>> b) {
+                return context -> {
+                    var out = a.apply(context);
+                    out.putAll(b.apply(context));
+                    return out;
+                };
+            }
+
+            @Override
+            default Function<CreationContext, Map<A, B>> empty() {
+                return c -> new HashMap<>();
+            }
+
+            @Override
+            default Map<A, B> bake(Function<CreationContext, Map<A, B>> value, CreationContext context) {
+                var out = ImmutableMap.<A, B>builder();
+                out.putAll(value.apply(context));
+                return out.build();
+            }
+        }
+
+        interface IdentityMapType<A, B, O extends IdentityMapType<A, B, O>> extends MapType<A, B, O> {
+            @Override
+            default Function<CreationContext, Map<A, B>> empty() {
+                return c -> new IdentityHashMap<>();
+            }
+        }
+
+        R make();
     }
-    default Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
-        return Map.of();
+
+    @SuppressWarnings("unchecked")
+    private static <R> R mergeUnchecked(Object existing, Object specific, CreatorSystem.Type<?, R, ?> type) {
+        R existingCast = (R) existing;
+        R specificCast = (R) specific;
+        return type.merge(existingCast, specificCast);
     }
-    default List<FlexibleCreator> flexibleCreators(CreationContext options) {
-        return List.of();
-    }
-    default Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
-        return Map.of();
-    }
-    default List<ContextualTransform> structureContextualTransforms(Set<CreationOption> options) {
-        return List.of();
+
+    default Keys<CreatorSystem.Mu, Object> systems() {
+        return Keys.<CreatorSystem.Mu, Object>builder().build();
     }
 
     interface AnnotationInfo<T> {
@@ -49,13 +118,13 @@ public interface ReflectiveStructureCreator {
 
     interface Creator {
         Structure<?> create();
-        default Creator andThen(Function<Structure<?>, Structure<?>> function) {
-            return () -> function.apply(create());
-        }
     }
 
     interface ContextualTransform {
         Function<Structure<?>, Structure<?>> transform(List<AnnotatedElement> elements, CreationContext context);
+        default int priority() {
+            return 0;
+        }
     }
 
     interface FlexibleCreator {
@@ -77,20 +146,10 @@ public interface ReflectiveStructureCreator {
     }
 
     final class Instance {
-        private final Map<Class<?>, Function<CreationContext, Creator>> creators;
-        private final Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators;
-        private final List<Function<CreationContext, FlexibleCreator>> flexibleCreators;
-        private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers;
-        private final List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms;
-        private final List<CreationOption> options;
+        private final Keys<CreatorSystem.Mu, Object> systems;
 
-        private Instance(Map<Class<?>, Function<CreationContext, Creator>> creators, Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators, List<Function<CreationContext, FlexibleCreator>> flexibleCreators, Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers, List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms, List<CreationOption> options) {
-            this.creators = creators;
-            this.parameterizedCreators = parameterizedCreators;
-            this.flexibleCreators = flexibleCreators;
-            this.annotationParsers = annotationParsers;
-            this.contextualTransforms = contextualTransforms;
-            this.options = options;
+        private Instance(Keys<CreatorSystem.Mu, Object> systems) {
+            this.systems = systems;
         }
 
         public static Builder builder() {
@@ -98,47 +157,17 @@ public interface ReflectiveStructureCreator {
         }
 
         public static final class Builder {
-            private final Map<Class<?>, Function<CreationContext, Creator>> creators = new IdentityHashMap<>();
-            private final Map<Class<?>, Function<CreationContext, ParameterizedCreator>> parameterizedCreators = new IdentityHashMap<>();
-            private final List<Function<CreationContext, FlexibleCreator>> flexibleCreators = new ArrayList<>();
-            private final List<CreationOption> options = new ArrayList<>();
-            private final Map<Class<? extends Annotation>, Function<Set<CreationOption>, Function<?, List<AnnotationInfo<?>>>>> annotationParsers = new IdentityHashMap<>();
-            private final List<Function<Set<CreationOption>, ContextualTransform>> contextualTransforms = new ArrayList<>();
+            private final Keys.Builder<CreatorSystem.Mu, Object> systems = Keys.builder();
 
             private Builder() {}
 
-            public Builder withCreator(Class<?> clazz, Creator creator) {
-                creators.put(clazz, ignored -> creator);
-                return this;
-            }
-
-            public Builder withParameterizedCreator(Class<?> clazz, ParameterizedCreator creator) {
-                parameterizedCreators.put(clazz, ignored -> creator);
-                return this;
-            }
-
-            public Builder withFlexibleCreator(FlexibleCreator creator) {
-                flexibleCreators.add(ignored -> creator);
-                return this;
-            }
-
-            public Builder withOption(CreationOption option) {
-                options.add(option);
-                return this;
-            }
-
-            public <T extends Annotation> Builder withAnnotationParser(Class<T> annotation, Function<T, List<AnnotationInfo<?>>> discoverer) {
-                annotationParsers.put(annotation, ignored -> discoverer);
-                return this;
-            }
-
-            public Builder withContextualTransform(Function<Set<CreationOption>, ContextualTransform> transform) {
-                contextualTransforms.add(transform);
+            public <T, R, O extends CreatorSystem.Type<T, R, O>> Builder add(CreatorSystem<T, R, O> system) {
+                systems.add(system.type().key(), system);
                 return this;
             }
 
             public Instance build() {
-                return new Instance(creators, parameterizedCreators, flexibleCreators, annotationParsers, contextualTransforms, options);
+                return new Instance(systems.build());
             }
         }
 
@@ -151,46 +180,28 @@ public interface ReflectiveStructureCreator {
             var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
             List<ReflectiveStructureCreator> services = LayeredServiceLoader.unique(SERVICE_LOADER.at(ReflectiveStructureCreator.class), SERVICE_LOADER.at(clazz), SERVICE_LOADER.at(caller));
 
-            var creationOptions = ImmutableSet.copyOf(this.options);
+            Map<ReflectiveStructureCreator.CreatorSystem.Type<?, ?, ?>, Object> systemsMap = new IdentityHashMap<>();
+            Consumer<Keys<CreatorSystem.Mu, Object>> addSystems = systems -> {
+                systems.keys().forEach(key -> {
+                    var value = (CreatorSystem<?, ?, ?>) systems.get(key).orElseThrow();
+                    var type = value.type();
+                    systemsMap.compute(type, (k, existing) ->
+                        mergeUnchecked(
+                            Objects.requireNonNullElseGet(existing, type::empty),
+                            value.make(),
+                            type
+                        )
+                    );
+                });
+            };
+            services.forEach(creator -> addSystems.accept(creator.systems()));
+            addSystems.accept(this.systems);
 
-            Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsersMap = new IdentityHashMap<>();
-            services.forEach(creator -> annotationParsersMap.putAll(creator.annotationParsers(creationOptions)));
-            this.annotationParsers.forEach((key, function) -> {
-                annotationParsersMap.put(key, function.apply(creationOptions));
-            });
-
-            List<ContextualTransform> contextualTransformList = new ArrayList<>();
-            services.forEach(creator -> contextualTransformList.addAll(creator.structureContextualTransforms(creationOptions)));
-            this.contextualTransforms.forEach(function -> {
-                contextualTransformList.add(function.apply(creationOptions));
-            });
-
-            var options = new CreationContext(this.options, annotationParsersMap, contextualTransformList);
-
-            Map<Class<?>, Creator> creatorsMap = new IdentityHashMap<>();
-            Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap = new IdentityHashMap<>();
-            List<FlexibleCreator> flexibleCreatorsList = new ArrayList<>();
-            services.forEach(creator -> {
-                creatorsMap.putAll(creator.creators(options));
-                parameterizedCreatorsMap.putAll(creator.parameterizedCreators(options));
-                flexibleCreatorsList.addAll(creator.flexibleCreators(options));
-            });
-
-            this.creators.forEach((key, function) -> {
-                creatorsMap.put(key, function.apply(options));
-            });
-            this.parameterizedCreators.forEach((key, function) -> {
-                parameterizedCreatorsMap.put(key, function.apply(options));
-            });
-            this.flexibleCreators.forEach(function -> {
-                flexibleCreatorsList.add(function.apply(options));
-            });
-
-            flexibleCreatorsList.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
+            var context = new CreationContext(systemsMap);
 
             var recursionCache = new HashMap<Type, Structure<?>>();
 
-            return (Structure<T>) forType(cachedCreators, recursionCache, clazz, creatorsMap, parameterizedCreatorsMap, flexibleCreatorsList);
+            return (Structure<T>) forType(cachedCreators, recursionCache, clazz, context);
         }
     }
 
@@ -198,13 +209,18 @@ public interface ReflectiveStructureCreator {
         return Instance.builder().build().create(clazz);
     }
 
-    private static Structure<?> forType(Map<Type, Structure<?>> cachedCreators, Map<Type, Structure<?>> recursionCache, Type type, Map<Class<?>, Creator> creatorsMap, Map<Class<?>, ParameterizedCreator> parameterizedCreatorsMap, List<FlexibleCreator> flexibleCreators) {
+    private static Structure<?> forType(Map<Type, Structure<?>> cachedCreators, Map<Type, Structure<?>> recursionCache, Type type, CreationContext context) {
         if (cachedCreators.containsKey(type)) {
             return cachedCreators.get(type);
         }
         if (recursionCache.containsKey(type)) {
             return recursionCache.get(type);
         }
+
+        var creatorsMap = context.retrieve(Creators.TYPE);
+        var parameterizedCreatorsMap = context.retrieve(ParameterizedCreators.TYPE);
+        var flexibleCreators = context.retrieve(FlexibleCreators.TYPE);
+
         @SuppressWarnings({"rawtypes", "unchecked"}) Supplier<Structure<?>> full = Suppliers.memoize(() -> Structure.recursive((Function) (Function<Structure, Structure>) (Structure itself) -> {
             recursionCache.put(type, itself);
 
@@ -218,7 +234,7 @@ public interface ReflectiveStructureCreator {
                         parameterCreators = new TypedCreator[parameters.length];
                         if (parameterizedCreatorsMap.containsKey(clazz)) {
                             for (int i = 0; i < parameters.length; i++) {
-                                var structure = forType(cachedCreators, recursionCache, parameters[i], creatorsMap, parameterizedCreatorsMap, flexibleCreators);
+                                var structure = forType(cachedCreators, recursionCache, parameters[i], context);
                                 var parameterType = parameters[i];
                                 parameterCreators[i] = new TypedCreator() {
                                     @Override
@@ -259,7 +275,7 @@ public interface ReflectiveStructureCreator {
 
                 for (var flexibleCreator : flexibleCreators) {
                     if (flexibleCreator.supports(Objects.requireNonNull(rawType), parameterCreators)) {
-                        return flexibleCreator.creator(rawType, parameterCreators, type1 -> forType(cachedCreators, recursionCache, type1, creatorsMap, parameterizedCreatorsMap, flexibleCreators));
+                        return flexibleCreator.creator(rawType, parameterCreators, type1 -> forType(cachedCreators, recursionCache, type1, context));
                     }
                 }
                 throw new IllegalArgumentException("No creator found for type: " + type);

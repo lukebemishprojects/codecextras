@@ -17,6 +17,7 @@ module dev.lukebemish.codecextras {
     requires static org.objectweb.asm;
     requires static org.slf4j;
     requires static com.google.auto.service;
+    requires org.checkerframework.checker.qual;
 
     exports dev.lukebemish.codecextras;
     exports dev.lukebemish.codecextras.comments;
@@ -40,6 +41,7 @@ module dev.lukebemish.codecextras {
     exports dev.lukebemish.codecextras.types;
 
     exports dev.lukebemish.codecextras.internal to codecextras_minecraft, dev.lukebemish.codecextras.minecraft;
+    exports dev.lukebemish.codecextras.structured.reflective.systems;
 
     provides dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator with BuiltInReflectiveStructureCreator;
 }

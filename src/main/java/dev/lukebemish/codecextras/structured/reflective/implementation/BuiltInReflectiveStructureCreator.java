@@ -13,7 +13,6 @@ import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.CreationContext;
-import dev.lukebemish.codecextras.structured.reflective.CreationOption;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import dev.lukebemish.codecextras.structured.reflective.SimpleCreatorOption;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
@@ -23,6 +22,11 @@ import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedPr
 import dev.lukebemish.codecextras.structured.reflective.annotations.Structured;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Transient;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Value;
+import dev.lukebemish.codecextras.structured.reflective.systems.AnnotationParsers;
+import dev.lukebemish.codecextras.structured.reflective.systems.ContextualTransforms;
+import dev.lukebemish.codecextras.structured.reflective.systems.Creators;
+import dev.lukebemish.codecextras.structured.reflective.systems.FlexibleCreators;
+import dev.lukebemish.codecextras.structured.reflective.systems.ParameterizedCreators;
 import dev.lukebemish.codecextras.types.Identity;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.CallSite;
@@ -103,7 +107,17 @@ import org.objectweb.asm.Opcodes;
 @AutoService(ReflectiveStructureCreator.class)
 public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCreator {
     @Override
-    public Map<Class<?>, Creator> creators(CreationContext options) {
+    public Keys<CreatorSystem.Mu, Object> systems() {
+        var builder = Keys.<CreatorSystem.Mu, Object>builder();
+        builder.add(Creators.TYPE.key(), (Creators) () -> this::creators);
+        builder.add(ParameterizedCreators.TYPE.key(), (ParameterizedCreators) () -> this::parameterizedCreators);
+        builder.add(FlexibleCreators.TYPE.key(), (FlexibleCreators) () -> this::flexibleCreators);
+        builder.add(AnnotationParsers.TYPE.key(), (AnnotationParsers) () -> this::annotationParsers);
+        builder.add(ContextualTransforms.TYPE.key(), (ContextualTransforms) () -> this::structureContextualTransforms);
+        return builder.build();
+    }
+
+    private Map<Class<?>, Creator> creators(CreationContext context) {
         return ImmutableMap.<Class<?>, Creator>builder()
             .put(Unit.class, () -> Structure.UNIT)
             .put(Boolean.class, () -> Structure.BOOL)
@@ -276,8 +290,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings("rawtypes")
-    @Override
-    public Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
+    private Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(CreationContext context) {
         var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>>builder();
         return builder
             .put(Annotated.class, (Annotated annotation) -> {
@@ -396,8 +409,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             .build();
     }
 
-    @Override
-    public Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
+    private Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
         return ImmutableMap.<Class<?>, ParameterizedCreator>builder()
             .put(Either.class, (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()))
             // Collections
@@ -499,8 +511,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    @Override
-    public List<ContextualTransform> structureContextualTransforms(Set<CreationOption> options) {
+    private List<ContextualTransform> structureContextualTransforms() {
         return List.of(
             (annotated, context) -> {
                 var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
@@ -882,8 +893,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return Float.valueOf(a).equals(b);
     }
 
-    @Override
-    public List<FlexibleCreator> flexibleCreators(CreationContext options) {
+    private List<FlexibleCreator> flexibleCreators(CreationContext options) {
         return ImmutableList.<FlexibleCreator>builder()
             .add(new FlexibleCreator() {
                 @SuppressWarnings({"unchecked", "rawtypes"})
