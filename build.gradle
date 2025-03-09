@@ -103,6 +103,7 @@ sourceSets {
     minecraft {}
     minecraftFabric {}
     jmh {}
+    groovy {}
 }
 
 configurations {
@@ -135,6 +136,11 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
     withSourcesJar()
     withJavadocJar()
+    registerFeature("groovy") {
+        usingSourceSet sourceSets.groovy
+        withSourcesJar()
+        withJavadocJar()
+    }
     registerFeature("minecraft") {
         usingSourceSet sourceSets.minecraft
         withSourcesJar()
@@ -184,6 +190,11 @@ dependencies {
 
     implementation 'org.ow2.asm:asm:9.5'
 
+    groovyApi project(':')
+    groovyApi 'org.apache.groovy:groovy:4.0.26'
+    groovyCompileOnly cLibs.bundles.compileonly
+    groovyAnnotationProcessor cLibs.bundles.annotationprocessor
+
     jmhCompileOnly cLibs.bundles.compileonly
     jmhImplementation project(':')
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
@@ -200,8 +211,6 @@ dependencies {
     compileOnly 'com.electronwill.night-config:core:3.6.4'
     compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
-
-    compileOnly 'org.apache.groovy:groovy:4.0.26'
 
     testImplementation 'com.electronwill.night-config:core:3.6.4'
     testImplementation 'com.electronwill.night-config:toml:3.6.4'
@@ -265,6 +274,14 @@ tasks.named('jar', Jar) {
         attributes(
             'Automatic-Module-Name': project.group + '.' + project.name,
             'FMLModType'           : 'LIBRARY'
+        )
+    }
+}
+
+tasks.named('groovyJar', Jar) {
+    manifest {
+        attributes(
+            'Automatic-Module-Name': project.group + '.' + project.name + '.groovy'
         )
     }
 }

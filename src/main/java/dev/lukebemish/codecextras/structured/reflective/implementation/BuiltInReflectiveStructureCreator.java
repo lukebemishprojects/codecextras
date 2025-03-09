@@ -1,4 +1,4 @@
-package dev.lukebemish.codecextras.structured.reflective;
+package dev.lukebemish.codecextras.structured.reflective.implementation;
 
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
@@ -12,6 +12,10 @@ import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.reflective.CreationContext;
+import dev.lukebemish.codecextras.structured.reflective.CreationOption;
+import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
+import dev.lukebemish.codecextras.structured.reflective.SimpleCreatorOption;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Comment;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Lenient;
@@ -275,10 +279,6 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     @Override
     public Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(Set<CreationOption> options) {
         var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>>builder();
-        var groovyIsolator = GroovyIsolator.getInstance();
-        if (groovyIsolator != null) {
-            groovyIsolator.collectAnnotationParsers(builder);
-        }
         return builder
             .put(Annotated.class, (Annotated annotation) -> {
                 Key<?> key = (Key<?>) parseValue(annotation.key());

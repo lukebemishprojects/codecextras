@@ -9,8 +9,10 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 import net.minecraft.resources.DelegatingOps;
 import net.minecraft.resources.RegistryOps;
+import org.jetbrains.annotations.ApiStatus;
 
 @AutoService(AlternateCompanionRetriever.class)
+@ApiStatus.Internal
 public class RegistryOpsCompanionRetriever implements AlternateCompanionRetriever {
     static final MethodHandle DELEGATE_FIELD;
 
