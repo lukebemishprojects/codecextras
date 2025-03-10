@@ -40,11 +40,11 @@ public final class CreationContext {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    public List<ReflectiveStructureCreator.AnnotationInfo<?>> parseAnnotation(Annotation annotation) {
+    public List<AnnotationParsers.AnnotationInfo<?>> parseAnnotation(Annotation annotation) {
         var annotationParsers = retrieve(AnnotationParsers.TYPE);
         var function = (Function) annotationParsers.get(annotation.annotationType());
         if (function != null) {
-            return (List<ReflectiveStructureCreator.AnnotationInfo<?>>) function.apply(annotation);
+            return (List<AnnotationParsers.AnnotationInfo<?>>) function.apply(annotation);
         }
         return List.of();
     }

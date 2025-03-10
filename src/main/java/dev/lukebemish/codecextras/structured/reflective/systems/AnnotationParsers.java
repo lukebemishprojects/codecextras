@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-public interface AnnotationParsers extends ReflectiveStructureCreator.CreatorSystem<Map<Class<? extends Annotation>, Function<?, List<ReflectiveStructureCreator.AnnotationInfo<?>>>>, Function<CreationContext, Map<Class<? extends Annotation>, Function<?, List<ReflectiveStructureCreator.AnnotationInfo<?>>>>>, AnnotationParsers.Type> {
+public interface AnnotationParsers extends ReflectiveStructureCreator.CreatorSystem<Map<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>>, Function<CreationContext, Map<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>>>, AnnotationParsers.Type> {
     Type TYPE = new Type();
 
     @Override
@@ -16,7 +16,12 @@ public interface AnnotationParsers extends ReflectiveStructureCreator.CreatorSys
         return TYPE;
     }
 
-    final class Type implements ReflectiveStructureCreator.CreatorSystem.IdentityMapType<Class<? extends Annotation>, Function<?, List<ReflectiveStructureCreator.AnnotationInfo<?>>>, AnnotationParsers.Type> {
+    interface AnnotationInfo<T> {
+        Key<T> key();
+        T value();
+    }
+
+    final class Type implements ReflectiveStructureCreator.CreatorSystem.IdentityMapType<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>, AnnotationParsers.Type> {
         private Type() {}
         private static final Key<Type> KEY = Key.create("annotation_parsers");
 

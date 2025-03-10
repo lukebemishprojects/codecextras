@@ -13,6 +13,7 @@ import dev.lukebemish.codecextras.structured.Keys;
 import dev.lukebemish.codecextras.structured.RecordStructure;
 import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.CreationContext;
+import dev.lukebemish.codecextras.structured.reflective.PropertyNamingOption;
 import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import dev.lukebemish.codecextras.structured.reflective.SimpleCreatorOption;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
@@ -25,6 +26,7 @@ import dev.lukebemish.codecextras.structured.reflective.annotations.Value;
 import dev.lukebemish.codecextras.structured.reflective.systems.AnnotationParsers;
 import dev.lukebemish.codecextras.structured.reflective.systems.ContextualTransforms;
 import dev.lukebemish.codecextras.structured.reflective.systems.Creators;
+import dev.lukebemish.codecextras.structured.reflective.systems.FallbackPropertyDiscoverers;
 import dev.lukebemish.codecextras.structured.reflective.systems.FlexibleCreators;
 import dev.lukebemish.codecextras.structured.reflective.systems.ParameterizedCreators;
 import dev.lukebemish.codecextras.types.Identity;
@@ -117,8 +119,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return builder.build();
     }
 
-    private Map<Class<?>, Creator> creators(CreationContext context) {
-        return ImmutableMap.<Class<?>, Creator>builder()
+    private Map<Class<?>, Creators.Creator> creators(CreationContext context) {
+        return ImmutableMap.<Class<?>, Creators.Creator>builder()
             .put(Unit.class, () -> Structure.UNIT)
             .put(Boolean.class, () -> Structure.BOOL)
             .put(Byte.class, () -> Structure.BYTE)
@@ -290,8 +292,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings("rawtypes")
-    private Map<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>> annotationParsers(CreationContext context) {
-        var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationInfo<?>>>>builder();
+    private Map<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>> annotationParsers(CreationContext context) {
+        var builder = ImmutableMap.<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>>builder();
         return builder
             .put(Annotated.class, (Annotated annotation) -> {
                 Key<?> key = (Key<?>) parseValue(annotation.key());
@@ -371,7 +373,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     throw new IllegalArgumentException("@Annotated must have exactly one value");
                 }
                 Object finalValue = value;
-                List<AnnotationInfo<?>> list = List.<AnnotationInfo<?>>of(new AnnotationInfo() {
+                List<AnnotationParsers.AnnotationInfo<?>> list = List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo() {
                     @Override
                     public Key key() {
                         return key;
@@ -384,7 +386,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 });
                 return list;
             })
-            .put(Comment.class, (Comment annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo<String>() {
+            .put(Comment.class, (Comment annotation) -> List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo<String>() {
                 @Override
                 public Key<String> key() {
                     return dev.lukebemish.codecextras.structured.Annotation.COMMENT;
@@ -395,7 +397,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     return annotation.value();
                 }
             }))
-            .put(Lenient.class, (Lenient annotation) -> List.<AnnotationInfo<?>>of(new AnnotationInfo<Unit>() {
+            .put(Lenient.class, (Lenient annotation) -> List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo<Unit>() {
                 @Override
                 public Key<Unit> key() {
                     return dev.lukebemish.codecextras.structured.Annotation.LENIENT;
@@ -409,8 +411,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             .build();
     }
 
-    private Map<Class<?>, ParameterizedCreator> parameterizedCreators(CreationContext options) {
-        return ImmutableMap.<Class<?>, ParameterizedCreator>builder()
+    private Map<Class<?>, ParameterizedCreators.ParameterizedCreator> parameterizedCreators(CreationContext options) {
+        return ImmutableMap.<Class<?>, ParameterizedCreators.ParameterizedCreator>builder()
             .put(Either.class, (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()))
             // Collections
             .put(Collection.class, collectionMaker(ArrayList::new))
@@ -438,12 +440,12 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"rawtypes", "Convert2MethodRef", "unchecked"})
-    private static <T extends Collection> ParameterizedCreator collectionMaker(Function<List<?>, T> function) {
+    private static <T extends Collection> ParameterizedCreators.ParameterizedCreator collectionMaker(Function<List<?>, T> function) {
         return (parameters) -> parameters[0].create().listOf().xmap(function::apply, c -> new ArrayList<>(c));
     }
 
     @SuppressWarnings({"rawtypes", "Convert2MethodRef", "unchecked"})
-    private static <T extends Map> ParameterizedCreator mapMaker(Function<Map<?, ?>, T> function) {
+    private static <T extends Map> ParameterizedCreators.ParameterizedCreator mapMaker(Function<Map<?, ?>, T> function) {
         return (parameters) -> Structure.unboundedMap(parameters[0].create(), parameters[1].create()).xmap(function::apply, c -> new LinkedHashMap<>(c));
     }
 
@@ -511,7 +513,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private List<ContextualTransform> structureContextualTransforms() {
+    private List<ContextualTransforms.ContextualTransform> structureContextualTransforms() {
         return List.of(
             (annotated, context) -> {
                 var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
@@ -531,7 +533,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public static Function<RecordStructure.Container, ?> add(CreationContext options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<AnnotatedElement> annotated) {
+    public static Function<RecordStructure.Container, ?> add(CreationContext options, RecordStructure<?> builder, String name, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, SequencedSet<AnnotatedElement> annotated) {
         var annotations = annotated.stream().distinct().flatMap(a -> Arrays.stream(a.getAnnotations())).toList();
 
         var structureInfos = annotations.stream()
@@ -546,9 +548,22 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             throw new IllegalArgumentException("Multiple @Structured annotations found");
         }
 
-        Function<Structure, Structure> structureUpdater = (Function) options.contextualTransform(annotated);
+        Function<Structure, Structure> structureUpdater = (Function) options.contextualTransform(annotated.stream().toList());
 
         var serializedName = name;
+        PropertyNamingOption namingOption = null;
+        for (var option : PropertyNamingOption.values()) {
+            if (options.hasOption(option)) {
+                if (namingOption != null) {
+                    throw new IllegalArgumentException("Multiple naming options found: "+namingOption+" and "+option);
+                }
+                namingOption = option;
+            }
+        }
+        if (namingOption != null) {
+            serializedName = namingOption.format(name);
+        }
+
         var serializedNameAnnotations = annotations.stream()
             .map(info -> {
                 if (info instanceof SerializedName serializedNameAnnotation) {
@@ -893,9 +908,9 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return Float.valueOf(a).equals(b);
     }
 
-    private List<FlexibleCreator> flexibleCreators(CreationContext options) {
-        return ImmutableList.<FlexibleCreator>builder()
-            .add(new FlexibleCreator() {
+    private List<FlexibleCreators.FlexibleCreator> flexibleCreators(CreationContext options) {
+        return ImmutableList.<FlexibleCreators.FlexibleCreator>builder()
+            .add(new FlexibleCreators.FlexibleCreator() {
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
@@ -921,7 +936,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     return false;
                 }
             })
-            .add(new FlexibleCreator() {
+            .add(new FlexibleCreators.FlexibleCreator() {
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
@@ -938,7 +953,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     return exact.equals(EnumMap.class) && parameters.length == 2;
                 }
             })
-            .add(new FlexibleCreator() {
+            .add(new FlexibleCreators.FlexibleCreator() {
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
                     Supplier<Object[]> values = Suppliers.memoize(() -> {
@@ -956,7 +971,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     return Enum.class.isAssignableFrom(exact);
                 }
             })
-            .add(new FlexibleCreator() {
+            .add(new FlexibleCreators.FlexibleCreator() {
                 private Function<List<?>, ?> arrayMaker(Class<?> arrayComponentType) {
                     var cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
                     var name = BuiltInReflectiveStructureCreator.class.getName().replace('.', '/') + "$ArrayMaker";
@@ -1008,7 +1023,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     return exact.isArray() && !exact.getComponentType().isPrimitive();
                 }
             })
-            .add(new FlexibleCreator() {
+            .add(new FlexibleCreators.FlexibleCreator() {
                 private List<Constructor<?>> validCtors(Class<?> exact) {
                     List<Constructor<?>> validCtors = new ArrayList<>();
                     for (var ctor : exact.getConstructors()) {
@@ -1085,12 +1100,12 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         Map<String, Integer> ctorSetters = new HashMap<>();
                         String[] ctorSettersArray = new String[validCtor.getParameterCount()];
                         Map<String, Type> types = new HashMap<>();
-                        Map<String, List<AnnotatedElement>> context = new HashMap<>();
+                        Map<String, SequencedSet<AnnotatedElement>> context = new HashMap<>();
                         if (exact.isRecord()) {
                             for (int i = 0; i < exact.getRecordComponents().length; i++) {
                                 var component = exact.getRecordComponents()[i];
 
-                                var thisContext = context.computeIfAbsent(component.getName(), k -> new ArrayList<>());
+                                var thisContext = context.computeIfAbsent(component.getName(), k -> new LinkedHashSet<>());
                                 thisContext.add(component);
 
                                 ctorSetters.put(component.getName(), i);
@@ -1112,7 +1127,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 var parameter = validCtor.getParameters()[i];
                                 var annotation = parameter.getAnnotation(SerializedProperty.class);
 
-                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new ArrayList<>());
+                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new LinkedHashSet<>());
                                 thisContext.add(parameter);
 
                                 ctorSetters.put(annotation.value(), i);
@@ -1133,7 +1148,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 var param = validCtor.getParameters()[i];
                                 var annotation = param.getAnnotation(SerializedProperty.class);
 
-                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new ArrayList<>());
+                                var thisContext = context.computeIfAbsent(annotation.value(), k -> new LinkedHashSet<>());
                                 thisContext.add(param);
 
                                 ctorSetters.put(annotation.value(), i);
@@ -1191,7 +1206,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                                     throw new RuntimeException(e);
                                                 }
                                             }
-                                            context.computeIfAbsent(property, k -> new ArrayList<>()).add(method);
+                                            context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
                                         }
                                     } if (isSetter) {
                                         var property = method.getName().substring(3);
@@ -1206,7 +1221,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                                     throw new RuntimeException(e);
                                                 }
                                             }
-                                            context.computeIfAbsent(property, k -> new ArrayList<>()).add(method);
+                                            context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
                                         }
                                     }
                                 }
@@ -1218,7 +1233,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                         if (!types.containsKey(field.getName())) {
                                             types.put(field.getName(), field.getGenericType());
                                         }
-                                        context.computeIfAbsent(field.getName(), k -> new ArrayList<>()).add(field);
+                                        context.computeIfAbsent(field.getName(), k -> new LinkedHashSet<>()).add(field);
                                         if (!getters.containsKey(field.getName())) {
                                             var getter = functionWrapper(MethodHandles.lookup().unreflectGetter(field));
                                             getters.put(field.getName(), getter);
@@ -1231,6 +1246,35 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                         throw new RuntimeException(e);
                                     }
                                 }
+                            }
+                        }
+
+                        // Go from high priority to low priority
+                        var propertyDiscoverers = options.retrieve(FallbackPropertyDiscoverers.TYPE).reversed();
+                        for (var discoverer : propertyDiscoverers) {
+                            discoverer.modifyProperties(exact, types);
+                        }
+                        for (var entry : types.keySet()) {
+                            var hasGetter = getters.containsKey(entry);
+                            for (var discoverer : propertyDiscoverers) {
+                                var newEntry = discoverer.getter(exact, entry, hasGetter);
+                                if (newEntry != null) {
+                                    hasGetter = true;
+                                    getters.put(entry, functionWrapper(newEntry));
+                                }
+                            }
+                            if (!ctorSetters.containsKey(entry)) {
+                                var hasSetter = setters.containsKey(entry);
+                                for (var discoverer : propertyDiscoverers) {
+                                    var newEntry = discoverer.setter(exact, entry, hasSetter);
+                                    if (newEntry != null) {
+                                        hasSetter = true;
+                                        setters.put(entry, newEntry);
+                                    }
+                                }
+                            }
+                            for (var discoverer : propertyDiscoverers) {
+                                context.computeIfAbsent(entry, k -> new LinkedHashSet<>()).addAll(discoverer.context(exact, entry));
                             }
                         }
 

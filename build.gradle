@@ -3,6 +3,7 @@ import dev.lukebemish.codecextras.gradle.FormatJmhOutput
 plugins {
     alias cLibs.plugins.conventions.java
     id 'signing'
+    id 'groovy'
     id 'dev.lukebemish.managedversioning'
 }
 
@@ -203,6 +204,11 @@ dependencies {
     jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
 
     testCompileOnly cLibs.bundles.compileonly
+    testImplementation(project(':')) {
+        capabilities {
+            requireCapability("$project.group:$project.name-groovy")
+        }
+    }
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
@@ -322,6 +328,12 @@ tasks.compileJava {
     options.compilerArgs += [
         '-Aautoextension.name=CodecExtras',
         "-Aautoextension.version=${version}".toString()
+    ]
+}
+
+tasks.compileTestGroovy {
+    groovyOptions.optimizationOptions += [
+        'runtimeGroovydoc': true
     ]
 }
 

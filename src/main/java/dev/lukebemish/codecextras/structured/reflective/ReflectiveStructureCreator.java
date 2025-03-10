@@ -12,7 +12,6 @@ import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.systems.Creators;
 import dev.lukebemish.codecextras.structured.reflective.systems.FlexibleCreators;
 import dev.lukebemish.codecextras.structured.reflective.systems.ParameterizedCreators;
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -21,7 +20,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -36,6 +35,9 @@ public interface ReflectiveStructureCreator {
             R empty();
             Key<O> key();
             T bake(R value, CreationContext context);
+            default boolean allowedFromServices() {
+                return true;
+            }
         }
 
         interface ListType<A, O extends ListType<A, O>> extends Type<List<A>, Function<CreationContext, List<A>>, O> {
@@ -105,44 +107,10 @@ public interface ReflectiveStructureCreator {
         return Keys.<CreatorSystem.Mu, Object>builder().build();
     }
 
-    interface AnnotationInfo<T> {
-        Key<T> key();
-        T value();
-    }
-
     interface TypedCreator {
         Structure<?> create();
         Type type();
         Class<?> rawType();
-    }
-
-    interface Creator {
-        Structure<?> create();
-    }
-
-    interface ContextualTransform {
-        Function<Structure<?>, Structure<?>> transform(List<AnnotatedElement> elements, CreationContext context);
-        default int priority() {
-            return 0;
-        }
-    }
-
-    interface FlexibleCreator {
-        Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator);
-        boolean supports(Class<?> exact, TypedCreator[] parameters);
-        default int priority() {
-            return 0;
-        }
-        default Creator creator(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
-            return () -> create(exact, parameters, creator);
-        }
-    }
-
-    interface ParameterizedCreator {
-        Structure<?> create(TypedCreator[] parameters);
-        default Creator creator(TypedCreator[] parameters) {
-            return () -> create(parameters);
-        }
     }
 
     final class Instance {
@@ -181,10 +149,13 @@ public interface ReflectiveStructureCreator {
             List<ReflectiveStructureCreator> services = LayeredServiceLoader.unique(SERVICE_LOADER.at(ReflectiveStructureCreator.class), SERVICE_LOADER.at(clazz), SERVICE_LOADER.at(caller));
 
             Map<ReflectiveStructureCreator.CreatorSystem.Type<?, ?, ?>, Object> systemsMap = new IdentityHashMap<>();
-            Consumer<Keys<CreatorSystem.Mu, Object>> addSystems = systems -> {
+            BiConsumer<Boolean, Keys<CreatorSystem.Mu, Object>> addSystems = (isService, systems) -> {
                 systems.keys().forEach(key -> {
                     var value = (CreatorSystem<?, ?, ?>) systems.get(key).orElseThrow();
                     var type = value.type();
+                    if (isService && !type.allowedFromServices()) {
+                        throw new IllegalStateException("CreatorSystem " + value.type().key() + " is not allowed to be implemented by services; it may only be used by building a ReflectiveStructureCreator.Instance");
+                    }
                     systemsMap.compute(type, (k, existing) ->
                         mergeUnchecked(
                             Objects.requireNonNullElseGet(existing, type::empty),
@@ -194,8 +165,8 @@ public interface ReflectiveStructureCreator {
                     );
                 });
             };
-            services.forEach(creator -> addSystems.accept(creator.systems()));
-            addSystems.accept(this.systems);
+            services.forEach(creator -> addSystems.accept(true, creator.systems()));
+            addSystems.accept(false, this.systems);
 
             var context = new CreationContext(systemsMap);
 
@@ -224,7 +195,7 @@ public interface ReflectiveStructureCreator {
         @SuppressWarnings({"rawtypes", "unchecked"}) Supplier<Structure<?>> full = Suppliers.memoize(() -> Structure.recursive((Function) (Function<Structure, Structure>) (Structure itself) -> {
             recursionCache.put(type, itself);
 
-            Supplier<Creator> creatorSupplier = () -> {
+            Supplier<Creators.Creator> creatorSupplier = () -> {
                 Class<?> rawType = null;
                 TypedCreator[] parameterCreators = null;
                 if (type instanceof ParameterizedType parameterizedType) {

@@ -40,5 +40,10 @@ public interface CreationOptions extends ReflectiveStructureCreator.CreatorSyste
         public Set<CreationOption> bake(List<CreationOption> value, CreationContext context) {
             return Set.copyOf(value);
         }
+
+        @Override
+        public boolean allowedFromServices() {
+            return false;
+        }
     }
 }
