@@ -7,7 +7,6 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Annotated {
-    Value key();
+public @interface Default {
     Value value();
 }

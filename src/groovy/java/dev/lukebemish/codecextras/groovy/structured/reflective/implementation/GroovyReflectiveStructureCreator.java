@@ -21,6 +21,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.codehaus.groovy.reflection.CachedField;
@@ -105,15 +106,18 @@ public class GroovyReflectiveStructureCreator implements ReflectiveStructureCrea
                     @Override
                     public void modifyProperties(Class<?> clazz, Map<String, java.lang.reflect.Type> known) {
                         var metaClass = DefaultGroovyMethods.getMetaClass(clazz);
-                        if (known.get("metaClass").equals(MetaClass.class)) {
+                        if (Objects.equals(known.get("metaClass"), MetaClass.class)) {
                             known.remove("metaClass");
                         }
                         metaClass.getProperties().forEach(metaProperty -> {
+                            if ((metaProperty.getModifiers() & Modifier.TRANSIENT) != 0) {
+                                return;
+                            }
                             var name = metaProperty.getName();
                             var type = metaProperty.getType();
                             var modifiers = metaProperty.getModifiers();
                             // We can only handle bean properties, due to needing to introspect them
-                            if ((modifiers & Modifier.PUBLIC) != 0 && metaProperty instanceof MetaBeanProperty) {
+                            if ((modifiers & Modifier.PUBLIC) != 0 && metaProperty instanceof MetaBeanProperty metaBeanProperty) {
                                 if (!known.containsKey(name)) {
                                     known.put(name, type);
                                 }
@@ -162,13 +166,14 @@ public class GroovyReflectiveStructureCreator implements ReflectiveStructureCrea
                     @Override
                     public List<AnnotatedElement> context(Class<?> clazz, String property) {
                         var metaProperty = DefaultGroovyMethods.getMetaClass(clazz).getMetaProperty(property);
+                        var list = new ArrayList<AnnotatedElement>();
                         if (metaProperty instanceof MetaBeanProperty beanProperty) {
                             if (beanProperty.getField() instanceof CachedField field) {
-                                return List.of(field.getCachedField());
+                                list.add(field.getCachedField());
                             }
                         }
-                        // Unfortunately can't do too much with this
-                        return List.of();
+                        // And that's about all we can do...
+                        return list;
                     }
                 });
             }

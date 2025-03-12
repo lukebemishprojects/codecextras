@@ -37,7 +37,7 @@ public interface Interpreter<Mu extends K1> {
 
     <A> DataResult<App<Mu, A>> keyed(Key<A> key);
 
-    <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
+    <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator);
 
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from);
 

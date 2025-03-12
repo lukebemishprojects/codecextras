@@ -626,6 +626,17 @@ public interface Structure<A> {
      * @see RecordStructure
      */
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
+        return RecordStructure.create(builder.asFlatBuilder());
+    }
+
+    /**
+     * {@return a structure representing a collection of key-value pairs with defined structures, which may be optionally present, and which can handle failures}
+     * @param builder the builder to use to create the record structure
+     * @param <A> the type of data the structure represents
+     * @see RecordStructure
+     * @see #record(RecordStructure.Builder)
+     */
+    static <A> Structure<A> flatRecord(RecordStructure.FlatBuilder<A> builder) {
         return RecordStructure.create(builder);
     }
 

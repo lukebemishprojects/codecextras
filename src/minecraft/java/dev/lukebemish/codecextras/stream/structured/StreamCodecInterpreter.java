@@ -241,7 +241,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu<B>, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu<B>, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         var streamFields = new ArrayList<Field<A, B, ?>>();
         for (var field : fields) {
             DataResult<App<Holder.Mu<B>, A>> result = recordSingleField(field, streamFields);
@@ -258,7 +258,9 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                 for (var field : streamFields) {
                     decodeSingleField(buf, field, builder);
                 }
-                return creator.apply(builder.build());
+                return creator.apply(builder.build()).mapError(s -> {
+                    throw new DecoderException("Failed to decode record: " + s);
+                }).getOrThrow();
             }
         )));
     }

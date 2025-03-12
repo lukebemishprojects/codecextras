@@ -88,7 +88,7 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         return StructuredMapCodec.of(fields, creator, this, CodecInterpreter::unbox)
             .map(mapCodec -> new Holder<>(mapCodec.codec()));
     }

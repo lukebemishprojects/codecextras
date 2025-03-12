@@ -22,9 +22,9 @@ class StructuredMapCodec<A> extends MapCodec<A> {
     private record Field<A, T>(String name, MapCodec<T> codec, RecordStructure.Key<T> key, Function<A, T> getter) {}
 
     private final List<Field<A, ?>> fields;
-    private final Function<RecordStructure.Container, A> creator;
+    private final Function<RecordStructure.Container, DataResult<A>> creator;
 
-    private StructuredMapCodec(List<Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    private StructuredMapCodec(List<Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         this.fields = fields;
         this.creator = creator;
     }
@@ -33,7 +33,7 @@ class StructuredMapCodec<A> extends MapCodec<A> {
         <A> Codec<A> unbox(App<Mu, A> box);
     }
 
-    public static <A, Mu extends K1> DataResult<MapCodec<A>> of(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator, Interpreter<Mu> interpreter, Unboxer<Mu> unboxer) {
+    public static <A, Mu extends K1> DataResult<MapCodec<A>> of(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator, Interpreter<Mu> interpreter, Unboxer<Mu> unboxer) {
         var mapCodecFields = new ArrayList<Field<A, ?>>();
         for (var field : fields) {
             DataResult<MapCodec<A>> result = recordSingleField(field, mapCodecFields, interpreter, unboxer);
@@ -93,12 +93,16 @@ class StructuredMapCodec<A> extends MapCodec<A> {
         }
         if (isError) {
             if (isPartial) {
-                return DataResult.error(errorMessage, creator.apply(builder.build()), errorLifecycle);
+                var result = creator.apply(builder.build());
+                if (result.isError()) {
+                    return DataResult.error(errorMessage, errorLifecycle);
+                }
+                return DataResult.error(errorMessage, result.result().orElseThrow(), errorLifecycle);
             } else {
                 return DataResult.error(errorMessage, errorLifecycle);
             }
         } else {
-            return DataResult.success(creator.apply(builder.build()));
+            return creator.apply(builder.build());
         }
     }
 

@@ -32,7 +32,7 @@ public class TestReflectiveStructureAnnotations {
     public record TestRecordAnnotated(
         @Annotated(
             key = @Value(location = Annotation.class, field = "COMMENT"),
-            stringValue = "Commented field with @Annotated"
+            value = @Value(stringValue = "Commented field with @Annotated")
         ) int a,
         @Comment("Commented field with @Comment") int b,
         @Structured(@Value(location = TestReflectiveStructureAnnotations.class, field = "INT_AS_LIST")) int c
@@ -41,7 +41,7 @@ public class TestReflectiveStructureAnnotations {
     public static class TestFieldAnnotated {
         @Annotated(
             key = @Value(location = Annotation.class, field = "COMMENT"),
-            stringValue = "Commented field with @Annotated"
+            value = @Value(stringValue = "Commented field with @Annotated")
         )
         public int a;
 
@@ -81,7 +81,7 @@ public class TestReflectiveStructureAnnotations {
 
         @Annotated(
             key = @Value(location = Annotation.class, field = "COMMENT"),
-            stringValue = "Commented field with @Annotated"
+            value = @Value(stringValue = "Commented field with @Annotated")
         )
         public int getA() {
             return this.a;

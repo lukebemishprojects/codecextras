@@ -60,13 +60,13 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
-    public <A> DataResult<App<Identity.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Identity.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         var builder = RecordStructure.Container.builder();
         for (var field : fields) {
             DataResult<App<Identity.Mu, A>> result = forField(field, builder);
             if (result != null) return result;
         }
-        return DataResult.success(new Identity<>(creator.apply(builder.build())));
+        return creator.apply(builder.build()).map(Identity::new);
     }
 
     private <A, F> @Nullable DataResult<App<Identity.Mu, A>> forField(RecordStructure.Field<A, F> field, RecordStructure.Container.Builder builder) {

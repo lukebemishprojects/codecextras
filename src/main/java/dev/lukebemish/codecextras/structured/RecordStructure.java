@@ -279,7 +279,7 @@ public class RecordStructure<A> {
      * @return a new structure
      * @param <A> the type of the data represented
      */
-    static <A> Structure<A> create(RecordStructure.Builder<A> builder) {
+    static <A> Structure<A> create(RecordStructure.FlatBuilder<A> builder) {
         RecordStructure<A> instance = new RecordStructure<>();
         var creator = builder.build(instance);
         return new Structure<>() {
@@ -305,5 +305,21 @@ public class RecordStructure<A> {
          * @return a function to assemble the final type from a {@link Container}
          */
         Function<Container, A> build(RecordStructure<A> builder);
+
+        default FlatBuilder<A> asFlatBuilder() {
+            return builder -> build(builder).andThen(DataResult::success);
+        }
+    }
+
+    @FunctionalInterface
+    public interface FlatBuilder<A> {
+        /**
+         * Assemble a record structure for the given type. Should collect {@link Key}s for every field needed and return
+         * a function that uses those keys to assemble the final type from a {@link Container}. Unlike a {@link Builder},
+         * allows for failures.
+         * @param builder a blank record structure to add fields to
+         * @return a function to assemble the final type from a {@link Container}
+         */
+        Function<Container, DataResult<A>> build(RecordStructure<A> builder);
     }
 }

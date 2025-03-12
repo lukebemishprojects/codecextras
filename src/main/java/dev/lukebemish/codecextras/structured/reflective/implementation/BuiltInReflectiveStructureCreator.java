@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.annotations.SerializedName;
 import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Unit;
+import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.structured.Key;
 import dev.lukebemish.codecextras.structured.Keys;
@@ -18,6 +19,7 @@ import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreat
 import dev.lukebemish.codecextras.structured.reflective.SimpleCreatorOption;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Annotated;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Comment;
+import dev.lukebemish.codecextras.structured.reflective.annotations.Default;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Lenient;
 import dev.lukebemish.codecextras.structured.reflective.annotations.SerializedProperty;
 import dev.lukebemish.codecextras.structured.reflective.annotations.Structured;
@@ -265,30 +267,99 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             .build();
     }
 
-    private static Object parseValue(Value value) {
-        var holdingClass = value.location();
-        var isField = !value.field().isEmpty();
-        var isMethod = !value.method().isEmpty();
-        if (isField && isMethod) {
-            throw new IllegalArgumentException("@Value cannot have both a field and a method");
+    private static Object parseValue(Value annotation) {
+        Object value = null;
+        int referred = 0;
+        if (annotation.stringValue().length > 0) {
+            if (annotation.stringValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one stringValue");
+            }
+            value = annotation.stringValue()[0];
+            referred++;
         }
+        if (annotation.intValue().length > 0) {
+            if (annotation.intValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one intValue");
+            }
+            value = annotation.intValue()[0];
+            referred++;
+        }
+        if (annotation.longValue().length > 0) {
+            if (annotation.longValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one longValue");
+            }
+            value = annotation.longValue()[0];
+            referred++;
+        }
+        if (annotation.doubleValue().length > 0) {
+            if (annotation.doubleValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one doubleValue");
+            }
+            value = annotation.doubleValue()[0];
+            referred++;
+        }
+        if (annotation.floatValue().length > 0) {
+            if (annotation.floatValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one floatValue");
+            }
+            value = annotation.floatValue()[0];
+            referred++;
+        }
+        if (annotation.booleanValue().length > 0) {
+            if (annotation.booleanValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one booleanValue");
+            }
+            value = annotation.booleanValue()[0];
+            referred++;
+        }
+        if (annotation.byteValue().length > 0) {
+            if (annotation.byteValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one byteValue");
+            }
+            value = annotation.byteValue()[0];
+            referred++;
+        }
+        if (annotation.shortValue().length > 0) {
+            if (annotation.shortValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one shortValue");
+            }
+            value = annotation.shortValue()[0];
+            referred++;
+        }
+        if (annotation.charValue().length > 0) {
+            if (annotation.charValue().length > 1) {
+                throw new IllegalArgumentException("@Value must have exactly one charValue");
+            }
+            value = annotation.charValue()[0];
+            referred++;
+        }
+
+        var holdingClass = annotation.location();
+        var isField = !annotation.field().isEmpty();
+        var isMethod = !annotation.method().isEmpty();
         if (isField) {
             try {
-                var field = holdingClass.getField(value.field());
-                return field.get(null);
+                var field = holdingClass.getField(annotation.field());
+                value = field.get(null);
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 throw new RuntimeException("@Value must refer to a public static field or method with no arguments", e);
             }
-        } else if (isMethod) {
+            referred++;
+        }
+        if (isMethod) {
             try {
-                var method = holdingClass.getMethod(value.method());
-                return method.invoke(null);
+                var method = holdingClass.getMethod(annotation.method());
+                value = method.invoke(null);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException("@Value must refer to a public static field or method with no arguments", e);
             }
-        } else {
-            throw new IllegalArgumentException("@Value must have either a field or a method");
+            referred++;
         }
+
+        if (value == null || referred != 1) {
+            throw new IllegalArgumentException("@Value must have exactly one value");
+        }
+        return value;
     }
 
     @SuppressWarnings("rawtypes")
@@ -297,83 +368,8 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         return builder
             .put(Annotated.class, (Annotated annotation) -> {
                 Key<?> key = (Key<?>) parseValue(annotation.key());
-                Object value = null;
-                int referred = 0;
-                if (annotation.value().length > 0) {
-                    if (annotation.value().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one value");
-                    }
-                    value = parseValue(annotation.value()[0]);
-                    referred++;
-                }
-                if (annotation.stringValue().length > 0) {
-                    if (annotation.stringValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one stringValue");
-                    }
-                    value = annotation.stringValue()[0];
-                    referred++;
-                }
-                if (annotation.intValue().length > 0) {
-                    if (annotation.intValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one intValue");
-                    }
-                    value = annotation.intValue()[0];
-                    referred++;
-                }
-                if (annotation.longValue().length > 0) {
-                    if (annotation.longValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one longValue");
-                    }
-                    value = annotation.longValue()[0];
-                    referred++;
-                }
-                if (annotation.doubleValue().length > 0) {
-                    if (annotation.doubleValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one doubleValue");
-                    }
-                    value = annotation.doubleValue()[0];
-                    referred++;
-                }
-                if (annotation.floatValue().length > 0) {
-                    if (annotation.floatValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one floatValue");
-                    }
-                    value = annotation.floatValue()[0];
-                    referred++;
-                }
-                if (annotation.booleanValue().length > 0) {
-                    if (annotation.booleanValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one booleanValue");
-                    }
-                    value = annotation.booleanValue()[0];
-                    referred++;
-                }
-                if (annotation.byteValue().length > 0) {
-                    if (annotation.byteValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one byteValue");
-                    }
-                    value = annotation.byteValue()[0];
-                    referred++;
-                }
-                if (annotation.shortValue().length > 0) {
-                    if (annotation.shortValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one shortValue");
-                    }
-                    value = annotation.shortValue()[0];
-                    referred++;
-                }
-                if (annotation.charValue().length > 0) {
-                    if (annotation.charValue().length > 1) {
-                        throw new IllegalArgumentException("@Annotated must have exactly one charValue");
-                    }
-                    value = annotation.charValue()[0];
-                    referred++;
-                }
-                if (value == null || referred != 1) {
-                    throw new IllegalArgumentException("@Annotated must have exactly one value");
-                }
-                Object finalValue = value;
-                List<AnnotationParsers.AnnotationInfo<?>> list = List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo() {
+                Object finalValue = parseValue(annotation.value());
+                return List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo() {
                     @Override
                     public Key key() {
                         return key;
@@ -384,7 +380,6 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         return finalValue;
                     }
                 });
-                return list;
             })
             .put(Comment.class, (Comment annotation) -> List.<AnnotationParsers.AnnotationInfo<?>>of(new AnnotationParsers.AnnotationInfo<String>() {
                 @Override
@@ -548,6 +543,23 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             throw new IllegalArgumentException("Multiple @Structured annotations found");
         }
 
+        var defaultInfos = annotations.stream()
+            .map(info -> {
+                if (info instanceof Default defaultAnnotation) {
+                    return defaultAnnotation;
+                }
+                return null;
+            }).filter(Objects::nonNull).distinct().toList();
+
+        if (defaultInfos.size() > 1) {
+            throw new IllegalArgumentException("Multiple @Default annotations found");
+        }
+
+        Object defaultValue = null;
+        if (!defaultInfos.isEmpty()) {
+            defaultValue = parseValue(defaultInfos.getFirst().value());
+        }
+
         Function<Structure, Structure> structureUpdater = (Function) options.contextualTransform(annotated.stream().toList());
 
         var serializedName = name;
@@ -583,7 +595,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             otherNames = serializedNameAnnotations.getFirst().alternate();
         }
 
-        var namedCreator = structureByNameCreator(options, builder, type, getter, creator, structureInfos, structureUpdater);
+        var namedCreator = structureByNameCreator(options, builder, type, getter, creator, structureInfos, structureUpdater, defaultValue);
 
         if (otherNames.length > 0) {
             var list = new ArrayList<String>();
@@ -601,6 +613,20 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
         interface StructureMaker<T> {
             Function<RecordStructure.Container, T> make(String name, boolean first);
+        }
+
+        default <R> StructureNamedCreator<R> andThen(Function<T, R> function) {
+            return new StructureNamedCreator<>() {
+                @Override
+                public Function<RecordStructure.Container, R> forNames(List<String> names) {
+                    return StructureNamedCreator.this.forNames(names).andThen(function);
+                }
+
+                @Override
+                public Function<RecordStructure.Container, R> forName(String name) {
+                    return StructureNamedCreator.this.forName(name).andThen(function);
+                }
+            };
         }
 
         record StructureData<T>(StructureMaker<T> creator, BiFunction<T, T, T> combiner) implements StructureNamedCreator<T> {
@@ -633,7 +659,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         }
 
 
-        static <T> StructureData<Optional<T>> optional(StructureMaker<Optional<T>> creator) {
+        static <T> StructureNamedCreator<Optional<T>> optional(StructureMaker<Optional<T>> creator) {
             return new StructureData<>(creator, (a, b) -> a.or(() -> b));
         }
 
@@ -649,13 +675,15 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
             return new StructureData<>(creator, (a, b) -> a.isPresent() ? a : b);
         }
 
-        static <T> StructureNamedCreator<T> notOptional(StructureMaker<T> creator) {
+        static <T> StructureNamedCreator<T> notOptional(StructureMaker<T> creator, Object defaultValue) {
             return new StructureNamedCreator<>() {
+                @SuppressWarnings("unchecked")
                 @Override
                 public Function<RecordStructure.Container, T> forName(String name) {
-                    return creator.make(name, true);
+                    return creator.make(name, true).andThen(o -> o == null ? (T) defaultValue : o);
                 }
 
+                @SuppressWarnings("unchecked")
                 @Override
                 public Function<RecordStructure.Container, T> forNames(List<String> names) {
                     if (names.isEmpty()) {
@@ -663,7 +691,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     }
 
                     if (names.size() == 1) {
-                        return creator.make(names.getFirst(), true);
+                        return forName(names.getFirst());
                     }
 
                     var creators = new ArrayList<Function<RecordStructure.Container, T>>();
@@ -673,14 +701,14 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                     }
 
                     return container -> {
-                        T result = null;
+                        T result;
                         for (var f : creators) {
                             result = f.apply(container);
                             if (result != null) {
                                 return result;
                             }
                         }
-                        return result;
+                        return (T) defaultValue;
                     };
                 }
             };
@@ -688,14 +716,14 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static StructureNamedCreator<?> structureByNameCreator(CreationContext options, RecordStructure<?> builder, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<Structured> structureInfos, Function<Structure, Structure> structureUpdater) {
+    private static StructureNamedCreator<?> structureByNameCreator(CreationContext options, RecordStructure<?> builder, Type type, Function<?, Object> getter, Function<Type, Structure<?>> creator, List<Structured> structureInfos, Function<Structure, Structure> structureUpdater, Object defaultValue) {
         Structure<?> mutableExplicitStructure = null;
         if (!structureInfos.isEmpty()) {
             mutableExplicitStructure = (Structure<?>) parseValue(structureInfos.getFirst().value());
             if (structureInfos.getFirst().directOptional()) {
                 final var explicitStructure = mutableExplicitStructure;
                 return StructureNamedCreator.notOptional((serializedName, first) -> ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure), first ? (Function) getter.andThen(Optional::ofNullable) : o -> Optional.empty()))
-                    .andThen(o -> o.orElse(null)));
+                    .andThen(o -> o.orElse(null)), defaultValue);
             }
         }
 
@@ -704,27 +732,31 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
         if (type instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
             if (rawType.equals(Optional.class)) {
                 var innerType = parameterizedType.getActualTypeArguments()[0];
-                return StructureNamedCreator.optional((serializedName, first) -> builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(innerType)), first ? (Function) getter : o -> Optional.empty()));
+                return StructureNamedCreator.optional((serializedName, first) -> builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(innerType)), first ? (Function) getter : o -> Optional.empty()))
+                    .andThen(o -> ((Optional) o).or(() -> Optional.ofNullable(defaultValue)));
             }
         } else if (type instanceof Class<?> clazz) {
             if (clazz.equals(OptionalInt.class)) {
-                return StructureNamedCreator.optionalInt((serializedName, first) -> builder.addOptionalInt(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.INT), first ? (Function) getter : o -> OptionalInt.empty()));
+                return StructureNamedCreator.optionalInt((serializedName, first) -> builder.addOptionalInt(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.INT), first ? (Function) getter : o -> OptionalInt.empty()))
+                    .andThen(o -> ((OptionalInt) o).isPresent() ? o : defaultValue == null ? o : OptionalInt.of((int) defaultValue));
             } else if (clazz.equals(OptionalDouble.class)) {
-                return StructureNamedCreator.optionalDouble((serializedName, first) -> builder.addOptionalDouble(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.DOUBLE), first ? (Function) getter : o -> OptionalDouble.empty()));
+                return StructureNamedCreator.optionalDouble((serializedName, first) -> builder.addOptionalDouble(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.DOUBLE), first ? (Function) getter : o -> OptionalDouble.empty()))
+                    .andThen(o -> ((OptionalDouble) o).isPresent() ? o : defaultValue == null ? o : OptionalDouble.of((double) defaultValue));
             } else if (clazz.equals(OptionalLong.class)) {
-                return StructureNamedCreator.optionalLong((serializedName, first) -> builder.addOptionalLong(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.LONG), first ? (Function) getter : o -> OptionalLong.empty()));
+                return StructureNamedCreator.optionalLong((serializedName, first) -> builder.addOptionalLong(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : Structure.LONG), first ? (Function) getter : o -> OptionalLong.empty()))
+                    .andThen(o -> ((OptionalLong) o).isPresent() ? o : defaultValue == null ? o : OptionalLong.of((long) defaultValue));
             }
         }
         boolean isNotNull = options.hasOption(SimpleCreatorOption.NOT_NULL_BY_DEFAULT);
         StructureNamedCreator<?> key;
-        if (isNotNull || (type instanceof Class<?> clazz && clazz.isPrimitive())) {
+        if (defaultValue == null && (isNotNull || (type instanceof Class<?> clazz && clazz.isPrimitive()))) {
             key = StructureNamedCreator.notOptional((serializedName, first) -> first ?
                 builder.add(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), (Function) getter) :
                 ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), o -> Optional.empty()))
-                    .andThen(o -> o.orElse(null)));
+                    .andThen(o -> o.orElse(null)), defaultValue);
         } else {
             key = StructureNamedCreator.notOptional((serializedName, first) -> ((Function<RecordStructure.Container, Optional<?>>) builder.addOptional(serializedName, structureUpdater.apply(explicitStructure != null ? explicitStructure : creator.apply(type)), first ? (Function) getter.andThen(Optional::ofNullable) : o -> Optional.empty()))
-                .andThen(o -> o.orElse(null)));
+                .andThen(o -> o.orElse(null)), defaultValue);
         }
         return key;
     }
@@ -1066,7 +1098,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
-                    return Structure.record(builder -> {
+                    return Structure.flatRecord(builder -> {
                         Constructor<?> validCtor;
                         if (exact.isRecord()) {
                             Class<?>[] types = new Class<?>[exact.getRecordComponents().length];
@@ -1184,9 +1216,6 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             }
 
                             for (var method : exact.getMethods()) {
-                                if (method.getAnnotation(Transient.class) != null) {
-                                    continue;
-                                }
                                 if (method.accessFlags().contains(AccessFlag.PUBLIC) && !method.accessFlags().contains(AccessFlag.STATIC)) {
                                     var isGetter = method.getParameterCount() == 0 && (
                                         (method.getName().startsWith("get") && method.getName().length() > 3) ||
@@ -1278,6 +1307,12 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             }
                         }
 
+                        context.forEach((property, elements) -> {
+                            if (elements.stream().anyMatch(e -> e.getAnnotation(Transient.class) != null)) {
+                                types.remove(property);
+                            }
+                        });
+
                         var properties = new LinkedHashSet<String>();
                         for (var entry : types.keySet()) {
                             if (getters.containsKey(entry) && (setters.containsKey(entry) || ctorSetters.containsKey(entry))) {
@@ -1316,7 +1351,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                             offsetMap.put(property, j);
                             j++;
                             if (!ctorSetters.containsKey(property)) {
-                                var setter = setters.get(property).asType(MethodType.methodType(Void.TYPE, Object.class, Object.class));
+                                var setter = setters.get(property).asType(MethodType.methodType(void.class, Object.class, Object.class));
                                 classData.add(setter);
                                 j++;
                             }
@@ -1354,7 +1389,13 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         try {
                             var lookup = MethodHandles.lookup().defineHiddenClassWithClassData(bytes, classData, true, MethodHandles.Lookup.ClassOption.NESTMATE);
                             @SuppressWarnings("unchecked") var instance = (Function<RecordStructure.Container, Object>) lookup.lookupClass().getConstructor().newInstance();
-                            return instance;
+                            return container -> {
+                                try {
+                                    return DataResult.success(instance.apply(container));
+                                } catch (Exception t) {
+                                    return DataResult.error(() -> "Failed to construct " + exact + ": " + t.getMessage());
+                                }
+                            };
                         } catch (Throwable e) {
                             throw new RuntimeException(e);
                         }
