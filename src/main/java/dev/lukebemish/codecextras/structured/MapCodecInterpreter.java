@@ -1,5 +1,6 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
@@ -54,7 +55,7 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         return StructuredMapCodec.of(fields, creator, codecInterpreter(), CodecInterpreter::unbox)
             .map(Holder::new);
     }
@@ -118,6 +119,36 @@ public abstract class MapCodecInterpreter extends KeyStoringInterpreter<MapCodec
             Function<A, DataResult<MapCodec<? extends E>>> cache = k -> map.computeIfAbsent(k , structures.andThen(result -> result.flatMap(s -> s.interpret(this)).map(MapCodecInterpreter::unbox)));
             return DataResult.success(new MapCodecInterpreter.Holder<>(new KeyDispatchCodec<>(key, keyCodec, function, cache)));
         });
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var key = Key.<A>create("recursive");
+        var keyed = Structure.keyed(key);
+        var complete = function.apply(keyed);
+        var mapCodec = new MapCodec<A>() {
+            private final Holder<A> holder = new Holder<>(this);
+            private final MapCodecInterpreter interpreterWithKeys = with(Keys.<MapCodecInterpreter.Holder.Mu, Object>builder().add(key, holder).build(), Keys2.<ParametricKeyedValue.Mu<MapCodecInterpreter.Holder.Mu>, K1, K1>builder().build());
+            private final Supplier<DataResult<MapCodec<A>>> wrapped = Suppliers.memoize(() ->
+                complete.interpret(interpreterWithKeys).map(MapCodecInterpreter::unbox)
+            );
+
+            @Override
+            public <T> RecordBuilder<T> encode(A input, DynamicOps<T> ops, RecordBuilder<T> prefix) {
+                return wrapped.get().mapOrElse(c -> c.encode(input, ops, prefix), e -> prefix).withErrorsFrom(wrapped.get());
+            }
+
+            @Override
+            public <T> DataResult<A> decode(DynamicOps<T> ops, MapLike<T> input) {
+                return wrapped.get().flatMap(codec -> codec.decode(ops, input));
+            }
+
+            @Override
+            public <T> Stream<T> keys(DynamicOps<T> ops) {
+                return wrapped.get().mapOrElse(c -> c.keys(ops), e -> Stream.empty());
+            }
+        };
+        return DataResult.success(new Holder<>(mapCodec));
     }
 
     @Override

@@ -15,6 +15,9 @@ public interface AccompaniedOps<T> extends DynamicOps<T> {
                 return companion;
             }
         }
+        if (ops instanceof AccompaniedOps<T> accompaniedOps) {
+            return Optional.of(accompaniedOps);
+        }
         return Optional.empty();
     }
 }

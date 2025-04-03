@@ -139,7 +139,7 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         var object = OBJECT.get();
         var properties = new JsonObject();
         var required = new JsonArray();
@@ -225,6 +225,12 @@ public class JsonSchemaInterpreter extends KeyStoringInterpreter<JsonSchemaInter
             schema.addProperty("title", comment);
         });
         return DataResult.success(new Holder<>(schema, definitions));
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        // TODO: implement
+        return DataResult.error(() -> "Not yet implemented");
     }
 
     @Override

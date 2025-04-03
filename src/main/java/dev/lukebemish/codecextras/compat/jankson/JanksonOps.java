@@ -1,12 +1,18 @@
 package dev.lukebemish.codecextras.compat.jankson;
 
-import blue.endless.jankson.*;
+import blue.endless.jankson.JsonArray;
+import blue.endless.jankson.JsonElement;
+import blue.endless.jankson.JsonNull;
+import blue.endless.jankson.JsonObject;
+import blue.endless.jankson.JsonPrimitive;
 import com.google.common.collect.Lists;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapLike;
+import com.mojang.serialization.RecordBuilder;
 import dev.lukebemish.codecextras.comments.CommentOps;
+import dev.lukebemish.codecextras.comments.CommentRecordBuilder;
 import dev.lukebemish.codecextras.companion.AccompaniedOps;
 import dev.lukebemish.codecextras.companion.Companion;
 import java.util.List;
@@ -27,6 +33,11 @@ public class JanksonOps implements DynamicOps<JsonElement>, AccompaniedOps<JsonE
                 return Optional.of((C) JanksonCommentOps.INSTANCE);
             }
             return super.getCompanion(token);
+        }
+
+        @Override
+        public RecordBuilder<JsonElement> mapBuilder() {
+            return new CommentRecordBuilder.MapBuilder<>(this);
         }
     };
 

@@ -5,6 +5,7 @@ import com.mojang.datafixers.kinds.K1;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A collection of keys and their associated values. Each key is parameterized by a type extending {@code L}, and a
@@ -38,6 +39,10 @@ public final class Keys<Mu extends K1, L> {
         var map = new IdentityHashMap<Key<? extends L>, App<N, ? extends L>>();
         keys.forEach((key, value) -> map.put(key, converter.convert(value)));
         return new Keys<>(map);
+    }
+
+    public Set<Key<? extends L>> keys() {
+        return keys.keySet();
     }
 
     /**

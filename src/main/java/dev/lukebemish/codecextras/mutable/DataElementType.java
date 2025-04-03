@@ -18,12 +18,8 @@ import java.util.function.Function;
  * @param <D> the type of the holder object
  * @param <T> the type of data being retrieved
  */
-public interface DataElementType<D, T> {
-    /**
-     * {@return a matching {@link DataElement} retrieved from the provided object}
-     * @param data the object to retrieve the element from
-     */
-    DataElement<T> from(D data);
+// TODO: rename to CodecDataElementType in next BC window
+public interface DataElementType<D, T> extends GenericDataElementType<D, T> {
 
     /**
      * {@return the codec to (de)serialize the element}
@@ -31,9 +27,23 @@ public interface DataElementType<D, T> {
     Codec<T> codec();
 
     /**
-     * {@return the name of the data type} Used when encoding; should be unique within a given set of data types.
+     * @deprecated use the method on {@link GenericDataElementType} instead
+     * @see GenericDataElementType#cleaner(GenericDataElementType[])
      */
-    String name();
+    @Deprecated(forRemoval = true)
+    static <D> Consumer<D> cleaner(GenericDataElementType<D, ?>... types) {
+        return GenericDataElementType.cleaner(types);
+    }
+
+    /**
+     * @deprecated use the method on {@link GenericDataElementType} instead
+     * @see GenericDataElementType#cleaner(List)
+     */
+    // Being moved to GenericDataElementType
+    @Deprecated(forRemoval = true)
+    static <D> Consumer<D> cleaner(List<? extends GenericDataElementType<D, ?>> types) {
+        return GenericDataElementType.cleaner(types);
+    }
 
     /**
      * {@return a new {@link DataElementType} with the provided name, codec, and getter}
@@ -58,30 +68,6 @@ public interface DataElementType<D, T> {
             @Override
             public String name() {
                 return name;
-            }
-        };
-    }
-
-    /**
-     * {@return a {@link Consumer} that marks all the provided data elements as clean}
-     * @param types the data elements to mark as clean
-     * @param <D> the type of object containing the data elements
-     */
-    @SafeVarargs
-    static <D> Consumer<D> cleaner(DataElementType<D, ?>... types) {
-        List<DataElementType<D, ?>> list = List.of(types);
-        return cleaner(list);
-    }
-
-    /**
-     * {@return a {@link Consumer} that marks all the provided data elements as clean}
-     * @param types the data elements to mark as clean
-     * @param <D> the type of object containing the data elements
-     */
-    static <D> Consumer<D> cleaner(List<? extends DataElementType<D, ?>> types) {
-        return data -> {
-            for (var type : types) {
-                type.from(data).setDirty(false);
             }
         };
     }

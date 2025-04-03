@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
+import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 
 public final class CodecAssertions {
@@ -20,7 +21,17 @@ public final class CodecAssertions {
     public static <O, T> void assertDecodes(DynamicOps<T> ops, T data, O expected, Codec<O> codec) {
         DataResult<O> dataResult = codec.parse(ops, data);
         Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
-        Assertions.assertEquals(expected, dataResult.result().get());
+        switch (expected) {
+            case boolean[] booleans -> Assertions.assertArrayEquals(booleans, (boolean[]) dataResult.result().get());
+            case byte[] bytes -> Assertions.assertArrayEquals(bytes, (byte[]) dataResult.result().get());
+            case int[] ints -> Assertions.assertArrayEquals(ints, (int[]) dataResult.result().get());
+            case long[] longs -> Assertions.assertArrayEquals(longs, (long[]) dataResult.result().get());
+            case float[] floats -> Assertions.assertArrayEquals(floats, (float[]) dataResult.result().get(), 0.0f);
+            case double[] doubles -> Assertions.assertArrayEquals(doubles, (double[]) dataResult.result().get(), 0.0);
+            case char[] chars -> Assertions.assertArrayEquals(chars, (char[]) dataResult.result().get());
+            case Object[] objects -> Assertions.assertArrayEquals(objects, (Object[]) dataResult.result().get());
+            default -> Assertions.assertEquals(expected, dataResult.result().get());
+        }
     }
 
     public static <O> void assertDecodesOrPartial(DynamicOps<JsonElement> jsonOps, String json, O expected, Codec<O> codec) {
@@ -45,6 +56,12 @@ public final class CodecAssertions {
         DataResult<T> dataResult = codec.encodeStart(ops, value);
         Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
         Assertions.assertEquals(expected, dataResult.result().get());
+    }
+
+    public static <O, T> void assertEncodesString(DynamicOps<T> ops, O value, String expected, Function<T, String> converter, Codec<O> codec) {
+        DataResult<T> dataResult = codec.encodeStart(ops, value);
+        Assertions.assertTrue(dataResult.result().isPresent(), () -> dataResult.error().orElseThrow().message());
+        Assertions.assertEquals(expected, converter.apply(dataResult.result().get()));
     }
 
     public static void assertJsonEquals(String expected, String actual) {

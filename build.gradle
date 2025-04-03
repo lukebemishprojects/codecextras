@@ -3,6 +3,7 @@ import dev.lukebemish.codecextras.gradle.FormatJmhOutput
 plugins {
     alias cLibs.plugins.conventions.java
     id 'signing'
+    id 'groovy'
     id 'dev.lukebemish.managedversioning'
 }
 
@@ -103,6 +104,7 @@ sourceSets {
     minecraft {}
     minecraftFabric {}
     jmh {}
+    groovy {}
 }
 
 configurations {
@@ -135,6 +137,11 @@ java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))
     withSourcesJar()
     withJavadocJar()
+    registerFeature("groovy") {
+        usingSourceSet sourceSets.groovy
+        withSourcesJar()
+        withJavadocJar()
+    }
     registerFeature("minecraft") {
         usingSourceSet sourceSets.minecraft
         withSourcesJar()
@@ -182,6 +189,13 @@ dependencies {
     api 'com.mojang:datafixerupper:8.0.16'
     api 'org.slf4j:slf4j-api:2.0.1'
 
+    implementation 'org.ow2.asm:asm:9.5'
+
+    groovyApi project(':')
+    groovyApi 'org.apache.groovy:groovy:4.0.26'
+    groovyCompileOnly cLibs.bundles.compileonly
+    groovyAnnotationProcessor cLibs.bundles.annotationprocessor
+
     jmhCompileOnly cLibs.bundles.compileonly
     jmhImplementation project(':')
     jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
@@ -190,6 +204,11 @@ dependencies {
     jmhRuntimeOnly 'org.ow2.asm:asm:9.5'
 
     testCompileOnly cLibs.bundles.compileonly
+    testImplementation(project(':')) {
+        capabilities {
+            requireCapability("$project.group:$project.name-groovy")
+        }
+    }
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
@@ -198,7 +217,6 @@ dependencies {
     compileOnly 'com.electronwill.night-config:core:3.6.4'
     compileOnly 'com.electronwill.night-config:toml:3.6.4'
     compileOnly 'blue.endless:jankson:1.2.2'
-    compileOnly 'org.ow2.asm:asm:9.5'
 
     testImplementation 'com.electronwill.night-config:core:3.6.4'
     testImplementation 'com.electronwill.night-config:toml:3.6.4'
@@ -217,6 +235,13 @@ dependencies {
     minecraftNeoforgeAnnotationProcessor cLibs.bundles.annotationprocessor
     minecraftFabricApi project(':')
     minecraftNeoforgeApi project(':')
+
+    testCommonCompileOnly cLibs.bundles.compileonly
+    testCommonAnnotationProcessor cLibs.bundles.annotationprocessor
+    testFabricCompileOnly cLibs.bundles.compileonly
+    testFabricAnnotationProcessor cLibs.bundles.annotationprocessor
+    testNeoforgeCompileOnly cLibs.bundles.compileonly
+    testNeoforgeAnnotationProcessor cLibs.bundles.annotationprocessor
 
     testNeoforgeCompileOnly sourceSets.minecraftNeoforge.output
     testNeoforgeCompileOnly sourceSets.minecraft.output
@@ -259,6 +284,14 @@ tasks.named('jar', Jar) {
     }
 }
 
+tasks.named('groovyJar', Jar) {
+    manifest {
+        attributes(
+            'Automatic-Module-Name': project.group + '.' + project.name + '.groovy'
+        )
+    }
+}
+
 ['minecraftJar', 'minecraftFabricJar', 'minecraftNeoforgeJar'].each {
     tasks.named(it, Jar) {
         manifest {
@@ -295,6 +328,12 @@ tasks.compileJava {
     options.compilerArgs += [
         '-Aautoextension.name=CodecExtras',
         "-Aautoextension.version=${version}".toString()
+    ]
+}
+
+tasks.compileTestGroovy {
+    groovyOptions.optimizationOptions += [
+        'runtimeGroovydoc': true
     ]
 }
 

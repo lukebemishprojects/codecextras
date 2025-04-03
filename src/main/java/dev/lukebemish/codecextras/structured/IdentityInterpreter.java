@@ -60,13 +60,13 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     }
 
     @Override
-    public <A> DataResult<App<Identity.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Identity.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         var builder = RecordStructure.Container.builder();
         for (var field : fields) {
             DataResult<App<Identity.Mu, A>> result = forField(field, builder);
             if (result != null) return result;
         }
-        return DataResult.success(new Identity<>(creator.apply(builder.build())));
+        return creator.apply(builder.build()).map(Identity::new);
     }
 
     private <A, F> @Nullable DataResult<App<Identity.Mu, A>> forField(RecordStructure.Field<A, F> field, RecordStructure.Container.Builder builder) {
@@ -97,6 +97,17 @@ public class IdentityInterpreter implements Interpreter<Identity.Mu> {
     @Override
     public <E, A> DataResult<App<Identity.Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures) {
         return DataResult.error(() -> "No default value available for a dispatch");
+    }
+
+    @Override
+    public <A> DataResult<App<Identity.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var recursion = new Structure<A>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return DataResult.error(() -> "Detected infinite recursion of default value");
+            }
+        };
+        return function.apply(recursion).interpret(this);
     }
 
     @Override

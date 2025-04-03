@@ -12,6 +12,22 @@ import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Flip;
 import dev.lukebemish.codecextras.types.Identity;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.MonthDay;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
+import java.time.Period;
+import java.time.Year;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -341,6 +357,15 @@ public interface Structure<A> {
         };
     }
 
+    static <A> Structure<A> recursive(Function<Structure<A>, Structure<A>> function) {
+        return new Structure<>() {
+            @Override
+            public <Mu extends K1> DataResult<App<Mu, A>> interpret(Interpreter<Mu> interpreter) {
+                return interpreter.recursive(function);
+            }
+        };
+    }
+
     /**
      * Keys provide a way of representing the smallest building blocks of a structure. Interpreters are responsible for
      * finding a matching specific representation given a key when interpreting a structure.
@@ -601,6 +626,17 @@ public interface Structure<A> {
      * @see RecordStructure
      */
     static <A> Structure<A> record(RecordStructure.Builder<A> builder) {
+        return RecordStructure.create(builder.asFlatBuilder());
+    }
+
+    /**
+     * {@return a structure representing a collection of key-value pairs with defined structures, which may be optionally present, and which can handle failures}
+     * @param builder the builder to use to create the record structure
+     * @param <A> the type of data the structure represents
+     * @see RecordStructure
+     * @see #record(RecordStructure.Builder)
+     */
+    static <A> Structure<A> flatRecord(RecordStructure.FlatBuilder<A> builder) {
         return RecordStructure.create(builder);
     }
 
@@ -640,6 +676,37 @@ public interface Structure<A> {
      * Represents a {@link String} value.
      */
     Structure<String> STRING = keyed(Interpreter.STRING);
+
+    /**
+     * Represents a {@link Character} value.
+     */
+    Structure<Character> CHAR = keyed(Interpreter.CHAR, STRING.validate(s -> {
+        if (s.length() == 1) {
+            return DataResult.success(s);
+        } else {
+            return DataResult.error(() -> "String must be 1 character long, found '" + s + "'");
+        }
+    }).xmap(s -> s.charAt(0), String::valueOf));
+
+    Structure<BigInteger> BIG_INTEGER = stringFallbackBacked(Interpreter.BIG_INTEGER, BigInteger::new, BigInteger::toString);
+
+    Structure<BigDecimal> BIG_DECIMAL = stringFallbackBacked(Interpreter.BIG_DECIMAL, BigDecimal::new, BigDecimal::toPlainString);
+
+    Structure<Duration> DURATION = stringFallbackBacked(Interpreter.DURATION, Duration::parse, Duration::toString);
+    Structure<Instant> INSTANT = stringFallbackBacked(Interpreter.INSTANT, Instant::parse, Instant::toString);
+    Structure<LocalDate> LOCAL_DATE = stringFallbackBacked(Interpreter.LOCAL_DATE, LocalDate::parse, LocalDate::toString);
+    Structure<LocalDateTime> LOCAL_DATE_TIME = stringFallbackBacked(Interpreter.LOCAL_DATE_TIME, LocalDateTime::parse, LocalDateTime::toString);
+    Structure<LocalTime> LOCAL_TIME = stringFallbackBacked(Interpreter.LOCAL_TIME, LocalTime::parse, LocalTime::toString);
+    Structure<MonthDay> MONTH_DAY = stringFallbackBacked(Interpreter.MONTH_DAY, MonthDay::parse, MonthDay::toString);
+    Structure<OffsetDateTime> OFFSET_DATE_TIME = stringFallbackBacked(Interpreter.OFFSET_DATE_TIME, OffsetDateTime::parse, OffsetDateTime::toString);
+    Structure<OffsetTime> OFFSET_TIME = stringFallbackBacked(Interpreter.OFFSET_TIME, OffsetTime::parse, OffsetTime::toString);
+    Structure<Period> PERIOD = stringFallbackBacked(Interpreter.PERIOD, Period::parse, Period::toString);
+    Structure<Year> YEAR = stringFallbackBacked(Interpreter.YEAR, Year::parse, Year::toString);
+    Structure<YearMonth> YEAR_MONTH = stringFallbackBacked(Interpreter.YEAR_MONTH, YearMonth::parse, YearMonth::toString);
+    Structure<ZonedDateTime> ZONED_DATE_TIME = stringFallbackBacked(Interpreter.ZONED_DATE_TIME, ZonedDateTime::parse, ZonedDateTime::toString);
+    Structure<ZoneId> ZONE_ID = stringFallbackBacked(Interpreter.ZONE_ID, ZoneId::of, ZoneId::toString);
+    Structure<ZoneOffset> ZONE_OFFSET = stringFallbackBacked(Interpreter.ZONE_OFFSET, ZoneOffset::of, ZoneOffset::toString);
+
 
     /**
      * Represents a {@link Dynamic} value.
@@ -738,5 +805,15 @@ public interface Structure<A> {
     static <T> Structure<T> stringRepresentable(Supplier<T[]> values, Function<T, String> representation) {
         return Structure.parametricallyKeyed(Interpreter.STRING_REPRESENTABLE, StringRepresentation.ofArray(values, representation), app -> (Identity<T>) app)
                 .xmap(i -> Identity.unbox(i).value(), Identity::new);
+    }
+
+    private static <T> Structure<T> stringFallbackBacked(Key<T> key, Function<String, T> parser, Function<T, String> stringifier) {
+        return keyed(key, STRING.comapFlatMap(s -> {
+            try {
+                return DataResult.success(parser.apply(s));
+            } catch (Exception e) {
+                return DataResult.error(() -> "Could not parse: " + s);
+            }
+        }, stringifier));
     }
 }

@@ -1,12 +1,15 @@
 package dev.lukebemish.codecextras.structured;
 
+import com.google.common.base.Suppliers;
 import com.mojang.datafixers.kinds.App;
 import com.mojang.datafixers.kinds.Const;
 import com.mojang.datafixers.kinds.K1;
 import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.MapCodec;
 import dev.lukebemish.codecextras.PartialDispatchedMapCodec;
 import dev.lukebemish.codecextras.StringRepresentation;
@@ -85,7 +88,7 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         return StructuredMapCodec.of(fields, creator, this, CodecInterpreter::unbox)
             .map(mapCodec -> new Holder<>(mapCodec.codec()));
     }
@@ -189,6 +192,31 @@ public abstract class CodecInterpreter extends KeyStoringInterpreter<CodecInterp
                 }
             }
         );
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var key = Key.<A>create("recursive");
+        var keyed = Structure.keyed(key);
+        var complete = function.apply(keyed);
+        var codec = new Codec<A>() {
+            private final Holder<A> holder = new Holder<>(this);
+            private final CodecInterpreter interpreterWithKeys = with(Keys.<Holder.Mu, Object>builder().add(key, holder).build(), Keys2.<ParametricKeyedValue.Mu<Holder.Mu>, K1, K1>builder().build());
+            private final Supplier<DataResult<Codec<A>>> wrapped = Suppliers.memoize(() ->
+                complete.interpret(interpreterWithKeys).map(CodecInterpreter::unbox)
+            );
+
+            @Override
+            public <T> DataResult<T> encode(A input, DynamicOps<T> ops, T prefix) {
+                return wrapped.get().flatMap(codec -> codec.encode(input, ops, prefix));
+            }
+
+            @Override
+            public <T> DataResult<Pair<A, T>> decode(DynamicOps<T> ops, T input) {
+                return wrapped.get().flatMap(codec -> codec.decode(ops, input));
+            }
+        };
+        return DataResult.success(new Holder<>(codec));
     }
 
     public static <T> Codec<T> unbox(App<Holder.Mu, T> box) {

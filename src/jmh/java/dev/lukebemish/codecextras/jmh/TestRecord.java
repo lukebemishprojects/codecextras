@@ -6,9 +6,12 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.lukebemish.codecextras.record.CurriedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.KeyedRecordCodecBuilder;
 import dev.lukebemish.codecextras.record.MethodHandleRecordCodecBuilder;
+import dev.lukebemish.codecextras.structured.CodecInterpreter;
+import dev.lukebemish.codecextras.structured.Structure;
+import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator;
 import java.lang.invoke.MethodHandles;
 
-record TestRecord(
+public record TestRecord(
     int a, int b, int c, int d,
     int e, int f, int g, int h,
     int i, int j, int k, int l,
@@ -100,6 +103,33 @@ record TestRecord(
             container.get(m), container.get(n), container.get(o), container.get(p)
         );
     });
+
+    public static final Codec<TestRecord> RSC = CodecInterpreter.create().interpret(ReflectiveStructureCreator.create(TestRecord.class)).getOrThrow();
+
+    public static final Codec<TestRecord> STRUCT = CodecInterpreter.create().interpret(Structure.<TestRecord>record(builder -> {
+        var a = builder.add("a", Structure.INT, TestRecord::a);
+        var b = builder.add("b", Structure.INT, TestRecord::b);
+        var c = builder.add("c", Structure.INT, TestRecord::c);
+        var d = builder.add("d", Structure.INT, TestRecord::d);
+        var e = builder.add("e", Structure.INT, TestRecord::e);
+        var f = builder.add("f", Structure.INT, TestRecord::f);
+        var g = builder.add("g", Structure.INT, TestRecord::g);
+        var h = builder.add("h", Structure.INT, TestRecord::h);
+        var i = builder.add("i", Structure.INT, TestRecord::i);
+        var j = builder.add("j", Structure.INT, TestRecord::j);
+        var k = builder.add("k", Structure.INT, TestRecord::k);
+        var l = builder.add("l", Structure.INT, TestRecord::l);
+        var m = builder.add("m", Structure.INT, TestRecord::m);
+        var n = builder.add("n", Structure.INT, TestRecord::n);
+        var o = builder.add("o", Structure.INT, TestRecord::o);
+        var p = builder.add("p", Structure.INT, TestRecord::p);
+        return container -> new TestRecord(
+            a.apply(container), b.apply(container), c.apply(container), d.apply(container),
+            e.apply(container), f.apply(container), g.apply(container), h.apply(container),
+            i.apply(container), j.apply(container), k.apply(container), l.apply(container),
+            m.apply(container), n.apply(container), o.apply(container), p.apply(container)
+        );
+    })).getOrThrow();
 
     public static TestRecord makeRecord(int i) {
         return new TestRecord(

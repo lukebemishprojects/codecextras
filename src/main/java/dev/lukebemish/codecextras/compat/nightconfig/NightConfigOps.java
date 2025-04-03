@@ -91,6 +91,11 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToList(Object list, Object value) {
+        if (list == empty()) {
+            List<Object> out = new ArrayList<>();
+            out.add(value);
+            return DataResult.success(out);
+        }
         if (list instanceof List<?> list1) {
             List<Object> out = new ArrayList<>(list1);
             out.add(value);
@@ -101,6 +106,10 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToList(Object list, List<Object> values) {
+        if (list == empty()) {
+            List<Object> out = new ArrayList<>(values);
+            return DataResult.success(out);
+        }
         if (list instanceof List<?> list1) {
             List<Object> out = new ArrayList<>(list1);
             out.addAll(values);
@@ -121,20 +130,30 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToMap(Object map, Object key, Object value) {
-        if (map instanceof Config config) {
-            Config newConfig = copyConfig(config);
-            if (key instanceof String string) {
-                newConfig.set(string, value);
-                return DataResult.success(newConfig);
-            }
-            return DataResult.error(() -> "Not a string: " + key);
+        Config config;
+        if (map instanceof Config isConfig) {
+            config = isConfig;
+        } else if (map == empty()) {
+            config = newConfig();
+        } else {
+            return DataResult.error(() -> "Not a map: " + map);
         }
-        return DataResult.error(() -> "Not a map: " + map);
+        Config newConfig = copyConfig(config);
+        if (key instanceof String string) {
+            newConfig.set(string, value);
+            return DataResult.success(newConfig);
+        }
+        return DataResult.error(() -> "Not a string: " + key);
     }
 
     @Override
     public DataResult<Object> mergeToMap(Object map, MapLike<Object> values) {
-        if (!(map instanceof Config config)) {
+        Config config;
+        if (map instanceof Config isConfig) {
+            config = isConfig;
+        } else if (map == empty()) {
+            config = newConfig();
+        } else {
             return DataResult.error(() -> "Not a map: " + map);
         }
         Config newConfig = copyConfig(config);
@@ -154,7 +173,12 @@ public abstract class NightConfigOps<T extends Config> implements DynamicOps<Obj
 
     @Override
     public DataResult<Object> mergeToMap(Object map, Map<Object, Object> values) {
-        if (!(map instanceof Config config)) {
+        Config config;
+        if (map instanceof Config isConfig) {
+            config = isConfig;
+        } else if (map == empty()) {
+            config = newConfig();
+        } else {
             return DataResult.error(() -> "Not a map: " + map);
         }
         Config newConfig = copyConfig(config);

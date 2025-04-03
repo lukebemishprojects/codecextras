@@ -51,6 +51,20 @@ public class LargeRecordsDecode {
             var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
             blackhole.consume(result.result().orElseThrow());
         }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.RSC.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void interpretedRecordStructure(Blackhole blackhole) {
+            JsonElement json = TestRecord.makeData(counter++);
+            var result = TestRecord.STRUCT.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
     }
 
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -63,9 +77,6 @@ public class LargeRecordsDecode {
         @Setup
         public void setup() {
             json = TestRecord.makeData(0);
-            TestRecord.RCB.decode(JsonOps.INSTANCE, json);
-            TestRecord.KRCB.decode(JsonOps.INSTANCE, json);
-            TestRecord.CRCB.decode(JsonOps.INSTANCE, json);
         }
 
         @Benchmark
@@ -89,6 +100,18 @@ public class LargeRecordsDecode {
         @Benchmark
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             var result = TestRecord.MHRCB.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            var result = TestRecord.RSC.decode(JsonOps.INSTANCE, json);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void interpretedRecordStructure(Blackhole blackhole) {
+            var result = TestRecord.STRUCT.decode(JsonOps.INSTANCE, json);
             blackhole.consume(result.result().orElseThrow());
         }
     }

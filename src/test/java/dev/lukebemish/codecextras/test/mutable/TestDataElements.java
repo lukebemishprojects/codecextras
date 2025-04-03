@@ -8,6 +8,7 @@ import com.mojang.serialization.JsonOps;
 import dev.lukebemish.codecextras.Asymmetry;
 import dev.lukebemish.codecextras.mutable.DataElement;
 import dev.lukebemish.codecextras.mutable.DataElementType;
+import dev.lukebemish.codecextras.mutable.GenericDataElementType;
 import dev.lukebemish.codecextras.test.CodecAssertions;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -20,7 +21,7 @@ class TestDataElements {
         private static final DataElementType<WithDataElements, Integer> INTEGER = DataElementType.create("integer", Codec.INT, d -> d.integer);
         private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CODEC = DataElementType.codec(true, STRING, INTEGER);
         private static final Codec<Asymmetry<Consumer<WithDataElements>, WithDataElements>> CHANGED_CODEC = DataElementType.codec(false, STRING, INTEGER);
-        private static final Consumer<WithDataElements> CLEANER = DataElementType.cleaner(STRING, INTEGER);
+        private static final Consumer<WithDataElements> CLEANER = GenericDataElementType.cleaner(STRING, INTEGER);
 
         private final DataElement<String> string = new DataElement.Simple<>("");
         private final DataElement<Integer> integer = new DataElement.Simple<>(0);

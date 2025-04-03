@@ -42,8 +42,8 @@ public final class Widgets {
 
     public static <T> LayoutFactory<T> text(Function<String, DataResult<T>> toData, Function<T, DataResult<String>> fromData, Predicate<String> filter, boolean emptyIsMissing) {
         return (parent, width, context, original, update, creationInfo, handleOptional) -> {
-            var widget = new EditBox(Minecraft.getInstance().font, width, Button.DEFAULT_HEIGHT, creationInfo.componentInfo().title());
-            creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
+            var widget = new EditBox(Minecraft.getInstance().font, width, Button.DEFAULT_HEIGHT, creationInfo.componentInfo().get().title());
+            creationInfo.componentInfo().get().maybeDescription().ifPresent(description -> {
                 var tooltip = Tooltip.create(description);
                 widget.setTooltip(tooltip);
             });
@@ -116,7 +116,7 @@ public final class Widgets {
             Supplier<Component> calculateMessage = () -> Component.literal(stringValue[0] == null ? "" : stringValue[0]);
             var holder = new Object() {
                 private final Button button = Button.builder(calculateMessage.get(), b -> {
-                    Minecraft.getInstance().setScreen(new ChoiceScreen(parent, creationInfo.componentInfo().title(), values, stringValue[0], newKeyValue -> {
+                    Minecraft.getInstance().setScreen(new ChoiceScreen(parent, creationInfo.componentInfo().get().title(), values, stringValue[0], newKeyValue -> {
                         if (!Objects.equals(newKeyValue, stringValue[0])) {
                             stringValue[0] = newKeyValue;
                             if (newKeyValue == null) {
@@ -127,7 +127,7 @@ public final class Widgets {
                             this.button.setMessage(calculateMessage.get());
                         }
                     }));
-                }).width(width).tooltip(Tooltip.create(creationInfo.componentInfo().description())).build();
+                }).width(width).tooltip(Tooltip.create(creationInfo.componentInfo().get().description())).build();
             };
             return holder.button;
         });
@@ -181,7 +181,7 @@ public final class Widgets {
                     wrapped.setVisible(!missing);
                     wrapped.setActive(!missing);
 
-                    creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
+                    creationInfo.componentInfo().get().maybeDescription().ifPresent(description -> {
                         var tooltip = Tooltip.create(description);
                         lock.setTooltip(tooltip);
                         disabled.setTooltip(tooltip);
@@ -224,12 +224,12 @@ public final class Widgets {
 
             return new AbstractButton(0, 0, width, Button.DEFAULT_HEIGHT, Component.empty()) {
                 {
-                    setTooltip(Tooltip.create(creationInfo.componentInfo().description()));
+                    setTooltip(Tooltip.create(creationInfo.componentInfo().get().description()));
                 }
 
                 @Override
                 public void onPress() {
-                    var screen = new ColorPickScreen(parent, creationInfo.componentInfo().title(), color -> {
+                    var screen = new ColorPickScreen(parent, creationInfo.componentInfo().get().title(), color -> {
                         update.accept(new JsonPrimitive(color));
                         value[0] = color;
                     }, includeAlpha);
@@ -319,7 +319,7 @@ public final class Widgets {
                     this.value = valueInRange(range, value);
                 }
             };
-            widget.setTooltip(Tooltip.create(creationInfo.componentInfo().description()));
+            widget.setTooltip(Tooltip.create(creationInfo.componentInfo().get().description()));
             return widget;
         });
     }
@@ -428,18 +428,18 @@ public final class Widgets {
                     })
                     .selected(original.isJsonPrimitive() && original.getAsJsonPrimitive().getAsBoolean())
                     .build();
-                creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
+                creationInfo.componentInfo().get().maybeDescription().ifPresent(description -> {
                     var tooltip = Tooltip.create(description);
                     w.setTooltip(tooltip);
                 });
-                w.setMessage(creationInfo.componentInfo().title());
+                w.setMessage(creationInfo.componentInfo().get().title());
                 return w;
             } else {
                 var button = Button.builder(text, b -> {
                     })
                     .width(width)
                     .build();
-                var tooltip = Tooltip.create(creationInfo.componentInfo().description());
+                var tooltip = Tooltip.create(creationInfo.componentInfo().get().description());
                 button.setTooltip(tooltip);
                 button.active = false;
                 return VisibilityWrapperElement.ofInactive(button);
@@ -462,11 +462,11 @@ public final class Widgets {
                 })
                 .selected(original.isJsonPrimitive() && original.getAsJsonPrimitive().getAsBoolean())
                 .build();
-            creationInfo.componentInfo().maybeDescription().ifPresent(description -> {
+            creationInfo.componentInfo().get().maybeDescription().ifPresent(description -> {
                 var tooltip = Tooltip.create(description);
                 w.setTooltip(tooltip);
             });
-            w.setMessage(creationInfo.componentInfo().title());
+            w.setMessage(creationInfo.componentInfo().get().title());
             return w;
         };
         return wrapWithOptionalHandling(widget);

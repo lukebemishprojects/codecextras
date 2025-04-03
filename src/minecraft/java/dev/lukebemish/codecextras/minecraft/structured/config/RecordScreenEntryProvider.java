@@ -46,9 +46,9 @@ class RecordScreenEntryProvider implements ScreenEntryProvider {
     public void addEntries(ScreenEntryList list, Runnable rebuild, Screen parent) {
         for (var entry: this.entries) {
             JsonElement specificValue = this.jsonValue.has(entry.key()) ? this.jsonValue.get(entry.key()) : JsonNull.INSTANCE;
-            var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, entry.entry().entryCreationInfo().componentInfo().title(), Minecraft.getInstance().font).alignLeft();
+            var label = new StringWidget(Button.DEFAULT_WIDTH, Button.DEFAULT_HEIGHT, entry.entry().entryCreationInfo().componentInfo().get().title(), Minecraft.getInstance().font).alignLeft();
             var contents = createEntryWidget(entry, specificValue, parent);
-            entry.entry().entryCreationInfo().componentInfo().maybeDescription().ifPresent(description -> {
+            entry.entry().entryCreationInfo().componentInfo().get().maybeDescription().ifPresent(description -> {
                 var tooltip = Tooltip.create(description);
                 label.setTooltip(tooltip);
             });

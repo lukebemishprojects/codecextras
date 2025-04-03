@@ -50,6 +50,20 @@ public class LargeRecordsEncode {
             var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            TestRecord record = TestRecord.makeRecord(counter++);
+            var result = TestRecord.RSC.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void interpretedRecordStructure(Blackhole blackhole) {
+            TestRecord record = TestRecord.makeRecord(counter++);
+            var result = TestRecord.STRUCT.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
     }
 
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -62,9 +76,6 @@ public class LargeRecordsEncode {
         @Setup
         public void setup() {
             record = TestRecord.makeRecord(0);
-            TestRecord.RCB.encodeStart(JsonOps.INSTANCE, record);
-            TestRecord.KRCB.encodeStart(JsonOps.INSTANCE, record);
-            TestRecord.CRCB.encodeStart(JsonOps.INSTANCE, record);
         }
 
         @Benchmark
@@ -88,6 +99,18 @@ public class LargeRecordsEncode {
         @Benchmark
         public void methodHandleRecordCodecBuilder(Blackhole blackhole) {
             var result = TestRecord.MHRCB.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void reflectiveStructureCreator(Blackhole blackhole) {
+            var result = TestRecord.RSC.encodeStart(JsonOps.INSTANCE, record);
+            blackhole.consume(result.result().orElseThrow());
+        }
+
+        @Benchmark
+        public void interpretedRecordStructure(Blackhole blackhole) {
+            var result = TestRecord.STRUCT.encodeStart(JsonOps.INSTANCE, record);
             blackhole.consume(result.result().orElseThrow());
         }
     }

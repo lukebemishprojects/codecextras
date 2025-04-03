@@ -21,6 +21,7 @@ import com.mojang.serialization.Dynamic;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.codecs.PrimitiveCodec;
 import dev.lukebemish.codecextras.StringRepresentation;
+import dev.lukebemish.codecextras.internal.Lazy;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftInterpreters;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftKeys;
 import dev.lukebemish.codecextras.minecraft.structured.MinecraftStructures;
@@ -97,7 +98,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not an integer: "+string);
                         }
                     }, integer -> DataResult.success(integer+""), string -> string.matches("^-?[0-9]*$"), true),
-                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.INT, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.BYTE, ConfigScreenEntry.single(
                     Widgets.text(string -> {
@@ -107,7 +108,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not a byte: "+string);
                         }
                     }, byteValue -> DataResult.success(byteValue+""), string -> string.matches("^-?[0-9]*$"), true),
-                    new EntryCreationInfo<>(Codec.BYTE, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.BYTE, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.SHORT, ConfigScreenEntry.single(
                     Widgets.text(string -> {
@@ -117,7 +118,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not a short: "+string);
                         }
                     }, shortValue -> DataResult.success(shortValue+""), string -> string.matches("^-?[0-9]*$"), true),
-                    new EntryCreationInfo<>(Codec.SHORT, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.SHORT, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.LONG, ConfigScreenEntry.single(
                     Widgets.text(string -> {
@@ -127,7 +128,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not a long: "+string);
                         }
                     }, longValue -> DataResult.success(longValue+""), string -> string.matches("^-?[0-9]*$"), true),
-                    new EntryCreationInfo<>(Codec.LONG, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.LONG, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.DOUBLE, ConfigScreenEntry.single(
                     Widgets.text(string -> {
@@ -137,7 +138,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not a double: "+string);
                         }
                     }, doubleValue -> DataResult.success(doubleValue+""), string -> string.matches("^-?[0-9]*(\\.[0-9]*)?$"), true),
-                    new EntryCreationInfo<>(Codec.DOUBLE, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.DOUBLE, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.FLOAT, ConfigScreenEntry.single(
                     Widgets.text(string -> {
@@ -147,31 +148,31 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             return DataResult.error(() -> "Not a float: "+string);
                         }
                     }, floatValue -> DataResult.success(floatValue+""), string -> string.matches("^-?[0-9]*(\\.[0-9]*)?$"), true),
-                    new EntryCreationInfo<>(Codec.FLOAT, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.FLOAT, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.BOOL, ConfigScreenEntry.single(
                     Widgets.bool(),
-                    new EntryCreationInfo<>(Codec.BOOL, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.BOOL, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.UNIT, ConfigScreenEntry.single(
                     Widgets.unit(),
-                    new EntryCreationInfo<>(Codec.unit(Unit.INSTANCE), ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.unit(Unit.INSTANCE), Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.EMPTY_LIST, ConfigScreenEntry.single(
                     Widgets.unit(Component.translatable("codecextras.config.unit.empty")),
-                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_LIST).getOrThrow(), ComponentInfo.empty())
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_LIST).getOrThrow(), Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.EMPTY_MAP, ConfigScreenEntry.single(
                     Widgets.unit(Component.translatable("codecextras.config.unit.empty")),
-                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_MAP).getOrThrow(), ComponentInfo.empty())
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(Structure.EMPTY_MAP).getOrThrow(), Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.STRING, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(Widgets.text(DataResult::success, DataResult::success, false)),
-                    new EntryCreationInfo<>(Codec.STRING, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.STRING, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(Interpreter.PASSTHROUGH, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(ConfigScreenInterpreter::byJson),
-                    new EntryCreationInfo<>(Codec.PASSTHROUGH, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.PASSTHROUGH, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(MinecraftKeys.ITEM, ConfigScreenEntry.single(
                     Widgets.pickWidget(new StringRepresentation<>(
@@ -194,19 +195,19 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         },
                         false
                     )),
-                    new EntryCreationInfo<>(Item.CODEC, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Item.CODEC, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(MinecraftKeys.RESOURCE_LOCATION, ConfigScreenEntry.single(
                     Widgets.wrapWithOptionalHandling(Widgets.text(ResourceLocation::read, rl -> DataResult.success(rl.toString()), string -> string.matches("^([a-z0-9._-]+:)?[a-z0-9/._-]*$"), false)),
-                    new EntryCreationInfo<>(ResourceLocation.CODEC, ComponentInfo.empty())
+                    new EntryCreationInfo<>(ResourceLocation.CODEC, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(MinecraftKeys.ARGB_COLOR, ConfigScreenEntry.single(
                     Widgets.color(true),
-                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.INT, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(MinecraftKeys.RGB_COLOR, ConfigScreenEntry.single(
                     Widgets.color(false),
-                    new EntryCreationInfo<>(Codec.INT, ComponentInfo.empty())
+                    new EntryCreationInfo<>(Codec.INT, Lazy.of(ComponentInfo::empty))
                 ))
                 .add(MinecraftKeys.DATA_COMPONENT_PATCH_KEY, ConfigScreenEntry.single(
                     (parent, width, context, original, update, creationInfo, handleOptional) -> {
@@ -273,7 +274,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             }
                         }, creationInfo.withCodec(ResourceKey.codec(Registries.DATA_COMPONENT_TYPE)), false);
                         var tooltipToggle = Tooltip.create(Component.translatable("codecextras.config.datacomponent.keytoggle"));
-                        var tooltipType = Tooltip.create(creationInfo.componentInfo().description());
+                        var tooltipType = Tooltip.create(creationInfo.componentInfo().get().description());
                         cycle.setTooltip(tooltipToggle);
                         actual.visitWidgets(w -> w.setTooltip(tooltipType));
                         var layout = new EqualSpacingLayout(width, 0, EqualSpacingLayout.Orientation.HORIZONTAL);
@@ -281,7 +282,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         layout.addChild(actual, LayoutSettings.defaults().alignVerticallyMiddle());
                         return layout;
                     },
-                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(MinecraftStructures.DATA_COMPONENT_PATCH_KEY).getOrThrow(), ComponentInfo.empty())
+                    new EntryCreationInfo<>(MinecraftInterpreters.CODEC_INTERPRETER.interpret(MinecraftStructures.DATA_COMPONENT_PATCH_KEY).getOrThrow(), Lazy.of(ComponentInfo::empty))
                 )).build()),
             parametricKeys.join(Keys2.<ParametricKeyedValue.Mu<ConfigScreenEntry.Mu>, K1, K1>builder()
                 .add(Interpreter.INT_IN_RANGE, new ParametricKeyedValue<>() {
@@ -299,7 +300,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not an integer: " + json);
-                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, false), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -321,7 +322,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not a byte: " + json);
-                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, false), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -343,7 +344,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not a short: " + json);
-                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, false), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -365,7 +366,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not a long: " + json);
-                            }, false), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, false), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -387,7 +388,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not a float: " + json);
-                            }, true), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, true), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -409,7 +410,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     }
                                 }
                                 return DataResult.error(() -> "Not a double: " + json);
-                            }, true), new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            }, true), new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(
                             info -> info.withCodec(codec.xmap(Const::create, Const::unbox)),
                             info -> info.withCodec(codec)
@@ -424,7 +425,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                         var identityCodec = codec.<App<Identity.Mu, T>>xmap(Identity::new, app -> Identity.unbox(app).value());
                         return ConfigScreenEntry.single(
                             Widgets.pickWidget(representation),
-                            new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(i -> i.withCodec(identityCodec), i -> i.withCodec(codec));
                     }
                 })
@@ -452,7 +453,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                 }
                                 return wrapped.create(parent, width, context, original, update, creationInfo, handleOptional);
                             },
-                            new EntryCreationInfo<>(codec, ComponentInfo.empty())
+                            new EntryCreationInfo<>(codec, Lazy.of(ComponentInfo::empty))
                         ).withEntryCreationInfo(i -> i.withCodec(holderCodec), i -> i.withCodec(codec));
                     }
                 })
@@ -476,13 +477,13 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                 new EntryCreationInfo<>(Codec.EMPTY.codec().flatXmap(
                                     ignored -> DataResult.error(() -> type + " is not a persistent component"),
                                     ignored -> DataResult.error(() -> type + " is not a persistent component")
-                                ), ComponentInfo.empty())
+                                ), Lazy.of(ComponentInfo::empty))
                             );
                         }
                         var identityCodec = codec.<App<Identity.Mu, T>>xmap(Identity::new, app -> Identity.unbox(app).value());
                         return ConfigScreenEntry.single(
                             Widgets.wrapWithOptionalHandling(ConfigScreenInterpreter::byJson),
-                            new EntryCreationInfo<>(identityCodec, ComponentInfo.empty())
+                            new EntryCreationInfo<>(identityCodec, Lazy.of(ComponentInfo::empty))
                         );
                     }
                 })
@@ -514,19 +515,19 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
         var entryHolder = new Object() {
             final EntryCreationInfo<JsonElement> jsonInfo = new EntryCreationInfo<>(
                 Codec.PASSTHROUGH.xmap(d -> d.convert(contextOuter.ops()).getValue(), v -> new Dynamic<>(contextOuter.ops(), v)),
-                ComponentInfo.empty()
+                Lazy.of(ComponentInfo::empty)
             );
             final EntryCreationInfo<String> stringInfo = new EntryCreationInfo<>(
                 Codec.STRING,
-                ComponentInfo.empty()
+                Lazy.of(ComponentInfo::empty)
             );
             final EntryCreationInfo<Number> numberInfo = new EntryCreationInfo<>(
                 BIG_DECIMAL_CODEC.xmap(Function.identity(), number -> number instanceof BigDecimal bigDecimal ? bigDecimal : new BigDecimal(number.toString())),
-                ComponentInfo.empty()
+                Lazy.of(ComponentInfo::empty)
             );
             final EntryCreationInfo<Boolean> booleanInfo = new EntryCreationInfo<>(
                 Codec.BOOL,
-                ComponentInfo.empty()
+                Lazy.of(ComponentInfo::empty)
             );
             final ConfigScreenEntry<String> stringEntry = ConfigScreenEntry.single(
                 Widgets.text(DataResult::success, DataResult::success, false),
@@ -666,7 +667,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     new UnboundedMapScreenEntryProvider<>(stringEntry, jsonEntry, context, elements.get(JsonType.OBJECT), newJsonValue -> {
                                         elements.put(JsonType.OBJECT, newJsonValue);
                                         checkedUpdate.accept(newJsonValue);
-                                    }), parent, context, creationInfo.componentInfo()
+                                    }), parent, context, creationInfo.componentInfo().get()
                                 ));
                             }).width(remainingWidth).build()));
                             layouts.put(JsonType.ARRAY, Button.builder(Component.translatable("codecextras.config.configurelist"), b -> {
@@ -674,7 +675,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                                     new ListScreenEntryProvider<>(jsonEntry, context, elements.get(JsonType.ARRAY), newJsonValue -> {
                                         elements.put(JsonType.ARRAY, newJsonValue);
                                         checkedUpdate.accept(newJsonValue);
-                                    }), parent, context, creationInfo.componentInfo()
+                                    }), parent, context, creationInfo.componentInfo().get()
                                 ));
                             }).width(remainingWidth).build());
                             layouts.put(JsonType.STRING, stringEntry.layout().create(parent, remainingWidth, context, elements.get(JsonType.STRING), newJsonValue -> {
@@ -757,7 +758,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 ConfigScreenEntry.unbox(left).layout(),
                 ConfigScreenEntry.unbox(right).layout()
             ),
-            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+            new EntryCreationInfo<>(codecResult.getOrThrow(), Lazy.of(ComponentInfo::empty))
         ));
     }
 
@@ -774,7 +775,7 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                 ConfigScreenEntry.unbox(left).layout(),
                 ConfigScreenEntry.unbox(right).layout()
             ),
-            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+            new EntryCreationInfo<>(codecResult.getOrThrow(), Lazy.of(ComponentInfo::empty))
         ));
     }
 
@@ -846,11 +847,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             finalOriginal[0] = value;
                             update.accept(value);
                         }, creationInfo
-                    ), parent, subContext, creationInfo.componentInfo()))
+                    ), parent, subContext, creationInfo.componentInfo().get()))
                 ).width(width).build();
             }),
             factory,
-            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+            new EntryCreationInfo<>(codecResult.getOrThrow(), Lazy.of(ComponentInfo::empty))
         ));
     }
 
@@ -881,16 +882,16 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             finalOriginal[0] = jsonValue;
                             update.accept(jsonValue);
                         }, creationInfo
-                    ), parent, subContext, creationInfo.componentInfo()))
+                    ), parent, subContext, creationInfo.componentInfo().get()))
                 ).width(width).build();
             }),
             factory,
-            new EntryCreationInfo<>(codecResult.getOrThrow(), ComponentInfo.empty())
+            new EntryCreationInfo<>(codecResult.getOrThrow(), Lazy.of(ComponentInfo::empty))
         ));
     }
 
     @Override
-    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         List<RecordEntry<?>> entries = new ArrayList<>();
         List<Supplier<String>> errors = new ArrayList<>();
         for (var field : fields) {
@@ -922,11 +923,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             finalOriginal[0] = value;
                             update.accept(value);
                         }, creationInfo
-                    ), parent, subContext, creationInfo.componentInfo()))
+                    ), parent, subContext, creationInfo.componentInfo().get()))
                 ).width(width).build();
             }),
             factory,
-            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), ComponentInfo.empty())
+            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), Lazy.of(ComponentInfo::empty))
         ));
     }
 
@@ -1023,12 +1024,44 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             finalOriginal[0] = value;
                             update.accept(value);
                         }, creationInfo
-                    ), parent, subContext, creationInfo.componentInfo()))
+                    ), parent, subContext, creationInfo.componentInfo().get()))
                 ).width(width).build();
             }),
             factory,
-            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), ComponentInfo.empty())
+            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), Lazy.of(ComponentInfo::empty))
         ));
+    }
+
+    @Override
+    public <A> DataResult<App<ConfigScreenEntry.Mu, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var codecResult = codecInterpreter.recursive(function).map(CodecInterpreter::unbox);
+        if (codecResult.isError()) {
+            return DataResult.error(() -> "Error creating recursive codec: "+codecResult.error().orElseThrow().messageSupplier());
+        }
+        var key = Key.<A>create("recursive");
+        var withKeyCodecInterpreter = this.codecInterpreter.with(Keys.<CodecInterpreter.Holder.Mu, Object>builder().add(key, new CodecInterpreter.Holder<>(codecResult.getOrThrow())).build(), Keys2.<ParametricKeyedValue.Mu<CodecInterpreter.Holder.Mu>, K1, K1>builder().build());
+        var keyed = Structure.keyed(key);
+        var complete = function.apply(keyed);
+        var configScreenEntryWrapper = new Object() {
+            private final LayoutFactory<A> layoutFactory = (parent, width, context, original, update, creationInfo, handleOptional) ->
+                this.wrapped.get().result().orElseThrow().layout().create(parent, width, context, original, update, creationInfo, handleOptional);
+            private final ScreenEntryFactory<A> screenEntryFactory = (context, original, onClose, entry) ->
+                this.wrapped.get().result().orElseThrow().screenEntryProvider().open(context, original, onClose, entry);
+            private final EntryCreationInfo<A> entryCreationInfo = new EntryCreationInfo<>(
+                codecResult.getOrThrow(),
+                Lazy.of(() -> this.wrapped.get().result().orElseThrow().entryCreationInfo().componentInfo().get())
+            );
+            private final ConfigScreenEntry<A> holder = new ConfigScreenEntry<>(layoutFactory, screenEntryFactory, entryCreationInfo);
+            private final ConfigScreenInterpreter interpreterWithKeys = new ConfigScreenInterpreter(
+                keys().with(key, holder),
+                parametricKeys(),
+                withKeyCodecInterpreter
+            );
+            private final Supplier<DataResult<ConfigScreenEntry<A>>> wrapped = Suppliers.memoize(() ->
+                complete.interpret(interpreterWithKeys).map(ConfigScreenEntry::unbox)
+            );
+        };
+        return DataResult.success(configScreenEntryWrapper.holder);
     }
 
     @Override
@@ -1067,11 +1100,11 @@ public class ConfigScreenInterpreter extends KeyStoringInterpreter<ConfigScreenE
                             finalOriginal[0] = value;
                             update.accept(value);
                         }, creationInfo
-                    ), parent, subContext, creationInfo.componentInfo()))
+                    ), parent, subContext, creationInfo.componentInfo().get()))
                 ).width(width).build();
             }),
             factory,
-            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), ComponentInfo.empty())
+            new EntryCreationInfo<>(CodecInterpreter.unbox(codecResult.getOrThrow()), Lazy.of(ComponentInfo::empty))
         ));
     }
 

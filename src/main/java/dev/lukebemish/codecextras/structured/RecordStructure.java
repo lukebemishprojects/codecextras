@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -187,6 +190,45 @@ public class RecordStructure<A> {
         return key;
     }
 
+    public Function<Container, OptionalInt> addOptionalInt(String name, Structure<Integer> structure, Function<A, OptionalInt> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsInt());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalInt::of).orElse(OptionalInt.empty()));
+    }
+
+    public Function<Container, OptionalInt> addOptionalInt(String name, Function<A, OptionalInt> getter) {
+        return addOptionalInt(name, Structure.INT, getter);
+    }
+
+    public Function<Container, OptionalDouble> addOptionalDouble(String name, Structure<Double> structure, Function<A, OptionalDouble> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsDouble());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalDouble::of).orElse(OptionalDouble.empty()));
+    }
+
+    public Function<Container, OptionalDouble> addOptionalDouble(String name, Function<A, OptionalDouble> getter) {
+        return addOptionalDouble(name, Structure.DOUBLE, getter);
+    }
+
+    public Function<Container, OptionalLong> addOptionalLong(String name, Structure<Long> structure, Function<A, OptionalLong> getter) {
+        return addOptional(name, structure, getter.andThen(o -> {
+            if (o.isPresent()) {
+                return Optional.of(o.getAsLong());
+            }
+            return Optional.empty();
+        })).andThen(o -> o.map(OptionalLong::of).orElse(OptionalLong.empty()));
+    }
+
+    public Function<Container, OptionalLong> addOptionalLong(String name, Function<A, OptionalLong> getter) {
+        return addOptionalLong(name, Structure.LONG, getter);
+    }
+
     /**
      * Add a field to the record structure with a default value. The field will not be encoded if equal to its default value.
      * @param name the name of the field
@@ -237,7 +279,7 @@ public class RecordStructure<A> {
      * @return a new structure
      * @param <A> the type of the data represented
      */
-    static <A> Structure<A> create(RecordStructure.Builder<A> builder) {
+    static <A> Structure<A> create(RecordStructure.FlatBuilder<A> builder) {
         RecordStructure<A> instance = new RecordStructure<>();
         var creator = builder.build(instance);
         return new Structure<>() {
@@ -263,5 +305,21 @@ public class RecordStructure<A> {
          * @return a function to assemble the final type from a {@link Container}
          */
         Function<Container, A> build(RecordStructure<A> builder);
+
+        default FlatBuilder<A> asFlatBuilder() {
+            return builder -> build(builder).andThen(DataResult::success);
+        }
+    }
+
+    @FunctionalInterface
+    public interface FlatBuilder<A> {
+        /**
+         * Assemble a record structure for the given type. Should collect {@link Key}s for every field needed and return
+         * a function that uses those keys to assemble the final type from a {@link Container}. Unlike a {@link Builder},
+         * allows for failures.
+         * @param builder a blank record structure to add fields to
+         * @return a function to assemble the final type from a {@link Container}
+         */
+        Function<Container, DataResult<A>> build(RecordStructure<A> builder);
     }
 }

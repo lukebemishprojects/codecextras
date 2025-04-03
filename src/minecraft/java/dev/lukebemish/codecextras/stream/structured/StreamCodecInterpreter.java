@@ -241,7 +241,7 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     }
 
     @Override
-    public <A> DataResult<App<Holder.Mu<B>, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator) {
+    public <A> DataResult<App<Holder.Mu<B>, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator) {
         var streamFields = new ArrayList<Field<A, B, ?>>();
         for (var field : fields) {
             DataResult<App<Holder.Mu<B>, A>> result = recordSingleField(field, streamFields);
@@ -258,7 +258,9 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
                 for (var field : streamFields) {
                     decodeSingleField(buf, field, builder);
                 }
-                return creator.apply(builder.build());
+                return creator.apply(builder.build()).mapError(s -> {
+                    throw new DecoderException("Failed to decode record: " + s);
+                }).getOrThrow();
             }
         )));
     }
@@ -429,6 +431,33 @@ public class StreamCodecInterpreter<B extends ByteBuf> extends KeyStoringInterpr
     public <L, R> DataResult<App<Holder.Mu<B>, Either<L, R>>> xor(App<Holder.Mu<B>, L> left, App<Holder.Mu<B>, R> right) {
         // For stream codecs, xor is just either
         return either(left, right);
+    }
+
+    @Override
+    public <A> DataResult<App<Holder.Mu<B>, A>> recursive(Function<Structure<A>, Structure<A>> function) {
+        var key = Key.<A>create("recursive");
+        var keyed = Structure.keyed(key);
+        var complete = function.apply(keyed);
+        var codec = new StreamCodec<B, A>() {
+            private final Holder<B, A> holder = new Holder<>(this);
+            private final StreamCodecInterpreter<B> interpreterWithKeys = with(Keys.<Holder.Mu<B>, Object>builder().add(key, holder).build(), Keys2.<ParametricKeyedValue.Mu<Holder.Mu<B>>, K1, K1>builder().build());
+            private final Supplier<DataResult<StreamCodec<B, A>>> wrapped = Suppliers.memoize(() ->
+                complete.interpret(interpreterWithKeys).map(StreamCodecInterpreter::unbox)
+            );
+
+            @Override
+            public void encode(B object, A object2) {
+                var wrappedStreamCodec = wrapped.get().result().orElseThrow(() -> new EncoderException("Issue creating recursive codec: "+wrapped.get().error().orElseThrow().message()));
+                wrappedStreamCodec.encode(object, object2);
+            }
+
+            @Override
+            public A decode(B object) {
+                var wrappedStreamCodec = wrapped.get().result().orElseThrow(() -> new DecoderException("Issue creating recursive codec: "+wrapped.get().error().orElseThrow().message()));
+                return wrappedStreamCodec.decode(object);
+            }
+        };
+        return DataResult.success(new Holder<>(codec));
     }
 
     public record Holder<B extends ByteBuf, T>(StreamCodec<B, T> streamCodec) implements App<StreamCodecInterpreter.Holder.Mu<B>, T> {

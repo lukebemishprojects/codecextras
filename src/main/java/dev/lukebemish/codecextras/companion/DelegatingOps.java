@@ -1,6 +1,5 @@
 package dev.lukebemish.codecextras.companion;
 
-import com.google.common.collect.MapMaker;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Decoder;
@@ -9,13 +8,13 @@ import com.mojang.serialization.Encoder;
 import com.mojang.serialization.ListBuilder;
 import com.mojang.serialization.MapLike;
 import com.mojang.serialization.RecordBuilder;
+import dev.lukebemish.codecextras.internal.LayeredServiceLoader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -60,10 +59,9 @@ public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
         }
     }
 
-    private static final List<AlternateCompanionRetriever> ALTERNATE_COMPANION_RETRIEVERS;
-    private static final Map<ModuleLayer, List<AlternateCompanionRetriever>> RETRIEVERS = new MapMaker().weakKeys().weakValues().makeMap();
+    private static final LayeredServiceLoader<AlternateCompanionRetriever> SERVICE_LOADER = LayeredServiceLoader.of(AlternateCompanionRetriever.class);
 
-    static {
+    static List<AlternateCompanionRetriever> forOps(DynamicOps<?> ops) {
         List<AlternateCompanionRetriever> retrievers = new ArrayList<>();
         retrievers.add(new AlternateCompanionRetriever() {
             @Override
@@ -79,38 +77,9 @@ public abstract class DelegatingOps<T> implements AccompaniedOps<T> {
                 return delegate;
             }
         });
-        retrievers.addAll(ServiceLoader.load(AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
-        ALTERNATE_COMPANION_RETRIEVERS = List.copyOf(retrievers);
-    }
-
-    static List<AlternateCompanionRetriever> forOps(DynamicOps<?> ops) {
         var clazz = ops.getClass();
-        var layer = clazz.getModule().getLayer();
-        if (layer == null) {
-            return ALTERNATE_COMPANION_RETRIEVERS;
-        }
-        return RETRIEVERS.computeIfAbsent(layer, k -> {
-            List<AlternateCompanionRetriever> retrievers = new ArrayList<>();
-            retrievers.add(new AlternateCompanionRetriever() {
-                @Override
-                public <A> Optional<AccompaniedOps<A>> locateCompanionDelegate(DynamicOps<A> ops) {
-                    if (ops instanceof MapDelegatingOps<A> mapOps) {
-                        return Optional.of(mapOps);
-                    }
-                    return Optional.empty();
-                }
-
-                @Override
-                public <A> AccompaniedOps<A> delegate(DynamicOps<A> ops, AccompaniedOps<A> delegate) {
-                    return delegate;
-                }
-            });
-            retrievers.addAll(ServiceLoader.load(layer, AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
-            if (layer != DelegatingOps.class.getModule().getLayer()) {
-                retrievers.addAll(ServiceLoader.load(AlternateCompanionRetriever.class).stream().map(ServiceLoader.Provider::get).toList());
-            }
-            return List.copyOf(retrievers);
-        });
+        retrievers.addAll(LayeredServiceLoader.unique(SERVICE_LOADER.at(DelegatingOps.class), SERVICE_LOADER.at(clazz)));
+        return List.copyOf(retrievers);
     }
 
     private static <T> @Nullable Pair<AlternateCompanionRetriever, AccompaniedOps<T>> retrieveMapOps(DynamicOps<T> ops) {

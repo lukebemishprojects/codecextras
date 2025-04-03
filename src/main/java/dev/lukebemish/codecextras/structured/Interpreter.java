@@ -9,6 +9,22 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.Dynamic;
 import dev.lukebemish.codecextras.StringRepresentation;
 import dev.lukebemish.codecextras.types.Identity;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.MonthDay;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
+import java.time.Period;
+import java.time.Year;
+import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,7 +37,7 @@ public interface Interpreter<Mu extends K1> {
 
     <A> DataResult<App<Mu, A>> keyed(Key<A> key);
 
-    <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, A> creator);
+    <A> DataResult<App<Mu, A>> record(List<RecordStructure.Field<A, ?>> fields, Function<RecordStructure.Container, DataResult<A>> creator);
 
     <A, B> DataResult<App<Mu, B>> flatXmap(App<Mu, A> input, Function<A, DataResult<B>> to, Function<B, DataResult<A>> from);
 
@@ -29,11 +45,13 @@ public interface Interpreter<Mu extends K1> {
 
     <E, A> DataResult<App<Mu, E>> dispatch(String key, Structure<A> keyStructure, Function<? super E, ? extends DataResult<A>> function, Supplier<Set<A>> keys, Function<A, DataResult<Structure<? extends E>>> structures);
 
+    <A> DataResult<App<Mu, A>> recursive(Function<Structure<A>, Structure<A>> function);
+
     default Stream<KeyConsumer<?, Mu>> keyConsumers() {
         return Stream.of();
     }
 
-    public interface KeyConsumer<MuK extends K1, MuI extends K1> {
+    interface KeyConsumer<MuK extends K1, MuI extends K1> {
         Key<MuK> key();
         <T> App<MuI, T> convert(App<MuK, T> input);
     }
@@ -59,6 +77,25 @@ public interface Interpreter<Mu extends K1> {
     Key<Float> FLOAT = Key.create("FLOAT");
     Key<Double> DOUBLE = Key.create("DOUBLE");
     Key<String> STRING = Key.create("STRING");
+    Key<Character> CHAR = Key.create("CHAR");
+    Key<BigInteger> BIG_INTEGER = Key.create("BIG_INTEGER");
+    Key<BigDecimal> BIG_DECIMAL = Key.create("BIG_DECIMAL");
+
+    Key<Duration> DURATION = Key.create("DURATION");
+    Key<Instant> INSTANT = Key.create("INSTANT");
+    Key<LocalDate> LOCAL_DATE = Key.create("LOCAL_DATE");
+    Key<LocalDateTime> LOCAL_DATE_TIME = Key.create("LOCAL_DATE_TIME");
+    Key<LocalTime> LOCAL_TIME = Key.create("LOCAL_TIME");
+    Key<MonthDay> MONTH_DAY = Key.create("MONTH_DAY");
+    Key<OffsetDateTime> OFFSET_DATE_TIME = Key.create("OFFSET_DATE_TIME");
+    Key<OffsetTime> OFFSET_TIME = Key.create("OFFSET_TIME");
+    Key<Period> PERIOD = Key.create("PERIOD");
+    Key<Year> YEAR = Key.create("YEAR");
+    Key<YearMonth> YEAR_MONTH = Key.create("YEAR_MONTH");
+    Key<ZonedDateTime> ZONED_DATE_TIME = Key.create("ZONED_DATE_TIME");
+    Key<ZoneId> ZONE_ID = Key.create("ZONE_ID");
+    Key<ZoneOffset> ZONE_OFFSET = Key.create("ZONE_OFFSET");
+
     Key<Dynamic<?>> PASSTHROUGH = Key.create("PASSTHROUGH");
     Key<Unit> EMPTY_MAP = Key.create("EMPTY_MAP");
     Key<Unit> EMPTY_LIST = Key.create("EMPTY_LIST");
@@ -78,4 +115,6 @@ public interface Interpreter<Mu extends K1> {
     <L, R> DataResult<App<Mu, Either<L,R>>> xor(App<Mu, L> left, App<Mu, R> right);
 
     <K, V> DataResult<App<Mu, Map<K, V>>> dispatchedMap(Structure<K> keyStructure, Supplier<Set<K>> keys, Function<K, DataResult<Structure<? extends V>>> valueStructures);
+
+
 }
