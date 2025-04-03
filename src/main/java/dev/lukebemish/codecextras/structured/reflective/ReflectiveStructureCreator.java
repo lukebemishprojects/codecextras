@@ -12,6 +12,7 @@ import dev.lukebemish.codecextras.structured.Structure;
 import dev.lukebemish.codecextras.structured.reflective.systems.Creators;
 import dev.lukebemish.codecextras.structured.reflective.systems.FlexibleCreators;
 import dev.lukebemish.codecextras.structured.reflective.systems.ParameterizedCreators;
+import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -198,38 +199,39 @@ public interface ReflectiveStructureCreator {
             Supplier<Creators.Creator> creatorSupplier = () -> {
                 Class<?> rawType = null;
                 TypedCreator[] parameterCreators = null;
+
                 if (type instanceof ParameterizedType parameterizedType) {
                     if (parameterizedType.getRawType() instanceof Class<?> clazz) {
                         rawType = clazz;
                         var parameters = parameterizedType.getActualTypeArguments();
                         parameterCreators = new TypedCreator[parameters.length];
+                        for (int i = 0; i < parameters.length; i++) {
+                            var structure = forType(cachedCreators, recursionCache, parameters[i], context);
+                            var parameterType = parameters[i];
+                            parameterCreators[i] = new TypedCreator() {
+                                @Override
+                                public Structure<?> create() {
+                                    return structure;
+                                }
+
+                                @Override
+                                public Type type() {
+                                    return parameterType;
+                                }
+
+                                @Override
+                                public Class<?> rawType() {
+                                    if (parameterType instanceof Class<?> clazz) {
+                                        return clazz;
+                                    } else if (parameterType instanceof ParameterizedType parameterizedType) {
+                                        return (Class<?>) parameterizedType.getRawType();
+                                    } else {
+                                        throw new IllegalArgumentException("Unknown type: " + type);
+                                    }
+                                }
+                            };
+                        }
                         if (parameterizedCreatorsMap.containsKey(clazz)) {
-                            for (int i = 0; i < parameters.length; i++) {
-                                var structure = forType(cachedCreators, recursionCache, parameters[i], context);
-                                var parameterType = parameters[i];
-                                parameterCreators[i] = new TypedCreator() {
-                                    @Override
-                                    public Structure<?> create() {
-                                        return structure;
-                                    }
-
-                                    @Override
-                                    public Type type() {
-                                        return parameterType;
-                                    }
-
-                                    @Override
-                                    public Class<?> rawType() {
-                                        if (parameterType instanceof Class<?> clazz) {
-                                            return clazz;
-                                        } else if (parameterType instanceof ParameterizedType parameterizedType) {
-                                            return (Class<?>) parameterizedType.getRawType();
-                                        } else {
-                                            throw new IllegalArgumentException("Unknown type: " + type);
-                                        }
-                                    }
-                                };
-                            }
                             return parameterizedCreatorsMap.get(clazz).creator(parameterCreators);
                         }
                     }
@@ -240,6 +242,10 @@ public interface ReflectiveStructureCreator {
                     if (foundCreator != null) {
                         return foundCreator;
                     }
+                } else if (type instanceof GenericArrayType genericArrayType) {
+                    var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayType);
+                    rawType = results.rawType().arrayType();
+                    parameterCreators = results.parameterCreators();
                 } else {
                     throw new IllegalArgumentException("Unknown type: " + type);
                 }
@@ -258,5 +264,51 @@ public interface ReflectiveStructureCreator {
         }));
         cachedCreators.put(type, full.get());
         return full.get();
+    }
+
+    private static ParameterizedTypeResults handleGenericArrayType(Map<Type, Structure<?>> cachedCreators, Map<Type, Structure<?>> recursionCache, Type type, CreationContext context, GenericArrayType genericArrayType) {
+        TypedCreator[] parameterCreators;
+        Class<?> rawType;
+        var componentType = genericArrayType.getGenericComponentType();
+        if (componentType instanceof Class<?> clazz) {
+            rawType = clazz;
+            parameterCreators = new TypedCreator[0];
+        } else if (componentType instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> clazz) {
+            rawType = clazz;
+            parameterCreators = new TypedCreator[parameterizedType.getActualTypeArguments().length];
+            for (int i = 0; i < parameterizedType.getActualTypeArguments().length; i++) {
+                var structure = forType(cachedCreators, recursionCache, parameterizedType.getActualTypeArguments()[i], context);
+                var parameterType = parameterizedType.getActualTypeArguments()[i];
+                parameterCreators[i] = new TypedCreator() {
+                    @Override
+                    public Structure<?> create() {
+                        return structure;
+                    }
+
+                    @Override
+                    public Type type() {
+                        return parameterType;
+                    }
+
+                    @Override
+                    public Class<?> rawType() {
+                        if (parameterType instanceof Class<?> clazz) {
+                            return clazz;
+                        } else if (parameterType instanceof ParameterizedType parameterizedType) {
+                            return (Class<?>) parameterizedType.getRawType();
+                        } else {
+                            throw new IllegalArgumentException("Unknown type: " + type);
+                        }
+                    }
+                };
+            }
+        } else if (componentType instanceof GenericArrayType genericArrayComponentType) {
+            var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayComponentType);
+            rawType = results.rawType().arrayType();
+            parameterCreators = results.parameterCreators();
+        } else {
+            throw new IllegalArgumentException("Unknown type: " + type);
+        }
+        return new ParameterizedTypeResults(rawType, parameterCreators);
     }
 }

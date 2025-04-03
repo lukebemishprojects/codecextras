@@ -100,6 +100,7 @@ import java.util.concurrent.TransferQueue;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import org.jetbrains.annotations.ApiStatus;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.ConstantDynamic;
@@ -1042,7 +1043,28 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
                     var arrayMaker = arrayMaker(exact.getComponentType());
-                    return creator.apply(exact.getComponentType()).listOf().xmap(arrayMaker::apply, obj -> {
+                    Type genericComponentType = exact.getComponentType();
+                    Class<?> baseArrayType = exact.getComponentType();
+                    int depth = 0;
+                    while (baseArrayType.isArray()) {
+                        depth++;
+                        baseArrayType = baseArrayType.getComponentType();
+                    }
+                    if (parameters.length != 0) {
+                        Type[] parameterTypes = new Type[parameters.length];
+                        for (int i = 0; i < parameters.length; i++) {
+                            parameterTypes[i] = parameters[i].type();
+                        }
+                        genericComponentType = new ParameterizedTypeImpl(
+                            parameterTypes,
+                            baseArrayType,
+                            null
+                        );
+                        for (int i = 0; i < depth; i++) {
+                            genericComponentType = new GenericArrayTypeImpl(genericComponentType);
+                        }
+                    }
+                    return creator.apply(genericComponentType).listOf().xmap(arrayMaker::apply, obj -> {
                         var array = (Object[]) obj;
                         var list = new ArrayList<>(array.length);
                         list.addAll(Arrays.asList(array));
@@ -1056,49 +1078,21 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                 }
             })
             .add(new FlexibleCreators.FlexibleCreator() {
-                private List<Constructor<?>> validCtors(Class<?> exact) {
-                    List<Constructor<?>> validCtors = new ArrayList<>();
-                    for (var ctor : exact.getConstructors()) {
-                        if (!ctor.accessFlags().contains(AccessFlag.PUBLIC)) {
-                            continue;
-                        }
-                        if (ctor.getParameterCount() == 0) {
-                            validCtors.add(ctor);
-                        } else {
-                            var hasSerializedProperties = true;
-                            for (var param : ctor.getParameters()) {
-                                if (!param.isAnnotationPresent(SerializedProperty.class)) {
-                                    hasSerializedProperties = false;
-                                    break;
-                                }
-                                var annotation = param.getAnnotation(SerializedProperty.class);
-                                try {
-                                    var field = exact.getField(annotation.value());
-                                    if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
-                                        continue;
-                                    }
-                                } catch (NoSuchFieldException ignored) {}
-
-                                try {
-                                    var getterMethod = exact.getMethod("get" + annotation.value().substring(0, 1).toUpperCase() + annotation.value().substring(1));
-                                    if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
-                                        continue;
-                                    }
-                                } catch (NoSuchMethodException ignored) {}
-                                hasSerializedProperties = false;
-                                break;
-                            }
-                            if (hasSerializedProperties) {
-                                validCtors.add(ctor);
-                            }
-                        }
-                    }
-                    return validCtors;
-                }
-
                 @Override
                 public Structure<?> create(Class<?> exact, TypedCreator[] parameters, Function<Type, Structure<?>> creator) {
                     return Structure.flatRecord(builder -> {
+                        final UnaryOperator<Type> resolver;
+                        if (parameters.length != 0) {
+                            var typeVars = exact.getTypeParameters();
+                            var values = new Type[typeVars.length];
+                            for (int i = 0; i < typeVars.length; i++) {
+                                values[i] = parameters[i].type();
+                            }
+                            resolver = type -> TypeResolver.resolve(type, typeVars, values);
+                        } else {
+                            resolver = UnaryOperator.identity();
+                        }
+
                         Constructor<?> validCtor;
                         if (exact.isRecord()) {
                             Class<?>[] types = new Class<?>[exact.getRecordComponents().length];
@@ -1142,7 +1136,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
                                 ctorSetters.put(component.getName(), i);
                                 ctorSettersArray[i] = component.getName();
-                                types.put(component.getName(), component.getGenericType());
+                                types.put(component.getName(), resolver.apply(component.getGenericType()));
 
                                 try {
                                     var getterMethod = exact.getMethod(component.getName());
@@ -1164,7 +1158,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
                                 ctorSetters.put(annotation.value(), i);
                                 ctorSettersArray[i] = annotation.value();
-                                types.put(annotation.value(), parameter.getParameterizedType());
+                                types.put(annotation.value(), resolver.apply(parameter.getParameterizedType()));
 
                                 try {
                                     var getterMethod = exact.getMethod(annotation.value());
@@ -1185,7 +1179,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
 
                                 ctorSetters.put(annotation.value(), i);
                                 ctorSettersArray[i] = annotation.value();
-                                types.put(annotation.value(), param.getParameterizedType());
+                                types.put(annotation.value(), resolver.apply(param.getParameterizedType()));
 
                                 // Prefer the bean getter method, then the field
 
@@ -1215,67 +1209,7 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                                 }
                             }
 
-                            for (var method : exact.getMethods()) {
-                                if (method.accessFlags().contains(AccessFlag.PUBLIC) && !method.accessFlags().contains(AccessFlag.STATIC)) {
-                                    var isGetter = method.getParameterCount() == 0 && (
-                                        (method.getName().startsWith("get") && method.getName().length() > 3) ||
-                                            (method.getName().startsWith("is") && method.getName().length() > 2 && method.getGenericReturnType().equals(Boolean.TYPE))
-                                    );
-                                    var isSetter = method.getParameterCount() == 1 && method.getName().startsWith("set") && method.getName().length() > 3 && method.getGenericReturnType().equals(Void.TYPE);
-                                    if (isGetter) {
-                                        var property = method.getName().substring(method.getName().startsWith("is") ? 2 : 3);
-                                        property = property.substring(0, 1).toLowerCase() + property.substring(1);
-                                        if (!types.containsKey(property) || method.getGenericReturnType().equals(types.get(property))) {
-                                            types.put(property, method.getGenericReturnType());
-                                            if (!getters.containsKey(property)) {
-                                                try {
-                                                    var getter = functionWrapper(MethodHandles.lookup().unreflect(method));
-                                                    getters.put(property, getter);
-                                                } catch (IllegalAccessException e) {
-                                                    throw new RuntimeException(e);
-                                                }
-                                            }
-                                            context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
-                                        }
-                                    } if (isSetter) {
-                                        var property = method.getName().substring(3);
-                                        property = property.substring(0, 1).toLowerCase() + property.substring(1);
-                                        if (!types.containsKey(property) || method.getParameterTypes()[0].equals(types.get(property))) {
-                                            types.put(property, method.getGenericParameterTypes()[0]);
-                                            if (!setters.containsKey(property)) {
-                                                try {
-                                                    var setter = MethodHandles.lookup().unreflect(method);
-                                                    setters.put(property, setter);
-                                                } catch (IllegalAccessException e) {
-                                                    throw new RuntimeException(e);
-                                                }
-                                            }
-                                            context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
-                                        }
-                                    }
-                                }
-                            }
-
-                            for (var field : exact.getFields()) {
-                                if (field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC) && !field.accessFlags().contains(AccessFlag.TRANSIENT)) {
-                                    try {
-                                        if (!types.containsKey(field.getName())) {
-                                            types.put(field.getName(), field.getGenericType());
-                                        }
-                                        context.computeIfAbsent(field.getName(), k -> new LinkedHashSet<>()).add(field);
-                                        if (!getters.containsKey(field.getName())) {
-                                            var getter = functionWrapper(MethodHandles.lookup().unreflectGetter(field));
-                                            getters.put(field.getName(), getter);
-                                        }
-                                        if (!setters.containsKey(field.getName()) && (!ctorSetters.containsKey(field.getName())) && !field.accessFlags().contains(AccessFlag.FINAL)) {
-                                            var setter = MethodHandles.lookup().unreflectSetter(field);
-                                            setters.put(field.getName(), setter);
-                                        }
-                                    } catch (IllegalAccessException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                }
-                            }
+                            discoverBeanProperties(exact, types, getters, context, setters, ctorSetters);
                         }
 
                         // Go from high priority to low priority
@@ -1422,10 +1356,118 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         return true;
                     }
 
+                    if (parameters.length != 0 && exact.getTypeParameters().length != parameters.length) {
+                        return false;
+                    }
+
                     return validCtors(exact).size() == 1;
                 }
             })
             .build();
+    }
+
+    private static void discoverBeanProperties(Class<?> exact, Map<String, Type> types, Map<String, Function<?, Object>> getters, Map<String, SequencedSet<AnnotatedElement>> context, Map<String, MethodHandle> setters, Map<String, Integer> existingSetters) {
+        for (var method : exact.getMethods()) {
+            if (method.accessFlags().contains(AccessFlag.PUBLIC) && !method.accessFlags().contains(AccessFlag.STATIC)) {
+                var isGetter = method.getParameterCount() == 0 && (
+                    (method.getName().startsWith("get") && method.getName().length() > 3) ||
+                        (method.getName().startsWith("is") && method.getName().length() > 2 && method.getGenericReturnType().equals(Boolean.TYPE))
+                );
+                var isSetter = method.getParameterCount() == 1 && method.getName().startsWith("set") && method.getName().length() > 3 && method.getGenericReturnType().equals(Void.TYPE);
+                if (isGetter) {
+                    var property = method.getName().substring(method.getName().startsWith("is") ? 2 : 3);
+                    property = property.substring(0, 1).toLowerCase() + property.substring(1);
+                    if (!types.containsKey(property) || method.getGenericReturnType().equals(types.get(property))) {
+                        types.put(property, method.getGenericReturnType());
+                        if (!getters.containsKey(property)) {
+                            try {
+                                var getter = functionWrapper(MethodHandles.lookup().unreflect(method));
+                                getters.put(property, getter);
+                            } catch (IllegalAccessException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                        context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
+                    }
+                } if (isSetter) {
+                    var property = method.getName().substring(3);
+                    property = property.substring(0, 1).toLowerCase() + property.substring(1);
+                    if (!types.containsKey(property) || method.getParameterTypes()[0].equals(types.get(property))) {
+                        types.put(property, method.getGenericParameterTypes()[0]);
+                        if (!setters.containsKey(property)) {
+                            try {
+                                var setter = MethodHandles.lookup().unreflect(method);
+                                setters.put(property, setter);
+                            } catch (IllegalAccessException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                        context.computeIfAbsent(property, k -> new LinkedHashSet<>()).add(method);
+                    }
+                }
+            }
+        }
+
+        for (var field : exact.getFields()) {
+            if (field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC) && !field.accessFlags().contains(AccessFlag.TRANSIENT)) {
+                try {
+                    if (!types.containsKey(field.getName())) {
+                        types.put(field.getName(), field.getGenericType());
+                    }
+                    context.computeIfAbsent(field.getName(), k -> new LinkedHashSet<>()).add(field);
+                    if (!getters.containsKey(field.getName())) {
+                        var getter = functionWrapper(MethodHandles.lookup().unreflectGetter(field));
+                        getters.put(field.getName(), getter);
+                    }
+                    if (!setters.containsKey(field.getName()) && (!existingSetters.containsKey(field.getName())) && !field.accessFlags().contains(AccessFlag.FINAL)) {
+                        var setter = MethodHandles.lookup().unreflectSetter(field);
+                        setters.put(field.getName(), setter);
+                    }
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    private List<Constructor<?>> validCtors(Class<?> exact) {
+        List<Constructor<?>> validCtors = new ArrayList<>();
+        for (var ctor : exact.getConstructors()) {
+            if (!ctor.accessFlags().contains(AccessFlag.PUBLIC)) {
+                continue;
+            }
+            if (ctor.getParameterCount() == 0) {
+                validCtors.add(ctor);
+            } else {
+                var hasSerializedProperties = true;
+                for (var param : ctor.getParameters()) {
+                    if (!param.isAnnotationPresent(SerializedProperty.class)) {
+                        hasSerializedProperties = false;
+                        break;
+                    }
+                    var annotation = param.getAnnotation(SerializedProperty.class);
+                    try {
+                        var field = exact.getField(annotation.value());
+                        if (field.getType().equals(param.getType()) && field.accessFlags().contains(AccessFlag.PUBLIC) && !field.accessFlags().contains(AccessFlag.STATIC)) {
+                            continue;
+                        }
+                    } catch (NoSuchFieldException ignored) {}
+
+                    try {
+                        var getterMethod = exact.getMethod("get" + annotation.value().substring(0, 1).toUpperCase() + annotation.value().substring(1));
+                        if (getterMethod.getGenericReturnType().equals(param.getParameterizedType()) && getterMethod.accessFlags().contains(AccessFlag.PUBLIC) && !getterMethod.accessFlags().contains(AccessFlag.STATIC)) {
+                            continue;
+                        }
+                    } catch (NoSuchMethodException ignored) {}
+                    hasSerializedProperties = false;
+                    break;
+                }
+                if (hasSerializedProperties) {
+                    validCtors.add(ctor);
+                }
+            }
+        }
+        return validCtors;
     }
 
     private static void convertType(MethodVisitor mv, Class<?> type) {

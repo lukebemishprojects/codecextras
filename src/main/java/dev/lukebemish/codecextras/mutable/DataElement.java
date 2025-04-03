@@ -6,7 +6,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * A holdr for a mutable value.
+ * A holder for a mutable value.
  * @param <T> the type of the value
  */
 public interface DataElement<T> {
