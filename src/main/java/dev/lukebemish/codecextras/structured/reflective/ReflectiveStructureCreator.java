@@ -179,7 +179,7 @@ public interface ReflectiveStructureCreator {
     }
 
     /**
-     * {@return a structure creator for a specific reified type}
+     * A structure creator for a specific reified type.
      */
     interface TypedCreator {
         Structure<?> create();

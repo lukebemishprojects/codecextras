@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Annotated {
     /**
-     * {@return a {@link Value} pointing to an {@link dev.lukebemish.codecextras.structured.Key} for the annotation
+     * {@return a {@link Value} pointing to an {@link dev.lukebemish.codecextras.structured.Key} for the annotation}
      */
     Value key();
 
