@@ -8,7 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * A system that allows interpreting annotations representing structure annotations on properties within a reflective structure creation.
+ */
 public interface AnnotationParsers extends ReflectiveStructureCreator.CreatorSystem<Map<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>>, Function<CreationContext, Map<Class<? extends Annotation>, Function<?, List<AnnotationParsers.AnnotationInfo<?>>>>>, AnnotationParsers.Type> {
+    /**
+     * The {@link dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator.CreatorSystem.Type} for this system.
+     */
     Type TYPE = new Type();
 
     @Override
@@ -16,8 +22,18 @@ public interface AnnotationParsers extends ReflectiveStructureCreator.CreatorSys
         return TYPE;
     }
 
+    /**
+     * A result of interpretation
+     * @param <T> the value represented
+     */
     interface AnnotationInfo<T> {
+        /**
+         * {@return the key of the extracted structure annotation}
+         */
         Key<T> key();
+        /**
+         * {@return the value of the extracted structure annotation}
+         */
         T value();
     }
 

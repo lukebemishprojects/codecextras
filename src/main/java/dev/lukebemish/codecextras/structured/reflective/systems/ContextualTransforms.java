@@ -11,7 +11,13 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * A system that allows transformation of a property's structure given annotation context.
+ */
 public interface ContextualTransforms extends ReflectiveStructureCreator.CreatorSystem<List<ContextualTransforms.ContextualTransform>, Supplier<List<ContextualTransforms.ContextualTransform>>, ContextualTransforms.Type> {
+    /**
+     * The {@link dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator.CreatorSystem.Type} for this system.
+     */
     Type TYPE = new Type();
 
     @Override
@@ -20,6 +26,11 @@ public interface ContextualTransforms extends ReflectiveStructureCreator.Creator
     }
 
     interface ContextualTransform {
+        /**
+         * {@return a transformer to be applied to the structure of the targeted property}
+         * @param elements the elements associated with the property
+         * @param context the context of reflective structure creation
+         */
         Function<Structure<?>, Structure<?>> transform(List<AnnotatedElement> elements, CreationContext context);
         default int priority() {
             return 0;

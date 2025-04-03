@@ -104,7 +104,7 @@ public class GroovyReflectiveStructureCreator implements ReflectiveStructureCrea
             public Function<CreationContext, List<Discoverer>> make() {
                 return context -> List.of(new Discoverer() {
                     @Override
-                    public void modifyProperties(Class<?> clazz, Map<String, java.lang.reflect.Type> known) {
+                    public void modifyProperties(Class<?> clazz, Map<String, java.lang.reflect.Type> known, java.lang.reflect.Type[] parameters) {
                         var metaClass = DefaultGroovyMethods.getMetaClass(clazz);
                         if (Objects.equals(known.get("metaClass"), MetaClass.class)) {
                             known.remove("metaClass");

@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Context provided to systems in reflective structure creation
+ */
 public final class CreationContext {
     private final Map<ReflectiveStructureCreator.CreatorSystem.Type<?, ?, ?>, Object> systems;
     private final Map<ReflectiveStructureCreator.CreatorSystem.Type<?, ?, ?>, Object> bakedSystems = new IdentityHashMap<>();
@@ -19,11 +22,21 @@ public final class CreationContext {
         this.systems = systems;
     }
 
+    /**
+     * {@return whether the given creation option is present}
+     */
     public boolean hasOption(CreationOption option) {
         var options = retrieve(CreationOptions.TYPE);
         return options.contains(option);
     }
 
+    /**
+     * Retrieves a system of the given type, baking it as necessary.
+     * @param type the type of the system to retrieve
+     * @return the system's results
+     * @param <R> the intermediary type of the system
+     * @param <T> the result type of the system
+     */
     @SuppressWarnings("unchecked")
     public synchronized <R, T> T retrieve(ReflectiveStructureCreator.CreatorSystem.Type<T, R, ?> type) {
         var existingBaked = bakedSystems.get(type);
@@ -39,6 +52,11 @@ public final class CreationContext {
         return (T) bakedSystems.computeIfAbsent(type, t -> type.bake(type.empty(), this));
     }
 
+    /**
+     * Parses the given annotation using the {@link AnnotationParsers} system.
+     * @param annotation the annotation to parse
+     * @return the parsed annotation information
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public List<AnnotationParsers.AnnotationInfo<?>> parseAnnotation(Annotation annotation) {
         var annotationParsers = retrieve(AnnotationParsers.TYPE);
@@ -49,6 +67,11 @@ public final class CreationContext {
         return List.of();
     }
 
+    /**
+     * Find a contextual transform using the {@link ContextualTransforms} system.
+     * @param elements the elements associated with the target property
+     * @return a function to transform the property's structure
+     */
     public Function<Structure<?>, Structure<?>> contextualTransform(List<AnnotatedElement> elements) {
         var contextualTransforms = retrieve(ContextualTransforms.TYPE);
         Function<Structure<?>, Structure<?>> function = Function.identity();

@@ -4,7 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * {@link CreationOption}s for modifying the naming of properties within a structure.
+ */
 public enum PropertyNamingOption implements CreationOption {
+    /**
+     * Structure fields are given the same name as the property
+     */
     IDENTITY {
         @Override
         protected String formatPart(String part) {
@@ -16,6 +22,10 @@ public enum PropertyNamingOption implements CreationOption {
             return String.join("", parts);
         }
     },
+
+    /**
+     * Property names are converted to {@code PascalCase}
+     */
     PASCAL_CASE {
         @Override
         protected String formatPart(String part) {
@@ -27,6 +37,10 @@ public enum PropertyNamingOption implements CreationOption {
             return String.join("", parts);
         }
     },
+
+    /**
+     * Property names are converted to {@code camelCase}
+     */
     CAMEL_CASE {
         @Override
         protected String formatPart(String part) {
@@ -46,6 +60,10 @@ public enum PropertyNamingOption implements CreationOption {
             return result.toString();
         }
     },
+
+    /**
+     * Property names are converted to {@code snake_case}
+     */
     SNAKE_CASE {
         @Override
         protected String formatPart(String part) {
@@ -57,6 +75,10 @@ public enum PropertyNamingOption implements CreationOption {
             return String.join("_", parts);
         }
     },
+
+    /**
+     * Property names are converted to {@code SCREAMING_SNAKE_CASE}
+     */
     SCREAMING_SNAKE_CASE {
         @Override
         protected String formatPart(String part) {
@@ -68,6 +90,10 @@ public enum PropertyNamingOption implements CreationOption {
             return String.join("_", parts);
         }
     },
+
+    /**
+     * Property names are converted to {@code kebab-case}
+     */
     KEBAB_CASE {
         @Override
         protected String formatPart(String part) {
@@ -79,6 +105,10 @@ public enum PropertyNamingOption implements CreationOption {
             return String.join("-", parts);
         }
     },
+
+    /**
+     * Property names are converted to {@code SCREAMING-KEBAB-CASE}
+     */
     SCREAMING_KEBAB_CASE {
         @Override
         protected String formatPart(String part) {

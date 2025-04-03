@@ -25,22 +25,74 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * A tool for creating a {@link Structure} from a type reflectively. Implementations of this type provide specific
+ *  implementations of various {@link CreatorSystem}. Instances of this type are discovered via the service locator. To
+ *  create a structure, obtain an {@link Instance}.
+ */
 public interface ReflectiveStructureCreator {
+    /**
+     * A system involved in structure creation. Systems provide an intermediary type, that can be baked to a
+     * given result type given proper context.
+     * @param <T> the final result type of the system
+     * @param <R> the intermediary type of the system
+     * @param <O> the type of the system
+     */
     interface CreatorSystem<T, R, O extends CreatorSystem.Type<T, R, O>> extends App<CreatorSystem.Mu, O> {
         final class Mu implements K1 { private Mu() {} }
 
+        /**
+         * {@return the type of the system}
+         */
         O type();
 
+        /**
+         * A type of {@link CreatorSystem}.
+         * @param <T> the final result type of the system
+         * @param <R> the intermediary type of the system
+         * @param <O> the type of the system; in an implementation, should be the self type
+         */
         interface Type<T, R, O extends Type<T, R, O>> {
+            /**
+             * Merge two intermediary values.
+             * @param a the first value
+             * @param b the second value
+             * @return the merged value
+             */
             R merge(R a, R b);
+
+            /**
+             * {@return an empty intermediary value}
+             */
             R empty();
+
+            /**
+             * {@return the key for this type}
+             */
             Key<O> key();
+
+            /**
+             * Bake an intermediary value given context.
+             * @param value the intermediary value
+             * @param context the context to bake with
+             * @return the final baked value
+             */
             T bake(R value, CreationContext context);
+
+            /**
+             * {@return whether this type is allowed to be implemented by services} If false, this system may only be
+             * provided on instance creation.
+             */
             default boolean allowedFromServices() {
                 return true;
             }
         }
 
+        /**
+         * A type of {@link CreatorSystem} that produces a list of values, where baking involves applying the context to a function.
+         * @param <A> the type of the values in the list
+         * @param <O> the type of the system; in an implementation, should be the self type
+         */
         interface ListType<A, O extends ListType<A, O>> extends Type<List<A>, Function<CreationContext, List<A>>, O> {
             @Override
             default Function<CreationContext, List<A>> merge(Function<CreationContext, List<A>> a, Function<CreationContext, List<A>> b) {
@@ -64,6 +116,12 @@ public interface ReflectiveStructureCreator {
             }
         }
 
+        /**
+         * A type of {@link CreatorSystem} that produces a map of values, where baking involves applying the context to a function.
+         * @param <A> the type of the keys in the map
+         * @param <B> the type of the values in the map
+         * @param <O> the type of the system; in an implementation, should be the self type
+         */
         interface MapType<A, B, O extends MapType<A, B, O>> extends Type<Map<A, B>, Function<CreationContext, Map<A, B>>, O> {
             @Override
             default Function<CreationContext, Map<A, B>> merge(Function<CreationContext, Map<A, B>> a, Function<CreationContext, Map<A, B>> b) {
@@ -87,6 +145,12 @@ public interface ReflectiveStructureCreator {
             }
         }
 
+        /**
+         * A specialized version of {@link MapType} for when the keys may be compared by identity.
+         * @param <A> the type of the keys in the map
+         * @param <B> the type of the values in the map
+         * @param <O> the type of the system; in an implementation, should be the self type
+         */
         interface IdentityMapType<A, B, O extends IdentityMapType<A, B, O>> extends MapType<A, B, O> {
             @Override
             default Function<CreationContext, Map<A, B>> empty() {
@@ -94,6 +158,9 @@ public interface ReflectiveStructureCreator {
             }
         }
 
+        /**
+         * {@return the created intermediary value}
+         */
         R make();
     }
 
@@ -104,16 +171,25 @@ public interface ReflectiveStructureCreator {
         return type.merge(existingCast, specificCast);
     }
 
+    /**
+     * {@return system implementations for this creator implementation}
+     */
     default Keys<CreatorSystem.Mu, Object> systems() {
         return Keys.<CreatorSystem.Mu, Object>builder().build();
     }
 
+    /**
+     * {@return a structure creator for a specific reified type}
+     */
     interface TypedCreator {
         Structure<?> create();
         Type type();
         Class<?> rawType();
     }
 
+    /**
+     * Allows creation of structures reflectively.
+     */
     final class Instance {
         private final Keys<CreatorSystem.Mu, Object> systems;
 
@@ -121,20 +197,38 @@ public interface ReflectiveStructureCreator {
             this.systems = systems;
         }
 
+        /**
+         * {@return a new builder}
+         */
         public static Builder builder() {
             return new Builder();
         }
 
+        /**
+         * A builder for {@link ReflectiveStructureCreator.Instance}.
+         */
         public static final class Builder {
             private final Keys.Builder<CreatorSystem.Mu, Object> systems = Keys.builder();
 
             private Builder() {}
 
+            /**
+             * Add a specific system implementation to the instance being built. This will override any implementations
+             * of the same system added so far in the builder.
+             * @param system the system to add
+             * @return this builder
+             * @param <T> the final value type of the system
+             * @param <R> the intermediary type of the system
+             * @param <O> the type of the system
+             */
             public <T, R, O extends CreatorSystem.Type<T, R, O>> Builder add(CreatorSystem<T, R, O> system) {
                 systems.add(system.type().key(), system);
                 return this;
             }
 
+            /**
+             * {@return a new instance with the systems added in this builder}
+             */
             public Instance build() {
                 return new Instance(systems.build());
             }
@@ -144,6 +238,12 @@ public interface ReflectiveStructureCreator {
 
         private final Map<Type, Structure<?>> cachedCreators = new HashMap<>();
 
+        /**
+         * Create a structure reflectively for the given class.
+         * @param clazz the class to create a structure for
+         * @return the structure created
+         * @param <T> the type of the class
+         */
         @SuppressWarnings("unchecked")
         public synchronized <T> Structure<T> create(Class<T> clazz) {
             var caller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).getCallerClass();
@@ -177,6 +277,12 @@ public interface ReflectiveStructureCreator {
         }
     }
 
+    /**
+     * Create a structure reflectively for the given class, using an empty {@link Instance}.
+     * @param clazz the class to create a structure for
+     * @return the structure created
+     * @param <T> the type of the class
+     */
     static <T> Structure<T> create(Class<T> clazz) {
         return Instance.builder().build().create(clazz);
     }
@@ -200,54 +306,57 @@ public interface ReflectiveStructureCreator {
                 Class<?> rawType = null;
                 TypedCreator[] parameterCreators = null;
 
-                if (type instanceof ParameterizedType parameterizedType) {
-                    if (parameterizedType.getRawType() instanceof Class<?> clazz) {
-                        rawType = clazz;
-                        var parameters = parameterizedType.getActualTypeArguments();
-                        parameterCreators = new TypedCreator[parameters.length];
-                        for (int i = 0; i < parameters.length; i++) {
-                            var structure = forType(cachedCreators, recursionCache, parameters[i], context);
-                            var parameterType = parameters[i];
-                            parameterCreators[i] = new TypedCreator() {
-                                @Override
-                                public Structure<?> create() {
-                                    return structure;
-                                }
-
-                                @Override
-                                public Type type() {
-                                    return parameterType;
-                                }
-
-                                @Override
-                                public Class<?> rawType() {
-                                    if (parameterType instanceof Class<?> clazz) {
-                                        return clazz;
-                                    } else if (parameterType instanceof ParameterizedType parameterizedType) {
-                                        return (Class<?>) parameterizedType.getRawType();
-                                    } else {
-                                        throw new IllegalArgumentException("Unknown type: " + type);
+                switch (type) {
+                    case ParameterizedType parameterizedType -> {
+                        if (parameterizedType.getRawType() instanceof Class<?> clazz) {
+                            rawType = clazz;
+                            var parameters = parameterizedType.getActualTypeArguments();
+                            parameterCreators = new TypedCreator[parameters.length];
+                            for (int i = 0; i < parameters.length; i++) {
+                                var structure = forType(cachedCreators, recursionCache, parameters[i], context);
+                                var parameterType = parameters[i];
+                                parameterCreators[i] = new TypedCreator() {
+                                    @Override
+                                    public Structure<?> create() {
+                                        return structure;
                                     }
-                                }
-                            };
-                        }
-                        if (parameterizedCreatorsMap.containsKey(clazz)) {
-                            return parameterizedCreatorsMap.get(clazz).creator(parameterCreators);
+
+                                    @Override
+                                    public Type type() {
+                                        return parameterType;
+                                    }
+
+                                    @Override
+                                    public Class<?> rawType() {
+                                        if (parameterType instanceof Class<?> clazz) {
+                                            return clazz;
+                                        } else if (parameterType instanceof ParameterizedType parameterizedType) {
+                                            return (Class<?>) parameterizedType.getRawType();
+                                        } else {
+                                            throw new IllegalArgumentException("Unknown type: " + type);
+                                        }
+                                    }
+                                };
+                            }
+                            if (parameterizedCreatorsMap.containsKey(clazz)) {
+                                return parameterizedCreatorsMap.get(clazz).creator(parameterCreators);
+                            }
                         }
                     }
-                } else if (type instanceof Class<?> clazz) {
-                    rawType = clazz;
-                    parameterCreators = new TypedCreator[0];
-                    var foundCreator = creatorsMap.get(clazz);
-                    if (foundCreator != null) {
-                        return foundCreator;
+                    case Class<?> clazz -> {
+                        rawType = clazz;
+                        parameterCreators = new TypedCreator[0];
+                        var foundCreator = creatorsMap.get(clazz);
+                        if (foundCreator != null) {
+                            return foundCreator;
+                        }
                     }
-                } else if (type instanceof GenericArrayType genericArrayType) {
-                    var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayType);
-                    rawType = results.rawType().arrayType();
-                    parameterCreators = results.parameterCreators();
-                } else {
-                    throw new IllegalArgumentException("Unknown type: " + type);
+                    case GenericArrayType genericArrayType -> {
+                        var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayType);
+                        rawType = results.rawType().arrayType();
+                        parameterCreators = results.parameterCreators();
+                    }
+                    default -> throw new IllegalArgumentException("Unknown type: " + type);
                 }
 
                 for (var flexibleCreator : flexibleCreators) {
@@ -270,44 +379,47 @@ public interface ReflectiveStructureCreator {
         TypedCreator[] parameterCreators;
         Class<?> rawType;
         var componentType = genericArrayType.getGenericComponentType();
-        if (componentType instanceof Class<?> clazz) {
-            rawType = clazz;
-            parameterCreators = new TypedCreator[0];
-        } else if (componentType instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> clazz) {
-            rawType = clazz;
-            parameterCreators = new TypedCreator[parameterizedType.getActualTypeArguments().length];
-            for (int i = 0; i < parameterizedType.getActualTypeArguments().length; i++) {
-                var structure = forType(cachedCreators, recursionCache, parameterizedType.getActualTypeArguments()[i], context);
-                var parameterType = parameterizedType.getActualTypeArguments()[i];
-                parameterCreators[i] = new TypedCreator() {
-                    @Override
-                    public Structure<?> create() {
-                        return structure;
-                    }
-
-                    @Override
-                    public Type type() {
-                        return parameterType;
-                    }
-
-                    @Override
-                    public Class<?> rawType() {
-                        if (parameterType instanceof Class<?> clazz) {
-                            return clazz;
-                        } else if (parameterType instanceof ParameterizedType parameterizedType) {
-                            return (Class<?>) parameterizedType.getRawType();
-                        } else {
-                            throw new IllegalArgumentException("Unknown type: " + type);
-                        }
-                    }
-                };
+        switch (componentType) {
+            case Class<?> clazz -> {
+                rawType = clazz;
+                parameterCreators = new TypedCreator[0];
             }
-        } else if (componentType instanceof GenericArrayType genericArrayComponentType) {
-            var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayComponentType);
-            rawType = results.rawType().arrayType();
-            parameterCreators = results.parameterCreators();
-        } else {
-            throw new IllegalArgumentException("Unknown type: " + type);
+            case ParameterizedType parameterizedType when parameterizedType.getRawType() instanceof Class<?> clazz -> {
+                rawType = clazz;
+                parameterCreators = new TypedCreator[parameterizedType.getActualTypeArguments().length];
+                for (int i = 0; i < parameterizedType.getActualTypeArguments().length; i++) {
+                    var structure = forType(cachedCreators, recursionCache, parameterizedType.getActualTypeArguments()[i], context);
+                    var parameterType = parameterizedType.getActualTypeArguments()[i];
+                    parameterCreators[i] = new TypedCreator() {
+                        @Override
+                        public Structure<?> create() {
+                            return structure;
+                        }
+
+                        @Override
+                        public Type type() {
+                            return parameterType;
+                        }
+
+                        @Override
+                        public Class<?> rawType() {
+                            if (parameterType instanceof Class<?> clazz) {
+                                return clazz;
+                            } else if (parameterType instanceof ParameterizedType parameterizedType) {
+                                return (Class<?>) parameterizedType.getRawType();
+                            } else {
+                                throw new IllegalArgumentException("Unknown type: " + type);
+                            }
+                        }
+                    };
+                }
+            }
+            case GenericArrayType genericArrayComponentType -> {
+                var results = handleGenericArrayType(cachedCreators, recursionCache, type, context, genericArrayComponentType);
+                rawType = results.rawType().arrayType();
+                parameterCreators = results.parameterCreators();
+            }
+            default -> throw new IllegalArgumentException("Unknown type: " + type);
         }
         return new ParameterizedTypeResults(rawType, parameterCreators);
     }

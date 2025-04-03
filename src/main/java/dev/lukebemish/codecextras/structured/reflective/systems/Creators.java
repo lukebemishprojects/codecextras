@@ -7,7 +7,13 @@ import dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreat
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * A system that allows linking of simple structure creators to classes.
+ */
 public interface Creators extends ReflectiveStructureCreator.CreatorSystem<Map<Class<?>, Creators.Creator>, Function<CreationContext, Map<Class<?>, Creators.Creator>>, Creators.Type> {
+    /**
+     * The {@link dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator.CreatorSystem.Type} for this system.
+     */
     Type TYPE = new Type();
 
     @Override
@@ -15,7 +21,13 @@ public interface Creators extends ReflectiveStructureCreator.CreatorSystem<Map<C
         return TYPE;
     }
 
+    /**
+     * Creates a specific structure on-demand
+     */
     interface Creator {
+        /**
+         * {@return the created structure}
+         */
         Structure<?> create();
     }
 

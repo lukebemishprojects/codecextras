@@ -5,6 +5,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Mark a property as having a default value to be used if no value is present.
+ */
 @Target({ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Default {

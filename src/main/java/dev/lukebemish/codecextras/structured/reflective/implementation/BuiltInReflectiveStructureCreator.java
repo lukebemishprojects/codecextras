@@ -1215,7 +1215,11 @@ public class BuiltInReflectiveStructureCreator implements ReflectiveStructureCre
                         // Go from high priority to low priority
                         var propertyDiscoverers = options.retrieve(FallbackPropertyDiscoverers.TYPE).reversed();
                         for (var discoverer : propertyDiscoverers) {
-                            discoverer.modifyProperties(exact, types);
+                            var typeParameters = new Type[parameters.length];
+                            for (int i = 0; i < parameters.length; i++) {
+                                typeParameters[i] = parameters[i].type();
+                            }
+                            discoverer.modifyProperties(exact, types, typeParameters);
                         }
                         for (var entry : types.keySet()) {
                             var hasGetter = getters.containsKey(entry);

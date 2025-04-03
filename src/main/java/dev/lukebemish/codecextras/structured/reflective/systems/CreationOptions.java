@@ -8,7 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * A system that allows specifying specific keyed options for the reflective creation of structures.
+ */
 public interface CreationOptions extends ReflectiveStructureCreator.CreatorSystem<Set<CreationOption>, List<CreationOption>, CreationOptions.Type> {
+    /**
+     * The {@link dev.lukebemish.codecextras.structured.reflective.ReflectiveStructureCreator.CreatorSystem.Type} for this system.
+     */
     Type TYPE = new Type();
 
     @Override
